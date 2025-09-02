@@ -1,0 +1,268 @@
+.student-page-container {
+  display: flex;
+  background-color: #f9fafb;
+  min-height: 100vh;
+  padding: 2rem;
+  font-family: 'Inter', sans-serif;
+  color: #1f2937;
+  gap: 2rem;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  gap: 2rem;
+}
+
+.main-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.tips-aside {
+  width: 20rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+
+
+/* --- Tutorial Section --- */
+.tutorial-section {
+  background-color: #e5e7eb;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+  background-image: url('https://placehold.co/800x200/B5B5E1/4C4C7D?text=Begin+Your+Tutorial');
+}
+
+.tutorial-heading {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.tutorial-text {
+  color: #4b5563;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.tutorial-link {
+  position: absolute;
+  right: 2rem;
+  bottom: 2rem;
+  color: #6b46c1;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+/* --- Case Studies Section --- */
+.case-studies-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.case-studies-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.case-studies-heading {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+.create-scenario-btn {
+  padding: 0.5rem 1rem;
+  background-color: #6b46c1;
+  color: #fff;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition-property: background-color;
+  transition-duration: 0.15s;
+}
+
+.create-scenario-btn:hover {
+  background-color: #553c9a;
+}
+
+.tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #d1d5db;
+}
+
+.tab-btn {
+  padding: 0.5rem 1.5rem;
+  border-bottom: 2px solid transparent;
+  font-weight: 600;
+  transition-property: color, border-color;
+  transition-duration: 0.15s;
+  cursor: pointer;
+}
+
+.tab-btn:hover {
+  color: #1f2937;
+}
+
+.tab-btn.active {
+  border-color: #6b46c1;
+  color: #6b46c1;
+}
+
+.case-studies-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.case-study-card {
+  background-color: #fff;
+  border-radius: 1.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  transition-property: transform;
+  transition-duration: 0.2s;
+}
+
+.case-study-card:hover {
+  transform: scale(1.05);
+}
+
+.case-study-image {
+  position: relative;
+}
+
+.case-study-image img {
+  width: 100%;
+  height: 10rem;
+  object-fit: cover;
+}
+
+.case-study-gradient {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to top, rgba(17, 24, 39, 0.5), transparent, transparent);
+}
+
+.case-study-info {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 9rem;
+}
+
+.case-study-title {
+  font-size: 1.125rem;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+.case-study-date {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.case-study-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition-property: background-color;
+  transition-duration: 0.15s;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.case-study-btn.in-progress {
+  background-color: #6b46c1;
+  color: #fff;
+}
+
+.case-study-btn.in-progress:hover {
+  background-color: #553c9a;
+}
+
+.case-study-btn.completed {
+  background-color: #10b981;
+  color: #fff;
+}
+
+/* --- Tips Section --- */
+.tips-heading {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+.tips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tip-card {
+  background-color: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  padding: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  border: 1px solid #e5e7eb;
+}
+
+.tip-image-container {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.tip-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tip-info {
+  flex: 1;
+}
+
+.tip-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.tip-link {
+  font-size: 0.75rem;
+  color: #6b46c1;
+  text-decoration: none;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.tip-link:hover {
+  text-decoration: underline;
+}
