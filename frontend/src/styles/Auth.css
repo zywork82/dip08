@@ -1,0 +1,92 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f0f2f5; /* Light gray background */
+}
+
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.auth-card {
+  display: flex;
+  background-color: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  max-width: 1000px;
+  width: 100%;
+}
+
+.auth-form-content {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.auth-illustration {
+  flex: 1;
+  background-color: #e6e6fa; /* Light purple background for illustration */
+}
+
+.logo-container {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.auth-form-content h3, .logo-container h2 {
+  color: #3f51b5; /* Purple color */
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+.role-options {
+  margin: 15px 0;
+}
+
+.role-options label {
+  margin-right: 20px;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  background-color: #3f51b5;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+button:hover {
+  background-color: #303f9f;
+}
+
+.forgot-password a, .auth-form-content p a {
+  color: #3f51b5;
+  text-decoration: none;
+}
+
+.auth-form-content p {
+  text-align: center;
+  margin-top: 20px;
+}
