@@ -1,0 +1,36 @@
+/* --- Tutorial Section --- */
+.tutorial-section {
+  background-color: #e5e7eb;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+  background-image: url('../assets/tutorialbg.png');
+}
+
+.tutorial-heading {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.tutorial-text {
+  color: #ffffff;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.tutorial-link {
+  position: absolute;
+  right: 2rem;
+  bottom: 2rem;
+  color: hsl(0, 0%, 100%);
+  font-weight: bold;
+  text-decoration: none;
+}
