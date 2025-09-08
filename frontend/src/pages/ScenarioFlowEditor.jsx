@@ -14,45 +14,36 @@ import ReactFlow, {
 import dagre from 'dagre';
 import EditorToolsSidebar from '../components/EditorToolsSidebar';
 import 'reactflow/dist/style.css';
-import '../styles/ScenarioFlowEditor.css'; 
+import '../styles/ScenarioFlowEditor.css';
 import { sampleNodes, sampleEdges, sampleAiSuggestions } from '../data/sampleAiFlow';
 
-// Node types
+// Node types with delete button
+const NodeWrapper = ({ data, id, selected ,type}) => (
+  <div className={`node node-${type}`}>
+    <Handle type="target" position={Position.Top} />
+    <input
+      value={data.label}
+      onChange={data.onChange}
+      style={{ width: '100%', border: 'none', background: 'transparent' }}
+    />
+    <Handle type="source" position={Position.Bottom} />
+
+    {selected && (
+      <button className='node-delete-button'
+        onClick={data.onDelete}
+        
+      >
+        ×
+      </button>
+    )}
+  </div>
+);
+
 const nodeTypesConfig = {
-  scenario: ({ data }) => (
-    <div style={{
-      padding: 10,
-      backgroundColor: '#d1fae5',
-      border: '2px solid #10b981',
-      borderRadius: 5,
-      minWidth: 200
-    }}>
-      <Handle type="target" position={Position.Top} />
-      <input
-        value={data.label}
-        onChange={data.onChange}
-        style={{ width: '100%', border: 'none', background: 'transparent' }}
-      />
-      <Handle type="source" position={Position.Bottom} />
-    </div>
-  ),
-  option: ({ data }) => (
-    <div style={{
-      padding: 10,
-      backgroundColor: '#e0e7ff',
-      border: '2px solid #6366f1',
-      borderRadius: 5,
-      minWidth: 200
-    }}>
-      <Handle type="target" position={Position.Top} />
-      <input
-        value={data.label}
-        onChange={data.onChange}
-        style={{ width: '100%', border: 'none', background: 'transparent' }}
-      />
-      <Handle type="source" position={Position.Bottom} />
-    </div>
-  )
+  scenario: NodeWrapper,
+  option: NodeWrapper,
+  popup: NodeWrapper,
+  ending: NodeWrapper
 };
 
 // Dagre layout setup
@@ -66,7 +57,14 @@ const getLayoutedNodes = (nodes, edges) => {
 
   dagreGraph.setGraph({ rankdir: 'TB' });
   nodes.forEach((node) => dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight }));
-  edges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target));
+  
+  // Only add edges that have both source and target nodes existing
+  edges.forEach((edge) => {
+    const sourceExists = nodes.some((n) => n.id === edge.source);
+    const targetExists = nodes.some((n) => n.id === edge.target);
+    if (sourceExists && targetExists) dagreGraph.setEdge(edge.source, edge.target);
+  });
+
   dagre.layout(dagreGraph);
 
   return nodes.map((node) => {
@@ -81,7 +79,6 @@ const ScenarioFlowEditor = () => {
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
 
-  // Nodes and edges state
   const [nodes, setNodes] = useState(sampleNodes);
   const [edges, setEdges] = useState(sampleEdges);
 
@@ -94,6 +91,12 @@ const ScenarioFlowEditor = () => {
           : node
       )
     );
+  };
+
+  // Delete node and connected edges
+  const removeNode = (nodeId) => {
+    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
   };
 
   // Node & edge handlers
@@ -118,49 +121,52 @@ const ScenarioFlowEditor = () => {
     }
   };
 
-  // Drop handler (merged for tools & AI suggestions)
+  // Drop handler
   const handleDrop = (event) => {
-  event.preventDefault();
-  if (!reactFlowInstance || !reactFlowWrapper.current) return;
+    event.preventDefault();
+    if (!reactFlowInstance || !reactFlowWrapper.current) return;
 
-  const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
+    const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
+    let data;
 
-  let data;
-  try {
-    // Parse JSON from sidebar drag (AI suggestions or tools)
-    const dataString = event.dataTransfer.getData('application/reactflow');
-    if (!dataString) return;
-    data = JSON.parse(dataString);
-  } catch {
-    // Fallback: just a string type from legacy tools
-    const type = event.dataTransfer.getData('application/reactflow');
-    if (!type) return;
-    data = { nodeType: type, label: `New ${type}` };
-  }
+    try {
+      const dataString = event.dataTransfer.getData('application/reactflow');
+      if (!dataString) return;
+      data = JSON.parse(dataString);
+    } catch {
+      const type = event.dataTransfer.getData('application/reactflow');
+      if (!type) return;
+      data = { nodeType: type, label: `New ${type}` };
+    }
 
-  const position = reactFlowInstance.project({
-    x: event.clientX - reactFlowBounds.left,
-    y: event.clientY - reactFlowBounds.top,
-  });
+    const position = reactFlowInstance.project({
+      x: event.clientX - reactFlowBounds.left,
+      y: event.clientY - reactFlowBounds.top,
+    });
 
-  const id = `${data.nodeType}_${+new Date()}`;
-  const newNode = {
-    id,
-    type: data.nodeType,
-    position,
-    data: {
-      label: data.label || `New ${data.nodeType}`, // ensure text exists
-      onChange: (e) => handleNodeLabelChange(id, e.target.value),
-    },
+    const id = `${data.nodeType}_${+new Date()}`;
+    const newNode = {
+      id,
+      type: data.nodeType,
+      position,
+      data: {
+        label: data.label || `New ${data.nodeType}`,
+        onChange: (e) => handleNodeLabelChange(id, e.target.value),
+        onDelete: () => removeNode(id)
+      },
+    };
+
+    setNodes((nds) => nds.concat(newNode));
   };
 
-  setNodes((nds) => nds.concat(newNode));
-};
-
-  // Inject onChange into nodes
+  // Inject handlers
   const nodesWithHandlers = nodes.map((node) => ({
     ...node,
-    data: { ...node.data, onChange: (e) => handleNodeLabelChange(node.id, e.target.value) }
+    data: {
+      ...node.data,
+      onChange: (e) => handleNodeLabelChange(node.id, e.target.value),
+      onDelete: () => removeNode(node.id)
+    }
   }));
 
   return (
@@ -181,6 +187,7 @@ const ScenarioFlowEditor = () => {
             onDrop={handleDrop}
             onDragOver={(event) => event.preventDefault()}
             defaultEdgeOptions={{ animated: true, type: 'smoothstep' }}
+            deleteKeyCode={46} // Delete key
           >
             <MiniMap />
             <Controls />
