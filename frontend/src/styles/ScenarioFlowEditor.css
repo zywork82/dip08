@@ -13,6 +13,7 @@
     height: 100%;
   }
 
+  
   .sidebar {
     width: 250px;
     background-color: #ffffff;
@@ -93,6 +94,57 @@
     background-color: #e0e7ff;
     border-color: #6366f1;
   }
+
+  .node {
+  padding: 10px;
+  border-radius: 5px;
+  min-width: 200px;
+  position: relative;
+}
+
+.node input {
+  width: 100%;
+  border: none;
+  background: transparent;
+}
+
+.node-scenario {
+  background-color: #d1fae5;
+  border: 2px solid #10b981;
+}
+
+.node-option {
+  background-color: #e0e7ff;
+  border: 2px solid #6366f1;
+}
+
+.node-popup {
+  background-color: #fef3c7;
+  border: 2px solid #f59e0b;
+}
+
+.node-ending {
+  background-color: #fee2e2;
+  border: 2px solid #ef4444;
+}
+
+.node-delete-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgb(252, 25, 25);
+  color: white;
+  border: none;
+  border-radius: 100%;
+  width: 2px;
+  height: 2px;
+  cursor: pointer;
+  padding: 7px;
+}
+
   
   .node-connector {
     position: absolute;
