@@ -6,13 +6,36 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('student'); // Default role is student
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    // Here you would make an API call to your backend
-    console.log('Logging in with:', { email, password, role });
-  };
+ const handleLogin = async (e) => {
+  e.preventDefault();
 
+  try {
+    const response = await fetch("http://127.0.0.1:8000/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json", // important!
+      },
+      body: JSON.stringify({
+        email: email,       // must match backend
+        password: password, // must match backend
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Login failed");
+    }
+
+    const data = await response.json();
+    console.log("Login successful:", data);
+    alert(`Welcome ${data.username}, role: ${data.role}`);
+  } catch (error) {
+    console.error("Error:", error.message);
+  }
+};
   return (
     <AuthLayout>
       <div className="auth-form-content">

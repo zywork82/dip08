@@ -1,18 +1,50 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
 
 const SignupPage = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const navigate = useNavigate(); // lets you redirect after signup
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
-    // Here you would make an API call to your backend
-    console.log('Signing up with:', { name, email, password });
-  };
+    setError('');
+    setSuccess('');
 
+    try {
+      const response = await fetch("http://127.0.0.1:8000/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+       body: JSON.stringify({
+        email: email,
+        username: name,  
+        password: password,
+       })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Signup failed");
+      }
+
+      const data = await response.json();
+      console.log("Signup successful:", data);
+      setSuccess("Account created successfully!");
+
+      // optional: redirect to login page after 1.5s
+      setTimeout(() => navigate("/"), 1500);
+
+    } catch (err) {
+      console.error("Error during signup:", err);
+      setError(err.message || "Something went wrong");
+    }
+  };
   return (
     <AuthLayout>
       <div className="auth-form-content">
