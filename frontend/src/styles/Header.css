@@ -1,0 +1,66 @@
+.shared-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.search-bar-container {
+  position: relative;
+  width: 100%;
+  max-width: 28rem;
+}
+
+.search-bar-input {
+  width: 100%;
+  padding: 0.75rem 1.25rem 0.75rem 3rem;
+  border: 1px solid #d1d5db;
+  border-radius: 9999px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  outline: none;
+}
+
+.search-bar-input:focus {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.5);
+}
+
+.search-bar-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #9ca3af;
+}
+
+.user-profile-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-profile-avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.user-profile-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-profile-name {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.user-profile-role {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
