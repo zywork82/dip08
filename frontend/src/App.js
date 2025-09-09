@@ -49,8 +49,7 @@ function App() {
       <nav
         ref={navRef}
         className="test-nav-bar"
-        onMouseDown={handleMouseDown}
-        style={{ left: position.x, top: position.y }}
+
       >
         <div className="nav-handle">Drag to move</div>
         <ul>
