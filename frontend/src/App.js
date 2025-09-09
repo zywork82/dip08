@@ -7,6 +7,7 @@ import ScenarioPrompt from "./pages/ScenarioPrompt";
 import StudentPage from "./pages/StudentPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SignupPage from "./pages/SignupPage";
+import PreviewPage from "./pages/PreviewPage";
 import "./App.css";
 
 function App() {
@@ -71,6 +72,7 @@ function App() {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/student" element={<StudentPage />} />
           <Route path="/signup" element={<SignupPage />} />
+           <Route path="/preview" element={<PreviewPage />} />
         </Routes>
       </main>
     </HashRouter>
