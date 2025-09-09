@@ -1,0 +1,34 @@
+.editor-sidebar {
+  width: 200px;
+  background: #f3f4f6;
+  padding: 10px;
+  border-right: 1px solid #d1d5db;
+  height: 100vh;
+}
+
+.editor-sidebar h3 {
+  margin-bottom: 10px;
+}
+
+.sidebar-node {
+  background: white;
+  border: 1px solid #9ca3af;
+  padding: 8px;
+  margin-bottom: 8px;
+  text-align: center;
+  cursor: grab;
+  border-radius: 5px;
+  user-select: none;
+}
+
+.sidebar-node-scenario {
+  border-color: #10b981;
+}
+
+.sidebar-node-option {
+  border-color: #6366f1;
+}
+
+.sidebar-node-ending {
+  border-color: #f59e0b;
+}
