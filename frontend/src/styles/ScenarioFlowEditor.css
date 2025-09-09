@@ -11,9 +11,10 @@
   .flow-editor-page-container {
     display: flex;
     height: 100%;
+    
   }
 
-  
+  /* SIDE BAR RELATED*/
   .sidebar {
     width: 250px;
     background-color: #ffffff;
@@ -30,27 +31,8 @@
     color: #1f2937;
   }
   
-  .node-item {
-    background-color: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: grab;
-    transition: all 0.2s ease;
-    text-align: center;
-    color: #4b5563;
-     white-space: normal;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  }
-  
-  .node-item:hover {
-    background-color: #eff6ff;
-    border-color: #93c5fd;
-  }
+
+
   
   .main-editor-area {
     flex: 1;
@@ -68,7 +50,7 @@
     border: 1px solid #d1d5db;
     border-radius: 0.5rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    padding: 1rem;
+    padding: 0.8rem;
     text-align: center;
     cursor: grab;
     display: flex;
@@ -100,14 +82,15 @@
   border-radius: 5px;
   min-width: 200px;
   position: relative;
+  word-wrap: break-word;
 }
 
-.node input {
-  width: 100%;
-  border: none;
-  background: transparent;
-}
 
+ 
+  .node-item:hover {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+  }
 .node-scenario {
   background-color: #d1fae5;
   border: 2px solid #10b981;
@@ -202,4 +185,25 @@
   
   .editor-button:hover {
     background-color: #4338ca;
+  }
+
+  .preview-title{
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+  }
+  .preview-container{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem
+  }
+  .preview-buttons{
+    display: flex;
+    justify-content: center;
+    
+    gap: 1rem;
+    margin-top: 1rem;
   }
