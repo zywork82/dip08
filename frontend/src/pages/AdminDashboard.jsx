@@ -7,6 +7,7 @@ import StudentRecordCard from '../components/StudentRecordCard';
 import TutorialBanner from '../components/TutorialBanner';
 import '../styles/Global.css';
 import '../styles/Admin.css';
+import '../styles/TutorialBanner.css';
 import { caseStudies, students } from '../data/mockdata.js';
 import { MdHome, MdPeople, MdAssignment, MdLibraryBooks, MdSettings, MdLogout } from 'react-icons/md';
 

@@ -5,6 +5,7 @@ import ScenarioFlowEditor from "./pages/ScenarioFlowEditor";
 import ScenarioPrompt from "./pages/ScenarioPrompt";
 import StudentPage from "./pages/StudentPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import SignupPage from "./pages/SignupPage";
 import "./App.css";
 
 function App() {
@@ -69,7 +70,7 @@ function App() {
           <Route path="/scenario" element={<ScenarioPrompt />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/student" element={<StudentPage />} />
-          <Route path="/student" element={<StudentPage />} />
+          <Route path="/signup" element={<SignupPage />} />
         </Routes>
       </main>
     </HashRouter>
