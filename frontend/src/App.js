@@ -8,6 +8,8 @@ import StudentPage from "./pages/StudentPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SignupPage from "./pages/SignupPage";
 import PreviewPage from "./pages/PreviewPage";
+import TraineeRecordsPage from "./pages/TraineeRecordsPage";
+import SettingsPage from "./pages/SettingsPage";
 import "./App.css";
 
 function App() {
@@ -73,6 +75,8 @@ function App() {
           <Route path="/student" element={<StudentPage />} />
           <Route path="/signup" element={<SignupPage />} />
            <Route path="/preview" element={<PreviewPage />} />
+           <Route path="/trainee-records" element={<TraineeRecordsPage />} />
+           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
     </HashRouter>
