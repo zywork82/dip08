@@ -7,7 +7,6 @@ import StudentRecordCard from '../components/StudentRecordCard';
 import TutorialBanner from '../components/TutorialBanner';
 import '../styles/Global.css';
 import '../styles/Admin.css';
-import '../styles/TutorialBanner.css';
 import { caseStudies, students } from '../data/mockdata.js';
 import { MdHome, MdPeople, MdAssignment, MdLibraryBooks, MdSettings, MdLogout } from 'react-icons/md';
 
@@ -83,6 +82,9 @@ const AdminDashboard = () => {
             <section className="students-records-section">
               <div className="section-header">
                 <h3>Recent Students' Records</h3>
+                <Link to="/trainee-records" className="btn-my-records">
+                 My Records
+                </Link>
                 <div className="search-students">
                   <input type="text" placeholder="Search by name" />
                   <i className="icon-search"></i>

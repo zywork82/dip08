@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/Global.css';
 import '../styles/Student.css';
-import '../styles/TutorialBanner.css';
 import { caseStudies } from '../data/mockdata.js';
 import CaseStudyCard from '../components/CaseStudyCard';
 import SharedSidebar from '../components/SharedSidebar';
