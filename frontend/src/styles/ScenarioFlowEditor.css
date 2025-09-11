@@ -1,339 +1,209 @@
-/* General Layout */
-.flow-editor-page-container {
-    display: flex;
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+  
+  body {
     font-family: 'Inter', sans-serif;
+    background-color: #f3f4f6;
     height: 100vh;
-    width: 100vw;
-    background-color: #f0f2f5;
-    color: #4b5563;
-}
+    margin: 0;
+    overflow: hidden;
+  }
+  
+  .flow-editor-page-container {
+    display: flex;
+    height: 100%;
+    
+  }
 
-/* Sidebar */
-.sidebar {
-    width: 300px;
-    background-color: #f7f8fa;
-    border-right: 1px solid #e5e7eb;
+  /* SIDE BAR RELATED*/
+  .sidebar {
+    width: 250px;
+    background-color: #ffffff;
+    padding: 1.5rem;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
-    padding: 1.5rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
+    gap: 1.5rem;
+  }
 
-.sidebar-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-}
-
-.menu-icon, .edit-icon {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.5rem;
-    color: #9ca3af;
-}
-
-.sidebar-title {
+  .sidebar-heading {
     font-size: 1.25rem;
     font-weight: 600;
     color: #1f2937;
-}
+  }
+  
 
-.sidebar-tabs {
-    display: flex;
-    border-bottom: 2px solid #e5e7eb;
-    margin-bottom: 1rem;
-}
 
-.tab {
+  
+  .main-editor-area {
     flex: 1;
-    text-align: center;
-    padding: 0.75rem 0;
-    border: none;
-    background: none;
-    font-weight: 500;
-    cursor: pointer;
-    color: #6b7280;
-    transition: color 0.2s, border-bottom 0.2s;
-}
-
-.tab:hover {
-    color: #1f2937;
-}
-
-.tab.active {
-    color: #3b82f6;
-    border-bottom: 2px solid #3b82f6;
-}
-
-.sidebar-content {
-    flex-grow: 1;
-    overflow-y: auto;
-}
-
-.tools-grid,
-.suggestions-list {
-    display: grid;
-    gap: 1rem;
-    padding: 1rem;
-}
-
-.tools-grid {
-    grid-template-columns: repeat(2, 1fr);
-}
-
-.tool-card {
-    background-color: #fff;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    text-align: center;
-    cursor: grab;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.tool-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.tool-card p {
-    font-weight: 500;
-    color: #3b82f6;
-}
-
-.suggestion-card {
-    background-color: #fff;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    cursor: grab;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.suggestion-card p {
-    font-size: 0.875rem;
-    line-height: 1.5;
-}
-
-.section-heading {
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 0.5rem;
-}
-
-/* Main Editor Area */
-.main-editor-area {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.editor-header {
-    background-color: #fff;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 1rem 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.plan-tabs {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.plan-tab {
     background-color: #e5e7eb;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-weight: 500;
-    cursor: pointer;
-    border: none;
-}
-
-.plan-tab.active {
-    background-color: #3b82f6;
-    color: #fff;
-}
-
-.add-plan-button {
-    background: none;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    cursor: pointer;
-    color: #6b7280;
-}
-
-.editor-title-container {
-    text-align: center;
-    flex-grow: 1;
-}
-
-.editor-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin: 0;
-}
-
-.title-underline {
-    width: 60%;
-    height: 3px;
-    background-color: #3b82f6;
-    margin: 0.25rem auto 0;
-}
-
-.editor-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.action-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #9ca3af;
-    padding: 0.5rem;
-}
-
-.canvas-area {
-    flex-grow: 1;
-    background-color: #f9fafb;
     position: relative;
     overflow: hidden;
-    cursor: grab;
-}
-
-.connections-svg {
+    height: 100vh;
+  }
+  
+  .flowchart-node {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 1;
-}
-
-.flowchart-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-}
-
-/* Flowchart Nodes */
-.flowchart-node {
-    position: absolute;
-    background-color: #ffffff;
-    border: 2px solid #818cf8;
-    border-radius: 12px;
-    padding: 1rem 2rem;
-    min-width: 250px;
+    min-width: 150px;
+    min-height: 50px;
+    background-color: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    padding: 0.8rem;
     text-align: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.2s;
     cursor: grab;
-    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: box-shadow 0.2s;
+    white-space: normal;       /* allow wrapping */
+  word-wrap: break-word;     /* break long words */
+  overflow-wrap: break-word; /* modern standard */
+
+  }
+  
+  .flowchart-node:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .flowchart-node.scenario {
+    background-color: #d1fae5;
+    border-color: #10b981;
+  }
+  
+  .flowchart-node.option {
+    background-color: #e0e7ff;
+    border-color: #6366f1;
+  }
+
+  .node {
+  padding: 10px;
+  border-radius: 5px;
+  min-width: 200px;
+  position: relative;
+  word-wrap: break-word;
+}
+
+
+ 
+  .node-item:hover {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+  }
+.node-scenario {
+  background-color: #d1fae5;
+  border: 2px solid #10b981;
+}
+
+.node-option {
+  background-color: #e0e7ff;
+  border: 2px solid #6366f1;
+}
+
+.node-popup {
+  background-color: #fef3c7;
+  border: 2px solid #f59e0b;
+}
+
+.node-ending {
+  background-color: #fee2e2;
+  border: 2px solid #ef4444;
+}
+
+.node-delete-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgb(252, 25, 25);
+  color: white;
+  border: none;
+  border-radius: 100%;
+  width: 2px;
+  height: 2px;
+  cursor: pointer;
+  padding: 7px;
+}
+
+  
+  .node-connector {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background-color: #4b5563;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid #fff;
+    transition: transform 0.2s ease;
+  }
+  
+  .node-connector:hover {
+    transform: scale(1.5);
+    background-color: #1f2937;
+  }
+  
+  .node-connector.in {
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .node-connector.out {
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .connection-line {
+    stroke: #4b5563;
+    stroke-width: 2;
+    fill: none;
+  }
+
+  .editor-actions {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1rem;
+  }
+  
+  .editor-button {
+    padding: 0.75rem 1.5rem;
+    background-color: #4f46e5;
+    color: white;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+    border: none;
+  }
+  
+  .editor-button:hover {
+    background-color: #4338ca;
+  }
+
+  .preview-title{
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+  }
+  .preview-container{
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
-}
-
-.flowchart-node.scenario {
-    border-color: #6366f1;
-    background-color: #e0e7ff;
-}
-
-.flowchart-node.option {
-    border-color: #3b82f6;
-    background-color: #eff6ff;
-}
-
-.flowchart-node.popup {
-    border-color: #d946ef;
-    background-color: #fae8ff;
-}
-
-.flowchart-node.ending {
-    border-color: #f97316;
-    background-color: #fff7ed;
-}
-
-.flowchart-node.scenario, .flowchart-node.option, .flowchart-node.popup, .flowchart-node.ending {
-  min-width: 250px;
-  min-height: 50px;
-  padding: 1rem 1.5rem;
-}
-
-/* New connector styles */
-.node-connector {
-    width: 16px;
-    height: 16px;
-    background-color: #3b82f6;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    position: absolute;
-    z-index: 10;
-    cursor: pointer;
-    transform: translate(-50%, -50%);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.node-connector:hover {
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
-}
-
-.node-connector.in {
-    top: 0;
-    left: 50%;
-}
-
-.node-connector.out {
-    bottom: -15px;
-    left: 50%;
-}
-
-/* Footer */
-.editor-footer {
-    background-color: #fff;
-    padding: 1rem 2rem;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: flex-end;
+    justify-content: center;
     gap: 1rem;
-    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.editor-button {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background-color 0.2s, color 0.2s;
-}
-
-.save-button {
-    background-color: #e5e7eb;
-    color: #4b5563;
-}
-
-.save-button:hover {
-    background-color: #d1d5db;
-}
-
-.generate-button {
-    background-color: #3b82f6;
-    color: #fff;
-}
-
-.generate-button:hover {
-    background-color: #2563eb;
-}
+    margin-top: 1rem
+  }
+  .preview-buttons{
+    display: flex;
+    justify-content: center;
+    
+    gap: 1rem;
+    margin-top: 1rem;
+  }

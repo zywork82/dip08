@@ -30,6 +30,42 @@
 
 
 
+/* --- Tutorial Section --- */
+.tutorial-section {
+  background-color: #e5e7eb;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+  background-image: url('https://placehold.co/800x200/B5B5E1/4C4C7D?text=Begin+Your+Tutorial');
+}
+
+.tutorial-heading {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.tutorial-text {
+  color: #4b5563;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.tutorial-link {
+  position: absolute;
+  right: 2rem;
+  bottom: 2rem;
+  color: #6b46c1;
+  font-weight: bold;
+  text-decoration: none;
+}
 
 /* --- Case Studies Section --- */
 .case-studies-section {
