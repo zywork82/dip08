@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('student'); // Default role is student
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const navigate = useNavigate();
 
  const handleLogin = async (e) => {
   e.preventDefault();
@@ -23,19 +26,39 @@ const LoginPage = () => {
         password: password, // must match backend
       }),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Login failed");
+  if (!response.ok) {
+      // Try to parse error details from backend
+      let errorMessage = "Login failed";
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorMessage;
+      } catch {
+        errorMessage = response.statusText || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
     console.log("Login successful:", data);
-    alert(`Welcome ${data.username}, role: ${data.role}`);
+
+    if (!toast.isActive("login-success")) {
+      toast.success(`Welcome ${data.username}!`, {
+        toastId: "login-success",
+      });
+    }
+
+    navigate(data.role === "admin" ? "/admin" : "/student");
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Error during login:", error);
+
+    if (!toast.isActive("login-error")) {
+      toast.error(error.message || "Something went wrong", {
+        toastId: "login-error",
+      });
+    }
   }
 };
+
   return (
     <AuthLayout>
       <div className="auth-form-content">
@@ -95,6 +118,7 @@ const LoginPage = () => {
           Don't have an account? <Link to="/signup">Sign Up</Link>
         </p>
       </div>
+
     </AuthLayout>
   );
 };

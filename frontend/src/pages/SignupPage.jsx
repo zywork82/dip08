@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const SignupPage = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const navigate = useNavigate(); // lets you redirect after signup
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+  
 
     try {
       const response = await fetch("http://127.0.0.1:8000/signup", {
@@ -35,16 +34,27 @@ const SignupPage = () => {
 
       const data = await response.json();
       console.log("Signup successful:", data);
-      setSuccess("Account created successfully!");
 
-      // optional: redirect to login page after 1.5s
-      setTimeout(() => navigate("/"), 1500);
+      if (!toast.isActive("signup-success")) {
+        toast.success("Account created successfully!", {
+          toastId: "signup-success",
+        });
+      }
 
-    } catch (err) {
-      console.error("Error during signup:", err);
-      setError(err.message || "Something went wrong");
+      // Redirect to login
+      navigate("/");
+    } catch (error) {
+      console.error("Error:", error.message);
+
+      // Prevent multiple stacked error toasts
+      if (!toast.isActive("signup-error")) {
+        toast.error(error.message, {
+          toastId: "signup-error",
+        });
+      }
     }
   };
+
   return (
     <AuthLayout>
       <div className="auth-form-content">
@@ -86,6 +96,7 @@ const SignupPage = () => {
           Already have an account? <Link to="/">Login</Link>
         </p>
       </div>
+
     </AuthLayout>
   );
 };
