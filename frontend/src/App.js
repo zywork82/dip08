@@ -7,6 +7,8 @@ import StudentPage from "./pages/StudentPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SignupPage from "./pages/SignupPage";
 import "./App.css";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function App() {
   const navRef = useRef(null);
@@ -73,7 +75,19 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
         </Routes>
       </main>
+        <ToastContainer 
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={true}
+        newestOnTop={true}
+        closeOnClick
+        pauseOnHover={false}
+        draggable={false}
+        theme="colored"
+      />
     </HashRouter>
+
+    
   );
 }
 
