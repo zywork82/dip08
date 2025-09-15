@@ -1,4 +1,4 @@
-// ScenarioFlowEditor.jsx
+// FlowChartEditor.jsx
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactFlow, {
@@ -14,7 +14,7 @@ import dagre from 'dagre';
 import EditorToolsSidebar from '../components/EditorToolsSidebar';
 import NodeWrapper from '../components/NodeWrapper';
 import 'reactflow/dist/style.css';
-import '../styles/ScenarioFlowEditor.css';
+import '../styles/FlowChartEditor.css';
 import { sampleNodes, sampleEdges, sampleAiSuggestions } from '../data/sampleAiFlow';
 
 const nodeTypesConfig = {
@@ -52,7 +52,7 @@ const getLayoutedNodes = (nodes, edges) => {
   });
 };
 
-const ScenarioFlowEditor = () => {
+const FlowChartEditor = () => {
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
 
@@ -197,17 +197,27 @@ const openPreview = () => {
 
   // Send to backend
   const generateImages = () => {
-    if (!previewData) return;
+  if (!previewData) return;
 
-    fetch('/api/generate-images', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(previewData),
-    }).then(() => {
-      setPreviewOpen(false);
-      alert('Image generation started!');
-    });
-  };
+  // Simulate backend call
+  setTimeout(() => {
+    // Create mock nodes with image URLs
+    const updatedFlow = {
+      nodes: previewData.nodes.map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
+          imageUrl: 'https://via.placeholder.com/150', // placeholder image
+        },
+      })),
+      edges: previewData.edges,
+    };
+
+    setPreviewOpen(false);
+    navigate('/scene-editor', { state: { flowData: updatedFlow } });
+  }, 1000); // simulate 1-second network delay
+};
+
   const navigate = useNavigate();
 
   const previewFlow = () => {
@@ -318,4 +328,4 @@ const openPreview = () => {
   );
 };
 
-export default ScenarioFlowEditor;
+export default FlowChartEditor;
