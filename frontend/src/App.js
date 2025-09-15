@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { HashRouter, Routes, Route, Link } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
-import ScenarioFlowEditor from "./pages/ScenarioFlowEditor";
+import FlowChartEditor from "./pages/FlowChartEditor";
 import ScenarioPrompt from "./pages/ScenarioPrompt";
 import StudentPage from "./pages/StudentPage";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -10,7 +10,9 @@ import SignupPage from "./pages/SignupPage";
 import PreviewPage from "./pages/PreviewPage";
 import TraineeRecordsPage from "./pages/TraineeRecordsPage";
 import SettingsPage from "./pages/SettingsPage";
+import SceneEditor from "./pages/SceneEditor";
 import "./App.css";
+
 
 function App() {
   const navRef = useRef(null);
@@ -57,7 +59,8 @@ function App() {
         <div className="nav-handle">Drag to move</div>
         <ul>
           <li><Link to="/">Login</Link></li>
-          <li><Link to="/editor">Editor</Link></li>
+          <li><Link to="/editor">FlowChartEditor</Link></li>
+          <li><Link to="/scene-editor">SceneEditor</Link></li>
           <li><Link to="/scenario">Scenario</Link></li>
           <li><Link to="/admin">Admin Dashboard</Link></li>
           <li><Link to="/student">Student Page</Link></li>
@@ -69,7 +72,7 @@ function App() {
       <main className="main-content-wrapper">
         <Routes>
           <Route path="/" element={<LoginPage />} />
-          <Route path="/editor" element={<ScenarioFlowEditor />} />
+          <Route path="/editor" element={<FlowChartEditor />} />
           <Route path="/scenario" element={<ScenarioPrompt />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/student" element={<StudentPage />} />
@@ -77,6 +80,8 @@ function App() {
            <Route path="/preview" element={<PreviewPage />} />
            <Route path="/trainee-records" element={<TraineeRecordsPage />} />
            <Route path="/settings" element={<SettingsPage />} />
+           <Route path="/scene-editor" element={<SceneEditor />} />
+
         </Routes>
       </main>
     </HashRouter>
