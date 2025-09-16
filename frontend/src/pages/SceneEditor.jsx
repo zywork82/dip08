@@ -15,10 +15,9 @@ import dagre from "dagre";
 
 // Node types
 const nodeTypesConfig = {
-  scenario: NodeWrapper,
-  option: NodeWrapper,
-  popup: NodeWrapper,
-  ending: NodeWrapper,
+  process: NodeWrapper,
+  decision: NodeWrapper,
+  end: NodeWrapper,
 };
 
 // Dagre layout
@@ -28,7 +27,7 @@ const nodeWidth = 200;
 const nodeHeight = 150;
 
 const getLayoutedNodes = (nodes, edges) => {
-  dagreGraph.setGraph({ rankdir: "TB", ranksep: 100 });
+  dagreGraph.setGraph({ rankdir: "TB", ranksep: 250,nodesep: 300  });
   nodes.forEach((node) =>
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight })
   );
@@ -140,51 +139,61 @@ const SceneEditor = () => {
   }, [flowData]);
   return (
     <div className="scene-editor-container" style={{ display: "flex", width: "100%", height: "100vh" }}>
-      {/* Sidebar */}
-      {selectedNode && (
-        <div
-          className="node-sidebar"
-          style={{
-            width: 300,
-            padding: 20,
-            background: "#f5f5f5",
-            borderRight: "1px solid #ccc",
-            overflowY: "auto",
-          }}
-        >
-          <h3>{selectedNode.data.label}</h3>
-          <textarea
-            value={promptText}
-            onChange={(e) => setPromptText(e.target.value)}
-            placeholder="Refine prompt or add description"
-            rows={4}
-            style={{ width: "100%", marginBottom: 10 }}
+     {/* Sidebar always present */}
+<div
+  className="node-sidebar"
+  style={{
+    width: 300,
+    padding: 20,
+    background: "#f5f5f5",
+    borderRight: "1px solid #ccc",
+    overflowY: "auto",
+  }}
+>
+  {selectedNode ? (
+    <>
+      <h3>{selectedNode.data.label}</h3>
+      <textarea
+        value={promptText}
+        onChange={(e) => setPromptText(e.target.value)}
+        placeholder="Refine prompt or add description"
+        rows={4}
+        style={{ width: "100%", marginBottom: 10 }}
+      />
+      <button
+        style={{ width: "100%", marginBottom: 10 }}
+        onClick={() => handleReprompt(selectedNode.id, promptText)}
+      >
+        Generate Images
+      </button>
+      <div style={{ display: "flex", flexWrap: "wrap" }}>
+        {selectedNode.data.generatedImages?.map((imgUrl, index) => (
+          <img
+            key={index}
+            src={imgUrl}
+            alt={`Option ${index}`}
+            style={{
+              width: 100,
+              marginRight: 5,
+              marginBottom: 5,
+              cursor: "pointer",
+              border:
+                imgUrl === selectedNode.data.imageUrl
+                  ? "2px solid blue"
+                  : "1px solid gray",
+            }}
+            onClick={() => selectImageForNode(selectedNode.id, imgUrl)}
           />
-          <button
-            style={{ width: "100%", marginBottom: 10 }}
-            onClick={() => handleReprompt(selectedNode.id, promptText)}
-          >
-            Generate Images
-          </button>
-          <div style={{ display: "flex", flexWrap: "wrap" }}>
-            {selectedNode.data.generatedImages?.map((imgUrl, index) => (
-              <img
-                key={index}
-                src={imgUrl}
-                alt={`Option ${index}`}
-                style={{
-                  width: 100,
-                  marginRight: 5,
-                  marginBottom: 5,
-                  cursor: "pointer",
-                  border: imgUrl === selectedNode.data.imageUrl ? "2px solid blue" : "1px solid gray",
-                }}
-                onClick={() => selectImageForNode(selectedNode.id, imgUrl)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
+    </>
+  ) : (
+    <div style={{ color: "#888", fontStyle: "italic" }}>
+      Click a node to view details and generate images
+    </div>
+  )}
+</div>
+
 
       {/* Main editor */}
       <div style={{ flex: 1 }}>
@@ -200,6 +209,12 @@ const SceneEditor = () => {
             zoomOnScroll={true}
             panOnDrag={true}
             zoomOnPinch={true}
+            defaultEdgeOptions={{
+    animated: true,
+    type: 'smoothstep',
+    style: { stroke: '#333', strokeWidth: 4 },
+  }}
+
           >
             <MiniMap />
             <Controls />
