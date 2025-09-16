@@ -18,11 +18,11 @@ import '../styles/FlowChartEditor.css';
 import { sampleNodes, sampleEdges, sampleAiSuggestions } from '../data/sampleAiFlow';
 
 const nodeTypesConfig = {
-  scenario: NodeWrapper,
-  option: NodeWrapper,
-  popup: NodeWrapper,
-  ending: NodeWrapper,
+  process: NodeWrapper,
+  decision: NodeWrapper,
+  end: NodeWrapper,
 };
+
 
 // Dagre layout
 const dagreGraph = new dagre.graphlib.Graph();
