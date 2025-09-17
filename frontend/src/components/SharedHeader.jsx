@@ -1,37 +1,30 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { MdSearch, MdSettings, MdNotifications } from 'react-icons/md';
 import '../styles/Header.css';
 
-const UserProfile = ({ profileImage, userName, userRole }) => (
-  <div className="user-profile-container">
-    <div className="user-profile-avatar">
-      <img src={profileImage} alt={userName} />
-    </div>
-    <div className="user-profile-info">
-      <span className="user-profile-name">{userName}</span>
-      <span className="user-profile-role">{userRole}</span>
-    </div>
-  </div>
-);
-const SearchBar = () => (
-  <div className="search-bar-container">
-    <input type="text" placeholder="search for scenarios" className="search-bar-input" />
-    <svg className="search-bar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-    </svg>
-  </div>
-);
-
-const SharedHeader = ({ profileImage, userName, userRole }) => {
+const SharedHeader = ({ profileImage }) => {
   return (
     <header className="shared-header">
-      <SearchBar />
-      <UserProfile
-        profileImage={profileImage}
-        userName={userName}
-        userRole={userRole}
-      />
+      <div className="search-bar-container">
+        <MdSearch className="search-icon" />
+        <input type="text" placeholder="Search for something" className="search-input" />
+      </div>
+      <div className="user-profile-section">
+        <Link to="/settings" className="icon-link">
+          <div className="icon-container">
+            <MdSettings className="header-icon" />
+          </div>
+        </Link>
+        <div className="icon-container">
+          <MdNotifications className="header-icon" />
+        </div>
+        <div className="profile-image-container">
+          <img src={profileImage} alt="User Profile" className="profile-image" />
+        </div>
+      </div>
     </header>
   );
 };
+
 export default SharedHeader;
