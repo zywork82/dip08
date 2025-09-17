@@ -8,6 +8,7 @@ import CaseStudyCard from '../components/CaseStudyCard';
 import SharedSidebar from '../components/SharedSidebar';
 import SharedHeader from '../components/SharedHeader';
 import TutorialBanner from '../components/TutorialBanner';
+
 const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=HW';
 const tips = [
   {
