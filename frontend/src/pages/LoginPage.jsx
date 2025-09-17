@@ -12,8 +12,8 @@ const LoginPage = () => {
   const [role, setRole] = useState('student'); // Default role is student
   const navigate = useNavigate();
 
- const handleLogin = async (e) => {
-  e.preventDefault();
+ const handleLogin = async (e) => { 
+   e.preventDefault();
 
   try {
     const response = await fetch("http://127.0.0.1:8000/login", {
@@ -40,6 +40,8 @@ const LoginPage = () => {
 
     const data = await response.json();
     console.log("Login successful:", data);
+
+    localStorage.setItem("user", JSON.stringify(data));
 
     if (!toast.isActive("login-success")) {
       toast.success(`Welcome ${data.username}!`, {

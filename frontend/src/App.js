@@ -10,6 +10,7 @@ import SignupPage from "./pages/SignupPage";
 import PreviewPage from "./pages/PreviewPage";
 import TraineeRecordsPage from "./pages/TraineeRecordsPage";
 import SettingsPage from "./pages/SettingsPage";
+import AnalyticsEngine from "./pages/AnalyticsEngine";
 import "./App.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -64,6 +65,7 @@ function App() {
           <li><Link to="/admin">Admin Dashboard</Link></li>
           <li><Link to="/student">Student Page</Link></li>
           <li><Link to="/signup">Signup</Link></li>
+          <li><Link to="/analytics">Analytics</Link></li>
         </ul>
       </nav>
 
@@ -79,6 +81,7 @@ function App() {
            <Route path="/preview" element={<PreviewPage />} />
            <Route path="/trainee-records" element={<TraineeRecordsPage />} />
            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/analytics" element={<AnalyticsEngine />} />
         </Routes>
       </main>
         <ToastContainer 
