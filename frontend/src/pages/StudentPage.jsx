@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/Global.css';
 import '../styles/Student.css';
@@ -7,6 +7,7 @@ import CaseStudyCard from '../components/CaseStudyCard';
 import SharedSidebar from '../components/SharedSidebar';
 import SharedHeader from '../components/SharedHeader';
 import TutorialBanner from '../components/TutorialBanner';
+
 const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=HW';
 const tips = [
   {
@@ -42,6 +43,13 @@ const TipCard = ({ title, image }) => (
 
 const StudentPage = () => {
   const [activeTab, setActiveTab] = useState('All');
+  const [student, setStudent] = useState(null);
+
+  useEffect(() => {
+    // Example: load student from localStorage after login
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    if (storedUser) setStudent(storedUser);
+  }, []);
 
  const filteredScenarios = caseStudies.filter(s => {
     if (activeTab === 'All') return true;
@@ -55,7 +63,11 @@ const StudentPage = () => {
       <main className="main-content">
         <section className="main-section">
           <div className="header">
-            <SharedHeader profileImage={profileImage} userName="Helen Wong" userRole="Student" />
+            <SharedHeader 
+              profileImage={profileImage} 
+              userName={student?.username || "Guest"} 
+              userRole="Student" 
+            />
           </div>
           <div className="main-content-body">
             <div className="left-column">
