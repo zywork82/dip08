@@ -29,7 +29,7 @@ const ScenarioInterface = ({ scenario, onOptionSelect }) => {
       </div>
 
       <section className="promptBox">
-        <p>{scenario.data.label}</p>
+        <p>{scenario.data}</p>
         <div className="optionsWrapper">
           
           {scenario.options.map(optionId => {

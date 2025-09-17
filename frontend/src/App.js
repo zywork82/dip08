@@ -46,7 +46,8 @@ function App() {
     });
   };
 
-  const [currentScenarioId, setCurrentScenarioId] = useState('101');
+  const startScenario = sampleNodes[101];
+  const [currentScenarioId, setCurrentScenarioId] = useState(startScenario.id);
 
   // Look up the full data for the current scenario
   const currentScenario = sampleNodes[currentScenarioId];
@@ -59,7 +60,7 @@ function App() {
     //Create a new entry for our analytics log
     const newAnalyticEntry = {
       scenarioId: currentScenarioId,
-      choice: selectedOption.data.label,
+      choice: selectedOption.data,
       timeTaken: timeTaken.toFixed(2) + 's', // Format to 2 decimal places
     };
 
