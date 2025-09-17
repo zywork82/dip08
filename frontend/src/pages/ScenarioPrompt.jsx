@@ -55,7 +55,7 @@ const ScenarioPrompt = () => {
       const data = await res.json();
       if (res.ok) {
         const flowData = transformFlowData(data);
-        navigate("/scene-editor", { state: { flowData } });
+        navigate("/editor", { state: { flowData } });
       } else {
         setError(data.error || "Something went wrong.");
       }
