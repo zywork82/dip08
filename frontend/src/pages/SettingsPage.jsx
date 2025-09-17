@@ -1,40 +1,245 @@
-import React, { useState } from 'react';
-import { FaArrowLeft } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-import GeneralSettings from './GeneralSettings.jsx';
-import AccountSettings from './AccountSettings.jsx';
+import React, { useState } from "react";
+import SharedSidebar from "../components/SharedSidebar";
+import SharedHeader from "../components/SharedHeader";
 import '../styles/Settings.css';
 
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState('General');
-  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("accounts");
+
+  const [profile, setProfile] = useState({
+    name: "Andy Khong",
+    email: "andykhong@e.ntu.edu.sg",
+    phone: "81234567",
+    password: "***************",
+  });
+  const [originalProfile, setOriginalProfile] = useState(profile);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [generalSettings, setGeneralSettings] = useState({
+    language: "English",
+    darkMode: false,
+    volume: 100,
+    brightness: 50,
+  });
+
+  // Handle profile input changes
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfile((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Save and cancel profile
+  const handleSave = () => {
+    setOriginalProfile(profile);
+    setIsEditing(false);
+  };
+  const handleCancel = () => {
+    setProfile(originalProfile);
+    setIsEditing(false);
+  };
+
+  // Handle general settings change
+  const handleGeneralChange = (field, value) => {
+    setGeneralSettings((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
-    <div className="page-container">
-      <div className="settings-sidebar">
-        <div className="settings-header">
-          <button className="back-button" onClick={() => navigate(-1)}>
-            <FaArrowLeft />
-          </button>
+    <div className="settings-container">
+      {/* Sidebar */}
+      <SharedSidebar />
+
+      {/* Main Content */}
+      <div className="settings-main">
+        <SharedHeader />
+
+        <div className="settings-body">
+          {/* Tabs */}
+          <h2 className="settings-tabs">
+            <span
+              className={`settings-tab ${
+                activeTab === "general" ? "active" : ""
+              }`}
+              onClick={() => setActiveTab("general")}
+            >
+              General
+            </span>{" "}
+            /{" "}
+            <span
+              className={`settings-tab ${
+                activeTab === "accounts" ? "active" : ""
+              }`}
+              onClick={() => setActiveTab("accounts")}
+            >
+              Accounts
+            </span>
+          </h2>
+
+          {/* General Settings */}
+          {activeTab === "general" && (
+            <div className="general-container">
+              <h3>General</h3>
+
+              {/* Language */}
+              <div className="general-field">
+                <label>Language</label>
+                <select
+                  className="general-select"
+                  value={generalSettings.language}
+                  onChange={(e) =>
+                    handleGeneralChange("language", e.target.value)
+                  }
+                >
+                  <option>English</option>
+                  <option>Chinese</option>
+                </select>
+              </div>
+
+              {/* Dark Mode */}
+              <div className="general-field">
+                <label>Display</label>
+                <label className="general-toggle">
+                  <span>Dark Mode</span>
+                  <input
+                    type="checkbox"
+                    className="general-checkbox"
+                    checked={generalSettings.darkMode}
+                    onChange={(e) =>
+                      handleGeneralChange("darkMode", e.target.checked)
+                    }
+                  />
+                </label>
+              </div>
+
+              {/* Volume */}
+              <div className="general-field">
+                <label>Volume ({generalSettings.volume}%)</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={generalSettings.volume}
+                  onChange={(e) =>
+                    handleGeneralChange("volume", parseInt(e.target.value))
+                  }
+                  className="general-range"
+                />
+              </div>
+
+              {/* Brightness */}
+              <div className="general-field">
+                <label>Brightness ({generalSettings.brightness}%)</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={generalSettings.brightness}
+                  onChange={(e) =>
+                    handleGeneralChange("brightness", parseInt(e.target.value))
+                  }
+                  className="general-range"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Account Settings */}
+          {activeTab === "accounts" && (
+            <div className="account-container">
+              {/* Profile Picture */}
+              <div className="profile-picture">
+                <div className="profile-icon">📷</div>
+                <p className="upload-logo">Upload Logo</p>
+              </div>
+
+              {/* Form Fields */}
+              <div>
+                {/* Name */}
+                <div className="account-field">
+                  <label>Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={profile.name}
+                    onChange={handleProfileChange}
+                    disabled={!isEditing}
+                    className={`account-input ${
+                      !isEditing ? "disabled" : ""
+                    }`}
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="account-field">
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={profile.email}
+                    onChange={handleProfileChange}
+                    disabled={!isEditing}
+                    className={`account-input ${
+                      !isEditing ? "disabled" : ""
+                    }`}
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="account-field">
+                  <label>Phone Number</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={profile.phone}
+                    onChange={handleProfileChange}
+                    disabled={!isEditing}
+                    className={`account-input ${
+                      !isEditing ? "disabled" : ""
+                    }`}
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="account-field">
+                  <label>Password</label>
+                  <div className="password-row">
+                    <input
+                      type="password"
+                      name="password"
+                      value={profile.password}
+                      disabled
+                      className="account-input disabled"
+                    />
+                    <span className="change-password">Change Password</span>
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                <div className="account-buttons">
+                  {!isEditing ? (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="btn btn-edit"
+                    >
+                      Edit
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={handleSave} className="btn btn-save">
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancel}
+                        className="btn btn-cancel"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="settings-nav">
-          <div 
-            className={`settings-nav-item ${activeTab === 'General' ? 'active' : ''}`}
-            onClick={() => setActiveTab('General')}
-          >
-            General
-          </div>
-          <div 
-            className={`settings-nav-item ${activeTab === 'Account' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Account')}
-          >
-            Account
-          </div>
-        </div>
-      </div>
-      <div className="settings-content">
-        {activeTab === 'General' && <GeneralSettings />}
-        {activeTab === 'Account' && <AccountSettings />}
       </div>
     </div>
   );
