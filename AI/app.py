@@ -8,12 +8,14 @@ from typing import Any, Dict, List, Set
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from openai import OpenAI
+from flask_cors import CORS
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
 app = Flask(__name__)
+CORS(app, origins=["http://localhost:3000"])
 
 # --------------------------
 # Helpers: fix/validate JSON
