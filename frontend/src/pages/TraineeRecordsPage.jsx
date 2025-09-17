@@ -1,122 +1,421 @@
 import React, { useState } from 'react';
-import { FaSearch, FaArrowLeft } from 'react-icons/fa';
-import TraineeCard from '../data/TraineeCard.js';
+import { FaSearch, FaRedo, FaTimes, FaDownload } from 'react-icons/fa';
 import { traineeData } from '../data/TraineeData.js';
-import { useNavigate } from 'react-router-dom';
+import SharedSidebar from '../components/SharedSidebar';
+import SharedHeader from '../components/SharedHeader';
 
-const TraineeRecordsPage = () => {
-  const [activeTab, setActiveTab] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const navigate = useNavigate();
+// Mock data for the report's internal details
+const reportData = {
+  // Renamed to match the key in traineeData
+  caseStudy: 'Cybersecurity Awareness',
+  totalTimeSpent: '32 minutes',
+  decisionTimeline: [
+    { step: 1, decision: 'D1', timeTaken: 5, correct: true },
+    { step: 2, decision: 'D2', timeTaken: 8, correct: false },
+    { step: 3, decision: 'D3', timeTaken: 3, correct: true },
+    { step: 4, decision: 'D4', timeTaken: 10, correct: false },
+    { step: 5, decision: 'D5', timeTaken: 6, correct: true },
+  ]
+};
 
-  const tabs = ['All', 'Unassessed', 'Assessed'];
+// New Modal Component
+const TraineeReportModal = ({ trainee, onClose }) => {
+  if (!trainee) return null;
 
-  // Filter trainees based on the active tab and search query
-  const filteredTrainees = traineeData.filter(trainee => {
-    const matchesTab = 
-      activeTab === 'All' || 
-      (activeTab === 'Unassessed' && trainee.status === 'Unassessed') || 
-      (activeTab === 'Assessed' && trainee.status === 'Assessed');
-      
-    const matchesSearch = trainee.name.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesTab && matchesSearch;
-  });
-
-  const pageStyle = {
-    flex: 1,
-    padding: '30px',
-    backgroundColor: '#F0F0F5',
+  const modalOverlayStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
   };
 
-  const headerStyle = {
+  const modalContentStyle = {
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    width: '90%',
+    maxWidth: '800px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
     display: 'flex',
-    alignItems: 'center',
-    marginBottom: '20px',
+    flexDirection: 'column',
   };
 
-  const backButtonStyle = {
+  const modalHeaderStyle = {
+    backgroundColor: '#5B50A7',
+    color: '#fff',
+    padding: '1rem 1.5rem',
     display: 'flex',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    cursor: 'pointer',
-    color: '#5B50A7',
-    marginRight: '20px',
+    borderTopLeftRadius: '12px',
+    borderTopRightRadius: '12px',
+  };
+
+  const modalBodyStyle = {
+    padding: '2rem',
+    overflowY: 'auto',
+    maxHeight: '70vh',
+  };
+
+  const reportTitleStyle = {
+    textAlign: 'center',
     fontSize: '1.5rem',
+    fontWeight: 600,
+    marginBottom: '2rem',
+    color: '#333',
   };
 
-  const tabsContainerStyle = {
+  const tableStyle = {
+    width: '100%',
+    borderCollapse: 'collapse',
+    marginBottom: '2rem',
+  };
+
+  const tableHeaderStyle = {
+    fontWeight: 600,
+    textAlign: 'left',
+    padding: '12px',
+  };
+
+  const tableCellStyle = {
+    padding: '10px',
+    border: '1px solid #ddd',
+  };
+
+  const downloadButtonStyle = {
     display: 'flex',
-    marginBottom: '20px',
-  };
-
-  const tabStyle = (tabName) => ({
-    padding: '10px 20px',
-    marginRight: '10px',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '2rem auto 0',
+    padding: '12px 24px',
+    backgroundColor: '#5B50A7',
+    color: '#fff',
+    border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
-    fontWeight: activeTab === tabName ? '600' : 'normal',
-    color: activeTab === tabName ? '#5B50A7' : '#999',
-    backgroundColor: activeTab === tabName ? '#E8E8FF' : 'transparent',
-  });
-
-  const searchContainerStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: '12px',
-    padding: '10px 20px',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-    marginBottom: '30px',
-  };
-
-  const inputStyle = {
-    border: 'none',
-    outline: 'none',
-    flex: 1,
     fontSize: '1rem',
-    marginLeft: '10px',
+    fontWeight: 500,
   };
 
-  const gridStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
-    gap: '20px',
+  const closeButtonStyle = {
+    background: 'none',
+    border: 'none',
+    color: '#fff',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    width: '32px',
+    height: '32px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   };
 
   return (
-    <div style={pageStyle}>
-      {/* Back button */}
-      <div style={headerStyle}>
-        <div style={backButtonStyle} onClick={() => navigate(-1)}>
-          <FaArrowLeft />
+    <div style={modalOverlayStyle}>
+      <div style={modalContentStyle}>
+        <div style={modalHeaderStyle}>
+          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Analytics Report for {trainee.name}</h3>
+          <button onClick={onClose} style={closeButtonStyle}>
+            <FaTimes />
+          </button>
         </div>
-        <h2 style={{ margin: 0, color: '#333' }}>Trainee Records</h2>
-      </div>
-
-      <div style={tabsContainerStyle}>
-        {tabs.map(tab => (
-          <div key={tab} style={tabStyle(tab)} onClick={() => setActiveTab(tab)}>
-            {tab}
+        <div style={modalBodyStyle}>
+          <h4 style={reportTitleStyle}>Trainee Performance Report</h4>
+          
+          <div style={tableStyle}>
+            <table>
+              <tbody>
+                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Trainee Name:</td><td style={tableCellStyle}>{trainee.name}</td></tr>
+                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Trainee ID:</td><td style={tableCellStyle}>{trainee.id}</td></tr>
+                {/* Now using trainee.caseStudy */}
+                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Case Study:</td><td style={tableCellStyle}>{trainee.caseStudy}</td></tr>
+                {/* Now using trainee.date */}
+                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Date:</td><td style={tableCellStyle}>{trainee.date}</td></tr>
+                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Total Time Spent:</td><td style={tableCellStyle}>{reportData.totalTimeSpent}</td></tr>
+                {/* Now using trainee.status */}
+                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Completion Status:</td><td style={tableCellStyle}>{trainee.status}</td></tr>
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
 
-      <div style={searchContainerStyle}>
-        <FaSearch style={{ color: '#aaa' }} />
-        <input 
-          type="text" 
-          placeholder="Search by name" 
-          style={inputStyle} 
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+          <h5 style={{fontWeight: 600, marginBottom: '1rem'}}>Decision Timeline</h5>
+          <div style={tableStyle}>
+            <table>
+              <thead>
+                <tr style={{backgroundColor: '#e8e8ff'}}>
+                  <th style={tableHeaderStyle}>Step</th>
+                  <th style={tableHeaderStyle}>Decision</th>
+                  <th style={tableHeaderStyle}>Time Taken (s)</th>
+                  <th style={tableHeaderStyle}>Correct?</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.decisionTimeline.map((item, index) => (
+                  <tr key={index}>
+                    <td style={tableCellStyle}>{item.step}</td>
+                    <td style={tableCellStyle}>{item.decision}</td>
+                    <td style={tableCellStyle}>{item.timeTaken}</td>
+                    <td style={tableCellStyle}>{item.correct ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      <div style={gridStyle}>
-        {filteredTrainees.map(trainee => (
-          <TraineeCard key={trainee.id} trainee={trainee} />
-        ))}
+          <button style={downloadButtonStyle}>
+            Download Report <FaDownload style={{marginLeft: '8px'}} />
+          </button>
+        </div>
       </div>
+    </div>
+  );
+};
+
+// Main TraineeRecordsPage component
+const TraineeRecordsPage = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState({
+    date: '',
+    caseStudy: '',
+    status: '',
+  });
+  const [showModal, setShowModal] = useState(false);
+  const [selectedTrainee, setSelectedTrainee] = useState(null);
+
+  const filteredTrainees = traineeData.filter((trainee) => {
+    const matchesSearch = trainee.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+
+    const matchesDate = !filters.date || trainee.date === filters.date;
+    const matchesCaseStudy = !filters.caseStudy || trainee.caseStudy === filters.caseStudy;
+    const matchesStatus = !filters.status || trainee.status === filters.status;
+
+    return matchesSearch && matchesDate && matchesCaseStudy && matchesStatus;
+  });
+
+  const resetFilters = () => {
+    setFilters({ date: '', caseStudy: '', status: '' });
+    setSearchQuery('');
+  };
+
+  const handleViewReport = (trainee) => {
+    setSelectedTrainee(trainee);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedTrainee(null);
+  };
+
+  const statusBadge = (status) => {
+    const colors = {
+      Completed: { bg: '#E6F7F1', color: '#2ECC71' },
+      Processing: { bg: '#F3E8FF', color: '#9B59B6' },
+      Rejected: { bg: '#FDEDEC', color: '#E74C3C' },
+      'On Hold': { bg: '#FEF5E7', color: '#E67E22' },
+      'In Transit': { bg: '#F0F4FF', color: '#5B50A7' },
+    };
+    const style = {
+      backgroundColor: colors[status]?.bg || '#eee',
+      color: colors[status]?.color || '#333',
+      padding: '5px 10px',
+      borderRadius: '12px',
+      fontSize: '0.8rem',
+      fontWeight: '500',
+    };
+    return <span style={style}>{status}</span>;
+  };
+
+  const containerStyle = {
+    display: 'flex',
+    height: '100vh',
+    backgroundColor: '#F8F8FC',
+  };
+
+  const mainContentStyle = {
+    flexGrow: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  };
+
+  const bodyStyle = {
+    padding: '20px 40px',
+    overflowY: 'auto',
+    flexGrow: 1,
+  };
+
+  const titleStyle = {
+    margin: '0 0 20px 0',
+    fontSize: '1.5rem',
+    fontWeight: '600',
+    color: '#333',
+  };
+
+  const filterRowStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: '20px',
+    gap: '15px',
+  };
+
+  const searchBoxStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: '8px',
+    padding: '8px 12px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    flex: 1,
+    maxWidth: '250px',
+  };
+
+  const searchInputStyle = {
+    border: 'none',
+    outline: 'none',
+    marginLeft: '8px',
+    flex: 1,
+  };
+
+  const selectStyle = {
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: '1px solid #ccc',
+    background: '#fff',
+    cursor: 'pointer',
+  };
+
+  const resetStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    cursor: 'pointer',
+    color: '#E74C3C',
+    fontWeight: '500',
+  };
+
+  const tableStyle = {
+    width: '100%',
+    borderCollapse: 'collapse',
+    backgroundColor: '#fff',
+    borderRadius: '10px',
+    overflow: 'hidden',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+  };
+
+  const thStyle = {
+    textAlign: 'left',
+    padding: '14px',
+    backgroundColor: '#F4F4F9',
+    fontWeight: '600',
+    color: '#555',
+    fontSize: '0.9rem',
+  };
+
+  const tdStyle = {
+    padding: '14px',
+    borderBottom: '1px solid #eee',
+    fontSize: '0.9rem',
+    color: '#333',
+  };
+
+  const linkStyle = {
+    color: '#5B50A7',
+    cursor: 'pointer',
+    textDecoration: 'underline',
+  };
+
+  return (
+    <div style={containerStyle}>
+      <SharedSidebar />
+      <div style={mainContentStyle}>
+        <SharedHeader />
+        <div style={bodyStyle}>
+          <h2 style={titleStyle}>Trainee Records</h2>
+          <div style={filterRowStyle}>
+            <div style={searchBoxStyle}>
+              <FaSearch style={{ color: '#aaa' }} />
+              <input
+                type="text"
+                placeholder="Search for name"
+                style={searchInputStyle}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <select
+              style={selectStyle}
+              value={filters.date}
+              onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+            >
+              <option value="">Select Date</option>
+              <option value="04 Sep 2019">14 Feb 2019</option>
+              <option value="28 May 2019">28 May 2019</option>
+              <option value="23 Nov 2019">23 Nov 2019</option>
+            </select>
+            <select
+              style={selectStyle}
+              value={filters.caseStudy}
+              onChange={(e) => setFilters({ ...filters, caseStudy: e.target.value })}
+            >
+              <option value="">Case Study</option>
+              <option value="089 Kutch Green Apt. 448">Case A</option>
+              <option value="979 Immanuel Ferry Suite 526">Case B</option>
+              <option value="8587 Frida Ports">Case C</option>
+            </select>
+            <select
+              style={selectStyle}
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            >
+              <option value="">Completion Status</option>
+              <option value="Completed">Completed</option>
+              <option value="Processing">Processing</option>
+              <option value="Rejected">Rejected</option>
+              <option value="On Hold">On Hold</option>
+              <option value="In Transit">In Transit</option>
+            </select>
+            <div style={resetStyle} onClick={resetFilters}>
+              <FaRedo style={{ marginRight: '6px' }} />
+              Reset Filter
+            </div>
+          </div>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>ID</th>
+                <th style={thStyle}>Name</th>
+                <th style={thStyle}>Case Study</th>
+                <th style={thStyle}>Date</th>
+                <th style={thStyle}>Report</th>
+                <th style={thStyle}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTrainees.map((trainee) => (
+                <tr key={trainee.id}>
+                  <td style={tdStyle}>{trainee.id}</td>
+                  <td style={tdStyle}>{trainee.name}</td>
+                  <td style={tdStyle}>{trainee.caseStudy}</td>
+                  <td style={tdStyle}>{trainee.date}</td>
+                  <td style={tdStyle}>
+                    <span style={linkStyle} onClick={() => handleViewReport(trainee)}>
+                      View
+                    </span>
+                  </td>
+                  <td style={tdStyle}>{statusBadge(trainee.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {showModal && <TraineeReportModal trainee={selectedTrainee} onClose={handleCloseModal} />}
     </div>
   );
 };
