@@ -1,7 +1,7 @@
 import React from 'react';
 import '../styles/EditorToolsSidebar.css';
 
-const nodeTypes = ['scenario', 'option', 'popup', 'ending'];
+const nodeTypes = ['process', 'decision', 'end'];
 
 const EditorToolsSidebar = ({ suggestions = [] }) => {
 
