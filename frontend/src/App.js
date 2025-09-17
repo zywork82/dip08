@@ -11,6 +11,8 @@ import PreviewPage from "./pages/PreviewPage";
 import TraineeRecordsPage from "./pages/TraineeRecordsPage";
 import SettingsPage from "./pages/SettingsPage";
 import SceneEditor from "./pages/SceneEditor";
+import TrainerTeam from './pages/TrainerTeam';
+import CaseStudiesPage from './pages/CaseStudiesPage';
 import "./App.css";
 
 
@@ -81,6 +83,8 @@ function App() {
            <Route path="/trainee-records" element={<TraineeRecordsPage />} />
            <Route path="/settings" element={<SettingsPage />} />
            <Route path="/scene-editor" element={<SceneEditor />} />
+           <Route path="/trainer-team" element={<TrainerTeam />} />
+           <Route path="/case-studies" element={<CaseStudiesPage />} />
 
         </Routes>
       </main>

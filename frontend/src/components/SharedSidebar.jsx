@@ -1,28 +1,28 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
-import { FaHome, FaBook, FaUserGraduate, FaLaptop, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import { FaHome, FaFolder, FaUsers, FaLaptop, FaCog, FaSignOutAlt, FaChalkboardTeacher } from 'react-icons/fa';
 import '../styles/Sidebar.css';
 
 const SharedSidebar = () => {
   const location = useLocation();
 
   const navItems = [
-    { name: 'Home', path: '/', icon: <FaHome /> },
-    { name: 'Case Studies', path: '/case-studies', icon: <FaBook /> },
-    { name: 'My Records', path: '/trainee-records', icon: <FaUserGraduate /> }, 
+    { name: 'Dashboard', path: '/admin', icon: <FaHome /> },
+    { name: 'Case Studies', path: '/case-studies', icon: <FaFolder /> },
+    { name: 'Trainer Team', path: '/trainer-team', icon: <FaUsers /> },
+    { name: 'Trainee Records', path: '/trainee-records', icon: <FaChalkboardTeacher /> },
     { name: 'Tutorial', path: '/tutorial', icon: <FaLaptop /> },
-    { name: 'Settings', path: '/settings', icon: <FaCog /> },
-    { name: 'Logout', path: '/logout', icon: <FaSignOutAlt /> }
+    { name: 'Settings', path: '/settings', icon: <FaCog /> }
   ];
 
   return (
     <aside className="sidebar">
       <div className="logo-container">
-        <div className="w-12 h-12">
-          <img src={logo} alt="Strategic Thinking Logo" className="logo-icon" />
+        <div className="w-8 h-8">
+          <img src={logo} alt="Deciwise Logo" className="logo-icon" />
         </div>
-        <span className="logo-text">strategic thinking</span>
+        <span className="logo-text">Deciwise</span>
       </div>
       <nav className="nav-menu">
         {navItems.map((item) => (
@@ -36,6 +36,15 @@ const SharedSidebar = () => {
           </Link>
         ))}
       </nav>
+      <div className="profile-section">
+        <div className="profile-info">
+          <span className="profile-name">Prof Andy</span>
+          <span className="profile-role">Administrator</span>
+        </div>
+        <button className="logout-button">
+          <FaSignOutAlt />
+        </button>
+      </div>
     </aside>
   );
 };
