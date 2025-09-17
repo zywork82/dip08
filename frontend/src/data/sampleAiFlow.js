@@ -5,28 +5,60 @@ export const sampleNodes = {
     id: '101',
     type: 'scenario',
     position: { x: 300, y: 50 },
-    data: { label: 'A viral post is spreading. What do you do first?' },
+    data: 'A viral post is spreading. What do you do first?',
     // ADDED: This connects the scenario to its options
-    options: ['102', '103'], 
+    scene: 'The president ow ow',
+    options: ['101_A', '101_B'],
+    b64image: 'imagesample' 
+  }, 
+
+  '201': {
+    id: '201',
+    type: 'scenario',
+    position: { x: 300, y: 50 },
+    data: 'Some people in school approached you to ask you questions. What would you do?',
+    scene: 'whatever 1',
+    options: ['201_A', '201_B'],
+    b64image: 'imagesample' 
   },
+
   // Options
-  '102': {
-    id: '102',
+  '101_A': {
+    id: '101_A',
     type: 'option',
     position: { x: 100, y: 200 },
     data: { label: 'OPTION A: Ignore it and hope it dies down.' },
     // ADDED: This tells us where Option A leads
     next: '201', 
   },
-  '103': {
-    id: '103',
+
+  '101_B': {
+    id: '101_B',
     type: 'option',
     position: { x: 300, y: 200 },
     data: { label: 'OPTION B: Alert your Exco and call for emergency meeting.' },
     // ADDED: This tells us where Option B leads
     next: '202',
   },
-  // Follow-up options / popups
+
+  '201_A': {
+    id: '201_A',
+    type: 'option',
+    position: { x: 100, y: 200 },
+    data: { label: 'OPTION A: Run away.' },
+    // ADDED: This tells us where Option A leads
+    next: '201', 
+  },
+
+  '201_B': {
+    id: '201_B',
+    type: 'option',
+    position: { x: 100, y: 200 },
+    data: { label: 'OPTION B: Listen to what they have to say.' },
+    // ADDED: This tells us where Option A leads
+    next: '301', 
+  }
+  
 
 };
 
