@@ -13,10 +13,12 @@ import SettingsPage from "./pages/SettingsPage";
 import SceneEditor from "./pages/SceneEditor";
 import TrainerTeam from './pages/TrainerTeam';
 import CaseStudiesPage from './pages/CaseStudiesPage';
+import AnalyticsEngine from "./pages/AnalyticsEngine";
 import "./App.css";
 import ScenarioInterface from "./pages/ScenarioInterface";
-
 import {sampleNodes} from '../src/data/sampleAiFlow.js';
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 
 function App() {
@@ -99,6 +101,7 @@ function App() {
           <li><Link to="/student">Student Page</Link></li>
           <li><Link to="/scenarioInterface">Scenario Interface</Link></li>
           <li><Link to="/signup">Signup</Link></li>
+          <li><Link to="/analytics">Analytics</Link></li>
         </ul>
       </nav>
 
@@ -118,6 +121,7 @@ function App() {
            <Route path="/preview" element={<PreviewPage />} />
            <Route path="/trainee-records" element={<TraineeRecordsPage />} />
            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/analytics" element={<AnalyticsEngine />} />
            <Route path="/scene-editor" element={<SceneEditor />} />
            <Route path="/trainer-team" element={<TrainerTeam />} />
            <Route path="/case-studies" element={<CaseStudiesPage />} />
@@ -128,7 +132,18 @@ function App() {
       
     </div>
       </main>
+        <ToastContainer 
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={true}
+        newestOnTop={true}
+        closeOnClick
+        pauseOnHover={false}
+        draggable={false}
+        theme="colored"
+      />
     </HashRouter>
+
     
   );
 }
