@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
+import LogoLong from '../assets/logolong.png';
+import '../styles/Auth.css';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -17,18 +19,14 @@ const LoginPage = () => {
     <AuthLayout>
       <div className="auth-form-content">
         <div className="logo-container">
-          {/*
-            This is where your 'strategic thinking' logo goes.
-            You would replace this with an <img> tag.
-          */}
-          <h2>strategic thinking</h2>
+          {LogoLong && <img src={LogoLong} alt="DeciWise Logo" className="logo-icon" />}
         </div>
         <form onSubmit={handleLogin}>
           <h3>Login</h3>
           <div className="form-group">
             <input
               type="email"
-              placeholder="NTU Email"
+              placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
