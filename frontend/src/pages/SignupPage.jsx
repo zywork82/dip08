@@ -1,18 +1,58 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
-import LogoLong from '../assets/logolong.png';
-import '../styles/Auth.css';
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const SignupPage = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const navigate = useNavigate(); // lets you redirect after signup
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
-    // Here you would make an API call to your backend
-    console.log('Signing up with:', { name, email, password });
+  
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+       body: JSON.stringify({
+        email: email,
+        username: name,  
+        password: password,
+       })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Signup failed");
+      }
+
+      const data = await response.json();
+      console.log("Signup successful:", data);
+
+      if (!toast.isActive("signup-success")) {
+        toast.success("Account created successfully!", {
+          toastId: "signup-success",
+        });
+      }
+
+      // Redirect to login
+      navigate("/");
+    } catch (error) {
+      console.error("Error:", error.message);
+
+      // Prevent multiple stacked error toasts
+      if (!toast.isActive("signup-error")) {
+        toast.error(error.message, {
+          toastId: "signup-error",
+        });
+      }
+    }
   };
 
   return (
@@ -56,6 +96,7 @@ const SignupPage = () => {
           Already have an account? <Link to="/">Login</Link>
         </p>
       </div>
+
     </AuthLayout>
   );
 };

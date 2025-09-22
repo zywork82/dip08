@@ -6,7 +6,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-y:scroll;
+  overflow-y: auto;
+  overflow-y: scroll;
 }
 
 code {
@@ -29,6 +30,7 @@ code {
   display: flex;
   flex-direction: column;
 }
+
 
 .nav-handle {
   font-size: 12px;
