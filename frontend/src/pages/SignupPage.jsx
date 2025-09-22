@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
+import LogoLong from '../assets/logolong.png';
+import '../styles/Auth.css';
 
 const SignupPage = () => {
   const [name, setName] = useState('');
@@ -16,9 +18,9 @@ const SignupPage = () => {
   return (
     <AuthLayout>
       <div className="auth-form-content">
-        <div className="logo-container">
-          <h2>strategic thinking</h2>
-        </div>
+         <div className="logo-container">
+                 {LogoLong && <img src={LogoLong} alt="DeciWise Logo" className="logo-icon" />}
+               </div>
         <form onSubmit={handleSignup}>
           <h3>Create Account</h3>
           <div className="form-group">
@@ -33,7 +35,7 @@ const SignupPage = () => {
           <div className="form-group">
             <input
               type="email"
-              placeholder="NTU Email"
+              placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
