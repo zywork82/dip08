@@ -1,90 +1,79 @@
-export const sampleNodes = [
-  {
-    id: '1',
-    type: 'process',
+// sampleAiFlow.js
+
+export const sampleNodes = {
+  '101': {
+    id: '101',
+    type: 'scenario',
     position: { x: 300, y: 50 },
-    data: { label: 'A viral social media post is accusing the organization of unethical practices. What is your first move?' },
+    data: 'A viral post is spreading. What do you do first?',
+    // ADDED: This connects the scenario to its options
+    scene: 'The president ow ow',
+    options: ['101_A', '101_B'],
+    b64image: 'imagesample' 
+  }, 
+
+  '201': {
+    id: '201',
+    type: 'scenario',
+    position: { x: 300, y: 50 },
+    data: 'Some people in school approached you to ask you questions. What would you do?',
+    scene: 'whatever 1',
+    options: ['201_A', '201_B'],
+    b64image: 'imagesample' 
   },
-  {
-    id: '2',
-    type: 'decision',
+
+  // Options
+  '101_A': {
+    id: '101_A',
+    type: 'option',
     position: { x: 100, y: 200 },
-    data: { label: 'OPTION A: Ignore the post, assuming it will blow over.' },
+    data: { label: 'OPTION A: Ignore it and hope it dies down.' },
+    // ADDED: This tells us where Option A leads
+    next: '201', 
   },
-  {
-    id: '3',
-    type: 'decision',
+
+  '101_B': {
+    id: '101_B',
+    type: 'option',
     position: { x: 300, y: 200 },
-    data: { label: 'OPTION B: Immediately convene an emergency meeting with the management team.' },
+    data: { label: 'OPTION B: Alert your Exco and call for emergency meeting.' },
+    // ADDED: This tells us where Option B leads
+    next: '202',
   },
-  {
-    id: '4',
-    type: 'decision',
-    position: { x: 500, y: 200 },
-    data: { label: 'OPTION C: Directly report the post to the platform and request its removal.' },
+
+  '201_A': {
+    id: '201_A',
+    type: 'option',
+    position: { x: 100, y: 200 },
+    data: { label: 'OPTION A: Run away.' },
+    // ADDED: This tells us where Option A leads
+    next: '201', 
   },
-  {
-    id: '5',
-    type: 'process',
-    position: { x: 100, y: 350 },
-    data: { label: 'The rumors have spread to mainstream news outlets. What is your next step?' },
-  },
-  {
-    id: '6',
-    type: 'decision',
-    position: { x: 200, y: 350 },
-    data: { label: 'B1: Prepare a public statement to address the allegations.' },
-  },
-  {
-    id: '7',
-    type: 'decision',
-    position: { x: 350, y: 350 },
-    data: { label: 'B2: Conduct an internal investigation to gather facts and evidence.' },
-  },
-  {
-    id: '8',
-    type: 'decision',
-    position: { x: 500, y: 350 },
-    data: { label: 'B3: Contact legal counsel for guidance on a response strategy.' },
-  },
-  {
-    id: '9',
-    type: 'end',
-    position: { x: 100, y: 500 },
-    data: { label: 'E1: Complete Failure. The crisis has spiraled out of control, resulting in significant reputation loss and legal action.' },
-  },
-  {
-    id: '10',
-    type: 'end',
-    position: { x: 300, y: 500 },
-    data: { label: 'E2: Partial Recovery. The public statement helped, but the initial delay caused lasting damage to credibility.' },
-  },
-  {
-    id: '11',
-    type: 'end',
-    position: { x: 500, y: 500 },
-    data: { label: 'E3: Successful Resolution. The claims were disproven with evidence, and a coordinated response restored public trust.' },
-  },
-];
+
+  '201_B': {
+    id: '201_B',
+    type: 'option',
+    position: { x: 100, y: 200 },
+    data: { label: 'OPTION B: Listen to what they have to say.' },
+    // ADDED: This tells us where Option A leads
+    next: '301', 
+  }
+  
+
+};
 
 export const sampleEdges = [
-  { id: 'e1-2', source: '1', target: '2', type: 'smoothstep', animated: true },
-  { id: 'e1-3', source: '1', target: '3', type: 'smoothstep', animated: true },
-  { id: 'e1-4', source: '1', target: '4', type: 'smoothstep', animated: true },
-  { id: 'e2-5', source: '2', target: '5', type: 'smoothstep', animated: true },
-  { id: 'e5-9', source: '5', target: '9', type: 'smoothstep', animated: true },
-  { id: 'e3-6', source: '3', target: '6', type: 'smoothstep', animated: true },
-  { id: 'e3-7', source: '3', target: '7', type: 'smoothstep', animated: true },
-  { id: 'e3-8', source: '3', target: '8', type: 'smoothstep', animated: true },
-  { id: 'e6-10', source: '6', target: '10', type: 'smoothstep', animated: true },
-  { id: 'e7-11', source: '7', target: '11', type: 'smoothstep', animated: true },
-  { id: 'e8-11', source: '8', target: '11', type: 'smoothstep', animated: true },
-  { id: 'e4-10', source: '4', target: '10', type: 'smoothstep', animated: true },
+  { id: 'e101-102', source: '101', target: '102', type: 'smoothstep', animated: true },
+  { id: 'e101-103', source: '101', target: '103', type: 'smoothstep', animated: true },
+  { id: 'e101-104', source: '101', target: '104', type: 'smoothstep', animated: true },
+  { id: 'e103-105', source: '103', target: '105', type: 'smoothstep', animated: true },
+  { id: 'e102-106', source: '102', target: '106', type: 'smoothstep', animated: true },
+  { id: 'e104-107', source: '104', target: '107', type: 'smoothstep', animated: true },
 ];
 
 export const sampleAiSuggestions = [
-  { nodeType: 'decision', label: 'Proactively issue a statement acknowledging the situation while you investigate.' },
-  { nodeType: 'decision', label: 'Engage with key influencers to counter the misinformation.' },
-  { nodeType: 'process', label: 'Ask if internal team members or former employees have been contacted by reporters.' },
-  { nodeType: 'end', label: 'Monitor media and social channels for any new developments.' },
+  { nodeType: 'option', label: 'Check the source of the post before taking action.' },
+  { nodeType: 'option', label: 'Notify your team about potential risks.' },
+  { nodeType: 'option', label: 'Prepare a public statement.' },
+  { nodeType: 'ending', label: 'Ignore post and monitor reactions.' },
 ];
