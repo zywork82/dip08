@@ -1,5 +1,6 @@
+
 // FlowChartEditor.jsx
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactFlow, {
   ReactFlowProvider,
@@ -55,9 +56,9 @@ const getLayoutedNodes = (nodes, edges) => {
 const FlowChartEditor = () => {
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
+const [nodes, setNodes] = useState([]); // must define!
+const [edges, setEdges] = useState([]);
 
-  const [nodes, setNodes] = useState(sampleNodes);
-  const [edges, setEdges] = useState(sampleEdges);
   const [previewData, setPreviewData] = useState(null); // for modal preview
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -229,7 +230,58 @@ const openPreview = () => {
 
   navigate('/preview', { state: { flowData: serializableFlow } });
 };
+useEffect(() => {
+  // Only fetch if reactFlowInstance is ready
+  const fetchFlowData = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:5000/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          story: "An employee clicks a phishing email and IT must respond. Management faces tough choices.",
+          levels: [3, 3, 3, 3],
+        }),
+      });
 
+      if (!res.ok) throw new Error('Backend error');
+
+      const data = await res.json();
+
+      // Transform backend data into React Flow format
+      const nodes = data.nodes.map((n, idx) => ({
+        id: n.id,
+        type: n.type,
+        position: { x: idx * 200, y: idx * 120 }, // temporary; dagre will auto-layout
+        data: { 
+          label: n.text,
+          narrative: n.narrative,
+          scene: n.scene,
+          imageUrl: n.image || null,
+          onChange: (e) => handleNodeLabelChange(n.id, e.target.value),
+          onDelete: () => removeNode(n.id)
+        },
+      }));
+
+      const edges = data.edges.map((e, idx) => ({
+        id: `e-${idx}`,
+        source: e.from,
+        target: e.to,
+        label: e.label || '',
+      }));
+
+      setNodes(nodes);
+      setEdges(edges);
+
+      // Optional: auto layout
+      setNodes((nds) => getLayoutedNodes(nds, edges));
+
+    } catch (err) {
+      console.error('Failed to fetch flow data:', err);
+    }
+  };
+
+  fetchFlowData();
+}, []);
   return (
     <div style={{ display: 'flex', width: '100%', height: '100vh' }}>
       <EditorToolsSidebar suggestions={sampleAiSuggestions} />

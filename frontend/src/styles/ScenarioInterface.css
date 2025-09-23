@@ -1,0 +1,30 @@
+.main-content {
+  flex: 1;
+  display: flex;
+  gap: 2rem;
+}
+
+.main-section {
+  gap: 2rem;
+}
+
+.option-button {
+  padding: 10px;
+  border-radius: 5px;
+  width: 200px;
+  position: relative;
+  border: 2px solid #6366f1;
+  height:relative;
+}
+
+.node-option {
+  background-color: #e0e7ff;
+  border: 2px solid #6366f1;
+}
+
+.optionsWrapper {
+  justify-content: center;
+  display: flex;
+  height:200px;
+  background-color:white;
+}
