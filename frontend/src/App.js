@@ -15,6 +15,8 @@ import TrainerTeam from './pages/TrainerTeam';
 import CaseStudiesPage from './pages/CaseStudiesPage';
 import AnalyticsEngine from "./pages/AnalyticsEngine";
 import "./App.css";
+import ScenarioInterface from "./pages/ScenarioInterface";
+import {sampleNodes} from '../src/data/sampleAiFlow.js';
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -53,6 +55,34 @@ function App() {
     });
   };
 
+  const startScenario = sampleNodes[101];
+  const [currentScenarioId, setCurrentScenarioId] = useState(startScenario.id);
+
+  // Look up the full data for the current scenario
+  const currentScenario = sampleNodes[currentScenarioId];
+
+  // Create state to store all analytics data
+  const [analyticsData, setAnalyticsData] = useState([]);
+
+  //Update the handler to accept the `timeTaken` argument
+  const handleOptionSelect = (selectedOption, timeTaken) => {
+    //Create a new entry for our analytics log
+    const newAnalyticEntry = {
+      scenarioId: currentScenarioId,
+      choice: selectedOption.data,
+      timeTaken: timeTaken.toFixed(2) + 's', // Format to 2 decimal places
+    };
+
+    //Add the new entry to our analytics state
+    const updatedAnalytics = [...analyticsData, newAnalyticEntry];
+    setAnalyticsData(updatedAnalytics);
+    console.log('Analytics Log:', updatedAnalytics); // Log to the console
+
+    if (selectedOption.next) {
+      setCurrentScenarioId(selectedOption.next);
+    }
+  };
+
   return (
     <HashRouter>
       {/* Draggable Nav Bar */}
@@ -69,6 +99,7 @@ function App() {
           <li><Link to="/scenario">Scenario</Link></li>
           <li><Link to="/admin">Admin Dashboard</Link></li>
           <li><Link to="/student">Student Page</Link></li>
+          <li><Link to="/scenarioInterface">Scenario Interface</Link></li>
           <li><Link to="/signup">Signup</Link></li>
           <li><Link to="/analytics">Analytics</Link></li>
         </ul>
@@ -82,6 +113,10 @@ function App() {
           <Route path="/scenario" element={<ScenarioPrompt />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/student" element={<StudentPage />} />
+          
+          <Route path="/scenarioInterface" element={<ScenarioInterface scenario={currentScenario} 
+        onOptionSelect={handleOptionSelect} />}/>
+
           <Route path="/signup" element={<SignupPage />} />
            <Route path="/preview" element={<PreviewPage />} />
            <Route path="/trainee-records" element={<TraineeRecordsPage />} />
@@ -92,6 +127,10 @@ function App() {
            <Route path="/case-studies" element={<CaseStudiesPage />} />
 
         </Routes>
+
+        <div>
+      
+    </div>
       </main>
         <ToastContainer 
         position="bottom-right"
