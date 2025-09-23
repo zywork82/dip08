@@ -14,7 +14,6 @@ import SceneEditor from "./pages/SceneEditor";
 import TrainerTeam from './pages/TrainerTeam';
 import CaseStudiesPage from './pages/CaseStudiesPage';
 import AnalyticsEngine from "./pages/AnalyticsEngine";
-import AnalyticsEngine from "./pages/AnalyticsEngine";
 import "./App.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -87,7 +86,7 @@ function App() {
            <Route path="/preview" element={<PreviewPage />} />
            <Route path="/trainee-records" element={<TraineeRecordsPage />} />
            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/analytics" element={<AnalyticsEngine />} />
+          <Route path="/analytics" element={<AnalyticsEngine />} />
            <Route path="/scene-editor" element={<SceneEditor />} />
            <Route path="/trainer-team" element={<TrainerTeam />} />
            <Route path="/case-studies" element={<CaseStudiesPage />} />
