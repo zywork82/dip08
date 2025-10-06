@@ -12,7 +12,7 @@
 
 .sidebar-node {
   background: white;
-  border: 1px solid #9ca3af;
+  border: 3px solid #9ca3af;
   padding: 8px;
   margin-bottom: 8px;
   text-align: center;
@@ -23,12 +23,15 @@
 
 .sidebar-node-scenario {
   border-color: #10b981;
+  background-color: #d1fae5;
 }
 
 .sidebar-node-option {
   border-color: #6366f1;
+  background-color: #e0e7ff;
 }
 
 .sidebar-node-ending {
-  border-color: #f59e0b;
+  border-color: #ef4444;
+  background-color: #fee2e2;
 }
