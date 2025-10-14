@@ -6,7 +6,7 @@ import { FaTh, FaBars } from 'react-icons/fa';
 import '../styles/CaseStudiesPage.css'; // Import the new CSS file
 
 // Mock data for collaborators
-const collaboratorsData = [
+const mockCollaborators = [
   { initials: 'HP', color: '#9B50E5' },
   { initials: 'SH', color: '#2ECC71' },
   { initials: 'TY', color: '#E74C3C' },
@@ -17,16 +17,17 @@ const CaseStudiesPage = () => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const navigate = useNavigate();
   const [caseStudiesData, setCaseStudiesData] = useState([]);
-  const [collaboratorsData, setCollaboratorsData] = useState([]);
+  const [collaboratorsData, setCollaboratorsData] = useState(mockCollaborators);
 
 useEffect(() => {
   const fetchCollaborators = async () => {
     try {
       const response = await fetch("http://localhost:8000/collaborators");
       const data = await response.json();
-      setCollaboratorsData(data);
+      setCollaboratorsData(Array.isArray(data) ? data : []); // fallback to empty array
     } catch (error) {
       console.error("Error fetching collaborators:", error);
+      setCollaboratorsData([]); // ensure state is always an array
     }
   };
 
@@ -54,10 +55,10 @@ useEffect(() => {
   const filteredCaseStudies = caseStudiesData.filter((cs) => {
     if (activeTab === 'All') return true;
     if (activeTab === 'Completed') return cs.status === 'Completed';
-    if (activeTab === 'In-Progress') return cs.status === 'In-Progress';
+    if (activeTab === 'In-Progress') return cs.status === 'In-Progress' || cs.status === 'Edit';
     return false;
   });
-
+  
   const renderCaseStudies = () => {
     if (viewMode === 'grid') {
       return (

@@ -11,11 +11,6 @@ import { MdHome, MdPeople, MdAssignment, MdLibraryBooks, MdSettings, MdLogout, M
 import { FaPlusCircle } from 'react-icons/fa';
 import axios from 'axios';
 
-
-
-
-
-
 const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A';
 
 const AdminDashboard = () => {
