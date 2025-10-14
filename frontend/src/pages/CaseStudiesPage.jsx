@@ -1,48 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SharedSidebar from '../components/SharedSidebar';
 import SharedHeader from '../components/SharedHeader';
 import { FaTh, FaBars } from 'react-icons/fa';
 import '../styles/CaseStudiesPage.css'; // Import the new CSS file
-
-// Mock data for case studies
-const caseStudiesData = [
-  {
-    id: 1,
-    title: 'Viral Post Handling',
-    lastEdited: '27/8/2025',
-    status: 'Edit',
-    image: 'https://onlinesafetyhub.safeguardingni.org/wp-content/uploads/2023/11/online-bullying5.jpg'
-  },
-  {
-    id: 2,
-    title: 'Missing Funds',
-    lastEdited: '27/8/2025',
-    status: 'Completed',
-    image: 'https://onlinesafetyhub.safeguardingni.org/wp-content/uploads/2023/11/online-bullying5.jpg'
-  },
-  {
-    id: 3,
-    title: 'Online Bullying',
-    lastEdited: '27/8/2025',
-    status: 'In-Progress',
-    image: 'https://onlinesafetyhub.safeguardingni.org/wp-content/uploads/2023/11/online-bullying5.jpg'
-  },
-  {
-    id: 4,
-    title: 'Workplace Harassment',
-    lastEdited: '27/8/2025',
-    status: 'In-Progress',
-    image: 'https://onlinesafetyhub.safeguardingni.org/wp-content/uploads/2023/11/online-bullying5.jpg'
-  },
-  {
-    id: 5,
-    title: 'Crisis Management',
-    lastEdited: '27/8/2025',
-    status: 'Completed',
-    image: 'https://onlinesafetyhub.safeguardingni.org/wp-content/uploads/2023/11/online-bullying5.jpg'
-  },
-];
 
 // Mock data for collaborators
 const collaboratorsData = [
@@ -55,6 +16,36 @@ const CaseStudiesPage = () => {
   const [activeTab, setActiveTab] = useState('All');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const navigate = useNavigate();
+  const [caseStudiesData, setCaseStudiesData] = useState([]);
+  const [collaboratorsData, setCollaboratorsData] = useState([]);
+
+useEffect(() => {
+  const fetchCollaborators = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/collaborators");
+      const data = await response.json();
+      setCollaboratorsData(data);
+    } catch (error) {
+      console.error("Error fetching collaborators:", error);
+    }
+  };
+
+  fetchCollaborators();
+}, []);
+  
+
+  useEffect(() => {
+  const fetchCaseStudies = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/scenarios");
+      const data = await response.json();
+      setCaseStudiesData(data);
+    } catch (error) {
+      console.error("Error fetching case studies:", error);
+    }
+  };
+  fetchCaseStudies();
+}, []);
 
   const handleCreateNewCase = () => {
     navigate('/scenario');

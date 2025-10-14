@@ -6,6 +6,7 @@ import '../styles/Auth.css';
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import axios from 'axios';
 
 
 const LoginPage = () => {
@@ -14,54 +15,41 @@ const LoginPage = () => {
   const [role, setRole] = useState('student'); // Default role is student
   const navigate = useNavigate();
 
- const handleLogin = async (e) => { 
-   e.preventDefault();
+  const handleLogin = async (e) => {
+    e.preventDefault();
 
-  try {
-    const response = await fetch("http://127.0.0.1:8000/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json", // important!
-      },
-      body: JSON.stringify({
-        email: email,       // must match backend
-        password: password, // must match backend
-      }),
-    });
-  if (!response.ok) {
-      // Try to parse error details from backend
-      let errorMessage = "Login failed";
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.detail || errorMessage;
-      } catch {
-        errorMessage = response.statusText || errorMessage;
+    try {
+      const response = await axios.post("http://localhost:8000/auth/login", {
+        email,
+        password,
+      });
+
+      const { access_token, user } = response.data;
+
+      // Store token and user info
+      localStorage.setItem("token", access_token);
+      localStorage.setItem("adminUsername", user.username);
+      localStorage.setItem(
+        "adminProfileImage",
+        user.profileImage || "https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A"
+      );
+      localStorage.setItem("userRole", user.role);
+
+      toast.success(`Welcome ${user.username}!`);
+
+      // Navigate based on role
+      if (user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/student-dashboard");
       }
-      throw new Error(errorMessage);
+
+    } catch (err) {
+      console.error("Login failed:", err);
+      toast.error(err.response?.data?.detail || "Login failed");
     }
+  };
 
-    const data = await response.json();
-    console.log("Login successful:", data);
-
-    localStorage.setItem("user", JSON.stringify(data));
-
-    if (!toast.isActive("login-success")) {
-      toast.success(`Welcome ${data.username}!`, {
-        toastId: "login-success",
-      });
-    }
-
-    navigate(data.role === "admin" ? "/admin" : "/student");
-  } catch (error) {
-    console.error("Error during login:", error);
-
-    if (!toast.isActive("login-error")) {
-      toast.error(error.message || "Something went wrong", {
-        toastId: "login-error",
-      });
-    }
-  }
-};
 
   return (
     <AuthLayout>
