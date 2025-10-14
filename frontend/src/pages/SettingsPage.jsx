@@ -1,20 +1,44 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import SharedSidebar from "../components/SharedSidebar";
 import SharedHeader from "../components/SharedHeader";
 import '../styles/Settings.css';
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState("accounts");
+  const [isEditing, setIsEditing] = useState(false); // ✅ this was missing or placed below
 
-  const [profile, setProfile] = useState({
-    name: "Andy Khong",
-    email: "andykhong@e.ntu.edu.sg",
-    phone: "81234567",
-    password: "***************",
-  });
-  const [originalProfile, setOriginalProfile] = useState(profile);
-  const [isEditing, setIsEditing] = useState(false);
+const [profile, setProfile] = useState({
+  name: "",
+  email: "",
+  password: "***************",
+  profileImage: "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg", // default
+});
+const [originalProfile, setOriginalProfile] = useState(profile);
 
+useEffect(() => {
+  const storedUser = localStorage.getItem("user");
+  if (storedUser) {
+    const parsedUser = JSON.parse(storedUser);
+    setProfile({
+      name: parsedUser.name || "",
+      email: parsedUser.email || "",
+      password: "***************",
+      profileImage:
+        parsedUser.profileImage ||
+        "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg", // default if none in DB
+    });
+    setOriginalProfile({
+      name: parsedUser.name || "",
+      email: parsedUser.email || "",
+      password: "***************",
+      profileImage:
+        parsedUser.profileImage ||
+        "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg",
+    });
+  }
+}, []);
+
+  // --- General settings ---
   const [generalSettings, setGeneralSettings] = useState({
     language: "English",
     darkMode: false,
@@ -32,17 +56,17 @@ const SettingsPage = () => {
   const handleSave = () => {
     setOriginalProfile(profile);
     setIsEditing(false);
+    localStorage.setItem("user", JSON.stringify(profile)); // optional save
   };
+
   const handleCancel = () => {
     setProfile(originalProfile);
     setIsEditing(false);
   };
 
-  // Handle general settings change
   const handleGeneralChange = (field, value) => {
     setGeneralSettings((prev) => ({ ...prev, [field]: value }));
   };
-
   return (
     <div className="settings-container">
       {/* Sidebar */}
@@ -147,9 +171,14 @@ const SettingsPage = () => {
             <div className="account-container">
               {/* Profile Picture */}
               <div className="profile-picture">
-                <div className="profile-icon">📷</div>
+                <img
+                  src={profile.profileImage}
+                  alt="Profile"
+                  className="profile-icon"
+                />
                 <p className="upload-logo">Upload Logo</p>
               </div>
+
 
               {/* Form Fields */}
               <div>
@@ -183,20 +212,7 @@ const SettingsPage = () => {
                   />
                 </div>
 
-                {/* Phone */}
-                <div className="account-field">
-                  <label>Phone Number</label>
-                  <input
-                    type="text"
-                    name="phone"
-                    value={profile.phone}
-                    onChange={handleProfileChange}
-                    disabled={!isEditing}
-                    className={`account-input ${
-                      !isEditing ? "disabled" : ""
-                    }`}
-                  />
-                </div>
+          
 
                 {/* Password */}
                 <div className="account-field">

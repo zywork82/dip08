@@ -20,6 +20,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    role: str  
 
 # --- Helpers ---
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -39,8 +40,13 @@ async def login(user: LoginRequest):
 
     if not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if user.role.lower() != db_user["role"].lower():
+        raise HTTPException(status_code=403, detail="Incorrect role selected")
 
     token = create_access_token(str(db_user["_id"]))
+   
+   
+
 
     return {
         "access_token": token,

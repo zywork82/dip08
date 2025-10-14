@@ -19,36 +19,46 @@ const LoginPage = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post("http://localhost:8000/auth/login", {
-        email,
-        password,
-      });
+    const response = await axios.post("http://localhost:8000/auth/login", {
+      email,
+      password,
+      role,
+    });
 
-      const { access_token, user } = response.data;
+    // Log backend response to confirm structure
+    console.log("Login response:", response.data);
 
-      // Store token and user info
-      localStorage.setItem("token", access_token);
-      localStorage.setItem("adminUsername", user.username);
-      localStorage.setItem(
-        "adminProfileImage",
-        user.profileImage || "https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A"
-      );
-      localStorage.setItem("userRole", user.role);
+    const { access_token, user } = response.data;
 
-      toast.success(`Welcome ${user.username}!`);
+    // ✅ Store user info properly
+    const userData = {
+      name: user.username,
+      email: user.email,
+      role: user.role,
+      profileImage:
+        user.profileImage ||
+        "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg",
+    };
 
-      // Navigate based on role
-      if (user.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/student-dashboard");
-      }
+    localStorage.setItem("token", access_token);
+    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("userRole", user.role);
 
-    } catch (err) {
-      console.error("Login failed:", err);
-      toast.error(err.response?.data?.detail || "Login failed");
+    toast.success(`Welcome ${user.username}!`);
+
+    // ✅ Navigate based on role
+    if (user.role === "admin") {
+      navigate("/admin");
+    } else if (user.role === "student") {
+      navigate("/student");
+    } else {
+      navigate("/settings"); // fallback
     }
-  };
+  } catch (err) {
+    console.error("Login failed:", err);
+    toast.error(err.response?.data?.detail || "Login failed");
+  }
+};
 
 
   return (
