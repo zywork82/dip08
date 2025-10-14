@@ -29,6 +29,7 @@ code {
   width: 250px;
   display: flex;
   flex-direction: column;
+  top: 500px;
 }
 
 

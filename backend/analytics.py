@@ -1,42 +1,54 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
+from db import db  # ✅ import your shared MongoDB connection
 
 app = FastAPI(title="Analytics Engine Backend")
 
 # Allow frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # replace with frontend URL in production
+    allow_origins=["*"],  # replace with your frontend URL in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Pydantic model
+# Define request model
 class AnswerAnalytics(BaseModel):
-    questionId: str
-    selectedOption: str
-    timeTaken: int  # seconds
-
-# In-memory storage
-analytics_data = []
+    username: str
+    scenario_id: str
+    node_id: str
+    selected_option: str
+    time_taken: float
+    is_correct: bool
 
 @app.post("/api/analytics/answer")
 async def record_answer(data: AnswerAnalytics):
+    """Save analytics record to MongoDB"""
     entry = {
-        "questionId": data.questionId,
-        "selectedOption": data.selectedOption,
-        "timeTaken_sec": data.timeTaken,
-        "timestamp": datetime.utcnow().isoformat()
+        "username": data.username,
+        "scenario_id": data.scenario_id,
+        "node_id": data.node_id,
+        "selected_option": data.selected_option,
+        "time_taken": data.time_taken,
+        "is_correct": data.is_correct,
+        "ts": datetime.utcnow().isoformat()
     }
-    analytics_data.append(entry)
+
+    result = await db["reports"].insert_one(entry)
+    if not result.inserted_id:
+        raise HTTPException(status_code=500, detail="Failed to insert analytics data")
+
     return {"status": "success", "data": entry}
 
 @app.get("/api/analytics/all")
 async def get_all_analytics():
-    return {"status": "success", "analytics": analytics_data}
+    """Retrieve all analytics records"""
+    cursor = db["reports"].find({}, {"_id": 0})  # exclude _id field
+    analytics = await cursor.to_list(length=None)
+    return {"status": "success", "analytics": analytics}
 
 if __name__ == "__main__":
     import uvicorn
