@@ -29,7 +29,7 @@ const studentData = [
 // Fake student profile (can fetch from backend later)
 const studentProfile = {
   name: "John Doe",
-  ID: "S1234567A",
+  ID: "U1234567A",
 };
 
 const AnalyticsEngine = () => {

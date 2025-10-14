@@ -121,7 +121,7 @@ function App() {
            <Route path="/preview" element={<PreviewPage />} />
            <Route path="/trainee-records" element={<TraineeRecordsPage />} />
            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/analytics" element={<AnalyticsEngine />} />
+          <Route path="/analytics" element={<AnalyticsEngine />} />
            <Route path="/scene-editor" element={<SceneEditor />} />
            <Route path="/trainer-team" element={<TrainerTeam />} />
            <Route path="/case-studies" element={<CaseStudiesPage />} />
