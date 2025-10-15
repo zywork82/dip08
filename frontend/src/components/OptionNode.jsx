@@ -8,7 +8,7 @@ const OptionNode = ({ option, onClick }) => {
 
   return (
     <button className="option-button" onClick={onClick}>
-      {option.data.label}
+      {option}
     </button>
   );
 };

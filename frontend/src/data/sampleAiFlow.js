@@ -20,14 +20,44 @@ export const sampleNodes = {
     scene: 'whatever 1',
     options: ['201_A', '201_B'],
     b64image: 'imagesample' 
+  }, 
+
+  '301': {
+    id: '301',
+    type: 'endScenario',
+    position: { x: 300, y: 50 },
+    data: '301 happened 301 this',
+    scene: 'whatever 3',
+    options: ['301_A', '301_B'],
+    b64image: 'imagesample3' 
+  }, 
+
+  '302': {
+    id: '302',
+    type: 'scenario',
+    position: { x: 300, y: 50 },
+    data: '302 happened 302 this',
+    scene: 'whatever 3',
+    options: ['302_A', '302_B'],
+    b64image: 'imagesample3'
   },
 
-  // Options
+  '401': {
+    id: '401', 
+    type:'endScenario',
+    position: { x: 300, y: 50 },
+    data: 'As time passes, more people grew aware of the dire situation.', 
+    scene: 'whatever 4',
+    options: [],
+    b64image: 'imagesample4'
+  },
+
+  //OPTIONS
   '101_A': {
     id: '101_A',
     type: 'option',
     position: { x: 100, y: 200 },
-    data: { label: 'OPTION A: Ignore it and hope it dies down.' },
+    data: 'OPTION A: Ignore it and hope it dies down.',
     // ADDED: This tells us where Option A leads
     next: '201', 
   },
@@ -36,16 +66,16 @@ export const sampleNodes = {
     id: '101_B',
     type: 'option',
     position: { x: 300, y: 200 },
-    data: { label: 'OPTION B: Alert your Exco and call for emergency meeting.' },
+    data: 'OPTION B: Alert your Exco and call for emergency meeting.',
     // ADDED: This tells us where Option B leads
-    next: '202',
+    next: '201',
   },
 
   '201_A': {
     id: '201_A',
     type: 'option',
     position: { x: 100, y: 200 },
-    data: { label: 'OPTION A: Run away.' },
+    data:'OPTION A: Run away.',
     // ADDED: This tells us where Option A leads
     next: '201', 
   },
@@ -54,11 +84,28 @@ export const sampleNodes = {
     id: '201_B',
     type: 'option',
     position: { x: 100, y: 200 },
-    data: { label: 'OPTION B: Listen to what they have to say.' },
+    data:'OPTION B: Listen to what they have to say.',
     // ADDED: This tells us where Option A leads
     next: '301', 
+  }, 
+
+  '301_A': {
+    id: '301_A',
+    type: 'option',
+    position: { x: 100, y: 200 },
+    data:'OPTION A: 301_A',
+    // ADDED: This tells us where Option A leads
+    next: '401', 
+  }, 
+
+  '301_B': {
+    id: '301_B',
+    type: 'option',
+    position: { x: 100, y: 200 },
+    data:'OPTION B: 301_B',
+    // ADDED: This tells us where Option A leads
+    next: '401', 
   }
-  
 
 };
 
