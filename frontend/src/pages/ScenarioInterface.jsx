@@ -7,13 +7,10 @@ import OptionNode from '../components/OptionNode.jsx';
 import { sampleNodes} from '../data/sampleAiFlow.js'; // We need this for the lookups
 
 
-const ScenarioInterface = ({ scenario, onOptionSelect }) => {
-
-  // 2. Create state to hold the start time
+const ScenarioInterface = ({ scenario, onOptionSelect, isFinished, onGoToReport }) => {
+  // 2. Your existing timer logic is correct
   const [startTime, setStartTime] = useState(Date.now());
 
-  // 3. Use useEffect to reset the timer when the scenario changes
-  // This code runs every time the `scenario.id` prop changes.
   useEffect(() => {
     setStartTime(Date.now());
   }, [scenario.id]);
@@ -24,36 +21,45 @@ const ScenarioInterface = ({ scenario, onOptionSelect }) => {
 
   return (
     <div className="scenario-container">
-      <div class="main-section">
-
+      {/* This is your existing JSX structure */}
+      <div className="main-section">
+        {/* You can add images or other content here later */}
       </div>
 
       <section className="promptBox">
-        <p>{scenario.data}</p>
+        {/* Made this more robust to handle different data shapes */}
+        <p>{scenario.data.label || scenario.data}</p>
+
         <div className="optionsWrapper">
-          
-          {scenario.options.map(optionId => {
-            // Look up the full data for each option
-            const optionData = sampleNodes[optionId];
-            
-            if (!optionData) return null;
+          {/* --- 3. UPDATED LOGIC --- */}
+          {/* If the playthrough is finished, show the report button */}
+          {isFinished ? (
+            <div className="report-navigation">
+              <p>You have reached the end of the playthrough.</p>
+              <button onClick={onGoToReport} className="restart-button">
+                View Your Report
+              </button>
+            </div>
+          ) : (
+            /* Otherwise, show the available options using your existing map logic */
+            scenario.options.map(optionId => {
+              const optionData = sampleNodes[optionId];
+              if (!optionData) return null;
 
-            const handleSelect = () => {
-              // 4. Calculate time taken when an option is selected
-              const timeTaken = (Date.now() - startTime) / 1000; // in seconds
-              // 5. Pass the time taken up to the parent component
-              onOptionSelect(optionData, timeTaken);
-            };
+              const handleSelect = () => {
+                const timeTaken = (Date.now() - startTime) / 1000;
+                onOptionSelect(optionData, timeTaken);
+              };
 
-            return (
-              <OptionNode class='optionNode'
-                key={optionData.id}
-                option={optionData}
-                // ADDED: Pass the click handler to the OptionNode
-                onClick={handleSelect}
-              />
-            );
-          })}
+              return (
+                <OptionNode
+                  key={optionData.id}
+                  option={optionData.data}
+                  onClick={handleSelect}
+                />
+              );
+            })
+          )}
         </div>
       </section>
     </div>
