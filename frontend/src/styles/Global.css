@@ -19,5 +19,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--primary-bg);
   color: var(--text-primary);
+  margin: 0px;
+  padding: 0px;
+  min-height: 100vh;
+}
+
+h2:empty {
+  display: none; /* Hides the element completely */
   margin: 0;
+  padding: 0;
 }
