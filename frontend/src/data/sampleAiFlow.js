@@ -24,7 +24,7 @@ export const sampleNodes = {
 
   '301': {
     id: '301',
-    type: 'endScenario',
+    type: 'ending',
     position: { x: 300, y: 50 },
     data: '301 happened 301 this',
     scene: 'whatever 3',
@@ -44,7 +44,7 @@ export const sampleNodes = {
 
   '401': {
     id: '401', 
-    type:'endScenario',
+    type:'ending',
     position: { x: 300, y: 50 },
     data: 'As time passes, more people grew aware of the dire situation.', 
     scene: 'whatever 4',
