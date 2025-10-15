@@ -1,15 +1,16 @@
-import React from 'react';
+// src/components/OptionNode.jsx
+import React from "react";
+import "../styles/OptionNode.css";
 
-// ADDED: The 'onClick' function is now a prop
-const OptionNode = ({ option, onClick }) => {
-  if (!option) {
-    return null;
-  }
-
+const OptionNode = ({ option, onClick, isSelected }) => {
   return (
-    <button className="option-button" onClick={onClick}>
-      {option.data.label}
-    </button>
+    <div
+      className={`option-node ${isSelected ? "selected" : ""}`}
+      onClick={onClick}
+    
+    >
+      {option.label || "Option"}
+    </div>
   );
 };
 
