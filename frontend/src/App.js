@@ -2,17 +2,17 @@
 import React, { useState, useRef, useEffect } from "react";
 import { HashRouter, Routes, Route, Link, useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
-import ScenarioFlowEditor from "./pages/ScenarioFlowEditor";
+import FlowChartEditor from "./pages/FlowChartEditor";
+import SceneEditor from "./pages/SceneEditor.jsx";
 import ScenarioPrompt from "./pages/ScenarioPrompt";
 import StudentPage from "./pages/StudentPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SignupPage from "./pages/SignupPage";
 import "./App.css";
-
 import ScenarioInterface from "./pages/ScenarioInterface";
 import ReportInterface from './pages/ReportInterface.jsx';
-
 import {sampleNodes} from '../src/data/sampleAiFlow.js';
+
 
 const AppContent = () => {
   //Navigation Hook 
@@ -48,7 +48,19 @@ const AppContent = () => {
       setCurrentScenarioId(selectedOption.id);
     }
   };
+const suppressResizeObserverError = (error) => {
+  // Check if the error message contains the specific text
+  if (error.message && error.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+    // Return immediately, preventing the error from being logged
+    return;
+  }
+  // For all other errors, log them as normal
+  console.error(error);
+};
 
+// Apply the suppression function globally in the browser's window context
+// This will only work in development (non-production) environments.
+window.addEventListener('error', suppressResizeObserverError);
   const handleRestart = () => {
     setAnalyticsData([]);
     setCurrentScenarioId(startScenario.id);
@@ -64,11 +76,12 @@ const AppContent = () => {
     <Routes>
       {/* Your other routes */}
       <Route path="/" element={<LoginPage />} />
-      <Route path="/editor" element={<ScenarioFlowEditor />} />
+      <Route path="/editor" element={<FlowChartEditor />} />
       <Route path="/scenario" element={<ScenarioPrompt />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/student" element={<StudentPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/scene-editor" element={<SceneEditor />} />
 
       {/* --- Updated Scenario and Report Routes --- */}
       <Route 
