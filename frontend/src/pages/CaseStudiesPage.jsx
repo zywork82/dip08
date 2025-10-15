@@ -62,7 +62,7 @@ useEffect(() => {
 
   const filteredCaseStudies = caseStudiesData.filter((cs) => {
     if (activeTab === 'All') return true;
-    if (activeTab === 'Completed') return cs.status === 'Completed';
+    if (activeTab === 'Published') return cs.status === 'Published';
     if (activeTab === 'In-Progress') return cs.status === 'In-Progress' || cs.status === 'Edit';
     return false;
   });
@@ -160,7 +160,7 @@ useEffect(() => {
 
             <div className="tab-container">
               <div className="tabs">
-                {['All', 'Completed', 'In-Progress'].map((tab) => (
+                {['All', 'Published', 'In-Progress'].map((tab) => (
                   <div
                     key={tab}
                     className={`tab ${activeTab === tab ? 'active' : ''}`}

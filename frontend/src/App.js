@@ -7,11 +7,15 @@ import SceneEditor from "./pages/SceneEditor.jsx";
 import ScenarioPrompt from "./pages/ScenarioPrompt";
 import StudentPage from "./pages/StudentPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import CaseStudiesPage from "./pages/CaseStudiesPage";
+import TraineeRecords from "./pages/TraineeRecordsPage";
+import Settings from "./pages/SettingsPage";
 import SignupPage from "./pages/SignupPage";
 import "./App.css";
 import ScenarioInterface from "./pages/ScenarioInterface";
 import ReportInterface from './pages/ReportInterface.jsx';
 import {sampleNodes} from '../src/data/sampleAiFlow.js';
+import TrainerTeam from "./pages/TrainerTeam.jsx";
 
 
 const AppContent = () => {
@@ -76,12 +80,17 @@ window.addEventListener('error', suppressResizeObserverError);
     <Routes>
       {/* Your other routes */}
       <Route path="/" element={<LoginPage />} />
+      <Route path="/case-studies" element={<CaseStudiesPage />} />
+      <Route path="/trainer-team" element={<TrainerTeam />} />
+      <Route path="/trainee-records" element={<TraineeRecords />} />
+      <Route path="/settings" element={<Settings />} />
       <Route path="/editor" element={<FlowChartEditor />} />
       <Route path="/scenario" element={<ScenarioPrompt />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/student" element={<StudentPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/scene-editor" element={<SceneEditor />} />
+      
 
       {/* --- Updated Scenario and Report Routes --- */}
       <Route 
