@@ -15,5 +15,3 @@ Pillow>=10,<12
 
 # (Optional) Production WSGI server — not used in dev
 # gunicorn>=21,<22
-
-TMP_IMAGE_DIR=tmp_images
