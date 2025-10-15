@@ -86,6 +86,10 @@
     background-color: #fee2e2;
   border: 2px solid #ef4444;
   }
+  .flowchart-node.endScenario {
+    background-color: #fee2e2;
+  border: 2px solid #ef4444;
+  }
 
   .node {
   padding: 10px;
