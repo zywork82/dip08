@@ -21,9 +21,10 @@ load_dotenv(dotenv_path=ENV_PATH, override=True)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
-# --- Google (Gemini / Imagen) ---
+# --- Google (Imagen / Gemini) ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image-preview")
+# Prefer Imagen 3 (returns real PNG bytes); will fall back to Gemini inline if needed
+GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "imagen-3.0-generate-002")
 
 # --- Temp image dir for `tmp: true` ---
 TMP_IMAGE_DIR = os.getenv("TMP_IMAGE_DIR", "tmp_images")
@@ -40,7 +41,7 @@ TEMPERATURE = 0.2
 MAX_OUTPUT_TOKENS = 6000
 BATCH_SIZE = 40  # OpenAI fill batch size
 
-# === Psych aspects (your list) ===
+# === Psych aspects
 def _load_aspects_from_env_or_default() -> List[str]:
     env_val = os.getenv("PSYCH_ASPECTS", "")
     if env_val.strip():
@@ -50,7 +51,7 @@ def _load_aspects_from_env_or_default() -> List[str]:
     return ["Confidence Bias", "Risk Seeking", "Time Orientation", "Critical Thinking"]
 
 PSYCH_ASPECTS = _load_aspects_from_env_or_default()
-PSYCH_SEED = os.getenv("PSYCH_SEED")  # optional int for reproducibility
+PSYCH_SEED = os.getenv("PSYCH_SEED")  # optional int/str for deterministic assignment
 
 app = Flask(__name__)
 
@@ -93,7 +94,7 @@ def build_full_skeleton(story: str, levels: List[int] = [3,3,3,3]) -> Dict[str, 
         "scene": ""
     })
 
-    # top "decisions" are modeled as options
+    # top “decisions” as options
     decisions = ["D1", "D2", "D3"]
     for d in decisions:
         nodes.append({"id": d, "type": "option", "text": f"{d}: decision", "narrative": "", "scene": ""})
@@ -245,10 +246,7 @@ def _clean_label(text_val: str) -> str:
 def assign_aspects_unique_per_sibling(model: Dict[str, Any],
                                       aspects: List[str],
                                       seed: Optional[str] = None) -> Dict[str, str]:
-    """
-    For every parent -> [child1, child2, child3] group, assign distinct aspects to children.
-    Returns {node_id: aspect}.
-    """
+    """For every parent -> [child1, child2, child3] group, assign distinct aspects to children."""
     if seed is not None and str(seed).strip() != "":
         try:
             random.seed(int(str(seed).strip()))
@@ -264,7 +262,7 @@ def assign_aspects_unique_per_sibling(model: Dict[str, Any],
     for parent, kids in children.items():
         if not kids:
             continue
-        pool = aspects[:]  # copy
+        pool = aspects[:]
         random.shuffle(pool)
         if len(pool) < len(kids):
             extended = []
@@ -300,7 +298,7 @@ def build_visual_bible(story: str) -> Dict[str, Any]:
 
     Return STRICT JSON with keys (short phrases <= 80 chars each value):
     {{
-      "setting": "primary locations & time of day/timeframe based exactly on the story",
+      "setting": "primary locations & time of day/timeframe",
       "main_characters": ["name + 1-2 identifiers", "..."],
       "wardrobe": "recurring wardrobe themes",
       "props_motifs": ["recurring prop/motif 1", "…"],
@@ -352,14 +350,13 @@ def _visual_bible_to_prefix(bible: Dict[str, Any]) -> str:
     return txt.strip()
 
 def _compose_image_prompt(nid: str, scene_text: str, bible: Dict[str, Any]) -> str:
-    """Merge the global visual bible with the node's scene into a single cohesive image prompt."""
     prefix = _visual_bible_to_prefix(bible)
     node_tag = f"Shot tag: {nid}. Maintain continuity with prior shots."
     elements = [prefix, node_tag, f"Scene: {scene_text.strip()}"]
     return "\n".join([e for e in elements if e])
 
 # --------------------------
-# Flat hubs builder (marks terminal options as `ending`, no ending_id/text fields)
+# Flat hubs builder (ensures non-empty scenes; terminal options use type=ending)
 # --------------------------
 def build_flat_with_hubs(model: Dict[str, Any], aspect_map: Dict[str, str]) -> Dict[str, Any]:
     nodes = model.get("nodes", [])
@@ -394,34 +391,33 @@ def build_flat_with_hubs(model: Dict[str, Any], aspect_map: Dict[str, str]) -> D
     )
     ROOT_HUB_ID = "101"
 
+    def non_empty_scene_from(n: Dict[str, Any]) -> str:
+        return _as_str(n.get("scene") or n.get("narrative") or n.get("text")).strip()
+
     def build_hub(hub_id: str, hub_origin_id: str):
         origin = by_id.get(hub_origin_id, {})
         kids = pref_children(hub_origin_id)[:3]
         hub_option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(kids))]
 
-        # Hub entry
         result[hub_id] = {
             "id": hub_id,
             "type": "scenario" if hub_id == "101" else "option",
             "position": "",
             "data": node_desc(origin),
             "description": node_label(origin),
-            "scene": _as_str(origin.get("scene", "")),
+            "scene": non_empty_scene_from(origin),
             "options": hub_option_ids,
             "psych_dimensions": aspect_map.get(hub_origin_id, ""),
             "b64 image": origin.get("b64", "")
         }
 
-        # Each child becomes an option under this hub
         for i, child_orig_id in enumerate(kids):
             opt_node = by_id.get(child_orig_id, {})
             this_opt_id = fmt_opt_id(hub_id, letters[i])
-
             child_kids = pref_children(child_orig_id)
             ending_children = [cid for cid in child_kids if by_id.get(cid, {}).get("type") == "ending"]
             nonending_children = [cid for cid in child_kids if by_id.get(cid, {}).get("type") != "ending"]
 
-            # CASE A: This option directly leads to an ending -> mark as ending, terminal, no metadata fields
             if ending_children and not nonending_children:
                 result[this_opt_id] = {
                     "id": this_opt_id,
@@ -429,14 +425,13 @@ def build_flat_with_hubs(model: Dict[str, Any], aspect_map: Dict[str, str]) -> D
                     "position": "",
                     "data": node_desc(opt_node),
                     "description": node_label(opt_node),
-                    "scene": _as_str(opt_node.get("scene", "")),
+                    "scene": non_empty_scene_from(opt_node),
                     "options": [],
                     "psych_dimensions": aspect_map.get(child_orig_id, ""),
                     "b64 image": opt_node.get("b64", "")
                 }
                 continue
 
-            # CASE B: There are further non-ending children -> spawn next hub layer
             if nonending_children:
                 nxt_hub = next_hub_id(hub_id, i)
                 next_opt_ids = [fmt_opt_id(nxt_hub, letters[j]) for j in range(min(3, len(nonending_children)))]
@@ -450,7 +445,7 @@ def build_flat_with_hubs(model: Dict[str, Any], aspect_map: Dict[str, str]) -> D
                 "position": "",
                 "data": node_desc(opt_node),
                 "description": node_label(opt_node),
-                "scene": _as_str(opt_node.get("scene", "")),
+                "scene": non_empty_scene_from(opt_node),
                 "options": next_opt_ids,
                 "psych_dimensions": aspect_map.get(child_orig_id, ""),
                 "b64 image": opt_node.get("b64", "")
@@ -459,10 +454,8 @@ def build_flat_with_hubs(model: Dict[str, Any], aspect_map: Dict[str, str]) -> D
             if nxt_hub:
                 build_hub(nxt_hub, child_orig_id)
 
-    # Build from root hub 101
     build_hub(ROOT_HUB_ID, root_orig)
 
-    # Defensive: ensure 101 exists
     if "101" not in result:
         origin = by_id.get(root_orig, {})
         result["101"] = {
@@ -471,7 +464,7 @@ def build_flat_with_hubs(model: Dict[str, Any], aspect_map: Dict[str, str]) -> D
             "position": "",
             "data": _as_str(origin.get("narrative") or origin.get("text")),
             "description": _clean_label(_as_str(origin.get("text"))),
-            "scene": _as_str(origin.get("scene", "")),
+            "scene": _as_str(origin.get("scene") or origin.get("narrative") or origin.get("text")),
             "options": [],
             "psych_dimensions": aspect_map.get(root_orig, ""),
             "b64 image": origin.get("b64", "")
@@ -563,7 +556,7 @@ def apply_content(model: Dict[str, Any], content_map: Dict[str, Dict[str, str]])
     return model
 
 # --------------------------
-# Image helpers (Gemini/Imagen) + PNG normalize + save-to-temp
+# Image helpers (Imagen/Gemini) + PNG normalize + save-to-temp
 # --------------------------
 def _init_gemini():
     if not GEMINI_API_KEY:
@@ -647,23 +640,49 @@ def _shrink_png(png_bytes: bytes, max_px: int = 512) -> bytes:
 def fill_images_from_scenes(flat: Dict[str, Any],
                             visual_bible: Dict[str, Any],
                             shrink_to: int = 512) -> Dict[str, Any]:
-    """Generate images for ALL items with a non-empty scene, using the global visual bible."""
-    keys = [k for k, v in flat.items() if isinstance(v, dict) and v.get("scene")]
+    """
+    Generate images for ALL items. If scene is empty, fall back to narrative/text/data+description.
+    Adds `image_error` when a node fails so you can see why.
+    """
+    keys = [k for k, v in flat.items() if isinstance(v, dict)]
+    print(f"[images] attempting {len(keys)} nodes using model={GEMINI_IMAGE_MODEL}")
+
     for k in keys:
         try:
-            scene = flat[k].get("scene", "")
+            v = flat[k]
+            scene = _as_str(v.get("scene", "")).strip()
+            if not scene:
+                fallback = " ".join([
+                    _as_str(v.get("narrative", "")),
+                    _as_str(v.get("data", "")),
+                    _as_str(v.get("description", "")),
+                ]).strip()
+                scene = fallback[:300]
+
+            if not scene:
+                v["image_error"] = "no scene/narrative/text to prompt"
+                continue
+
             prompt = _compose_image_prompt(k, scene, visual_bible)
             png = _gemini_image_bytes_for_scene(prompt)
-            if png:
-                if shrink_to:
-                    png = _shrink_png(png, max_px=shrink_to)
-                flat[k]["b64 image"] = _png_b64(png)
-        except Exception:
-            pass
+            if not png or len(png) < 10:
+                v["image_error"] = "model returned no image bytes"
+                continue
+
+            if shrink_to:
+                png = _shrink_png(png, max_px=shrink_to)
+
+            v["b64 image"] = _png_b64(png)
+            v.pop("image_error", None)
+            print(f"[images] ok -> {k} (b64 {len(v['b64 image'])} chars)")
+        except Exception as ex:
+            flat[k]["image_error"] = f"exception: {ex.__class__.__name__}"
+
     return flat
 
 def save_images_to_folder(flat: dict, folder: str, clear_inline_b64: bool = True) -> dict:
     os.makedirs(folder, exist_ok=True)
+    wrote = 0
     for k, v in flat.items():
         b64s = v.get("b64 image")
         if not b64s: continue
@@ -673,10 +692,12 @@ def save_images_to_folder(flat: dict, folder: str, clear_inline_b64: bool = True
             img_path = os.path.join(folder, f"{k}.png")
             img.save(img_path, format="PNG", optimize=True)
             v["image_path"] = img_path
+            wrote += 1
             if clear_inline_b64:
                 v["b64 image"] = ""
-        except Exception:
-            pass
+        except Exception as ex:
+            v["image_error"] = f"save_exception: {ex.__class__.__name__}"
+    print(f"[images] wrote {wrote} PNGs to {folder}; cleared_b64={clear_inline_b64}")
     return flat
 
 # --------------------------
@@ -701,7 +722,7 @@ def generate():
       "filename": "flow.json", // OPTIONAL
       "images": true,     // OPTIONAL (or ?images=1) -> cohesive images
       "tmp": true,        // OPTIONAL -> save PNGs in TMP_IMAGE_DIR and clear base64
-      "psych_seed": 42    // OPTIONAL -> deterministic aspect assignment per sibling set
+      "psych_seed": 42    // OPTIONAL -> deterministic aspect assignment
     }
     """
     body = request.get_json(silent=True) or {}
@@ -743,10 +764,10 @@ def generate():
         model = _coerce_node_types(model)
         _basic_validate(model)
 
-        # 6) Flat with terminal options as endings (no ending_id/text fields)
+        # 6) Flat with terminal options as endings
         flat = build_flat_with_hubs(model, aspect_map)
 
-        # 7) Images (cohesive)
+        # 7) Images (cohesive; never skip due to empty scene)
         if images_flag:
             flat = fill_images_from_scenes(flat, visual_bible=visual_bible, shrink_to=512)
             if tmp_flag:
@@ -771,7 +792,7 @@ def images_fill():
       - {"flat": {...}, "tmp": true, "story": "...optional for fresh bible..."}
       - {"filename": "path/to/flat.json", "tmp": true, "story": "..."}
       - or the flat dict directly.
-    Generates cohesive images for ALL items with a non-empty 'scene' using a visual bible.
+    Generates cohesive images for ALL items using a visual bible and scene fallbacks.
     """
     body = request.get_json(silent=True) or {}
     tmp_flag = bool(body.get("tmp"))
@@ -794,7 +815,7 @@ def images_fill():
 
     story = _as_str(body.get("story", "")).strip()
     visual_bible = build_visual_bible(story) if story else {
-        "setting": "same environment across shots",
+        "setting": "consistent environment across shots",
         "main_characters": ["Main lead", "Supporting member"],
         "visual_style": "consistent lens & framing",
         "lighting": "consistent lighting look",
@@ -853,9 +874,7 @@ def suggest():
     if include_aspects and PSYCH_ASPECTS:
         aspects_note = (
             "Also, explicitly surface how these psychological aspects might influence the scenario: "
-            + ", ".join(PSYCH_ASPECTS) + ".\n"
-            "Call these out where relevant (e.g., confidence bias in overclaiming, risk seeking in aggressive options, "
-            "time orientation in short- vs long-term payoffs, critical thinking in evidence standards)."
+            + ", ".join(PSYCH_ASPECTS) + "."
         )
 
     style_instr = (
