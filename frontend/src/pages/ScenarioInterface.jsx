@@ -5,7 +5,7 @@ import "../styles/ScenarioInterface.css";
 import OptionNode from "../components/OptionNode.jsx";
 import { sampleNodes } from "../data/sampleAiFlow.js";
 
-const ScenarioInterface = () => {
+const ScenarioInterface = ({scenario,onOptionSelect,isFinished, onGoToReport}) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -40,7 +40,7 @@ const ScenarioInterface = () => {
     if (!optionData) return;
 
     const timeTaken = (Date.now() - startTime) / 1000;
-    console.log("Option selected:", optionData.data.label, "Time:", timeTaken, "s");
+    console.log("Option selected:", optionData.data, "Time:", timeTaken, "s");
 
     if (optionData.next) {
       setCurrentNodeId(optionData.next);
@@ -89,29 +89,42 @@ const ScenarioInterface = () => {
         </div>
       ) : (
         // 2. SHOW THE REGULAR PROMPT BOX (OPTIONS or NEXT button)
-        <section className="promptBox">
-          <div className="current-node-label-container">
-            <span className="current-node-label">{currentNode.data.label}</span>
-          </div>
-          <div className="optionsWrapper">
-            {/* The old 'end-scenario' logic is now gone, 
-               and we only deal with Options or Next */}
-            {currentNode.options?.length > 0 ? (
-              currentNode.options.map((optId) => (
-                <OptionNode
-                  key={optId}
-                  option={sampleNodes[optId].data}
-                  onClick={() => handleOptionClick(optId)}
-                />
-              ))
-            ) : (
-              // This is the remaining case: Only a 'next' property exists
-              <button onClick={handleNext} style={{ padding: 10, marginTop: 10 }}>
-                Next
+      <section className="promptBox">
+        {/* Made this more robust to handle different data shapes */}
+        <p>{scenario.data}</p>
+
+        <div className="optionsWrapper">
+          {/* --- 3. UPDATED LOGIC --- */}
+          {/* If the playthrough is finished, show the report button */}
+          {isFinished ? (
+            <div className="report-navigation">
+              <p>You have reached the end of the playthrough.</p>
+              <button onClick={onGoToReport} className="restart-button">
+                View Your Report
               </button>
-            )}
-          </div>
-        </section>
+            </div>
+          ) : (
+            /* Otherwise, show the available options using your existing map logic */
+            scenario.options.map(optionId => {
+              const optionData = sampleNodes[optionId];
+              if (!optionData) return null;
+
+              const handleSelect = () => {
+                const timeTaken = (Date.now() - startTime) / 1000;
+                onOptionSelect(optionData, timeTaken);
+              };
+
+              return (
+                <OptionNode
+                  key={optionData.id}
+                  option={optionData.data}
+                  onClick={handleSelect}
+                />
+              );
+            })
+          )}
+        </div>
+      </section>
       )}
     </div>
   </div>
