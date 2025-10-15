@@ -1,7 +1,5 @@
-
-// FlowChartEditor.jsx
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ReactFlow, {
   ReactFlowProvider,
   addEdge,
@@ -16,33 +14,30 @@ import EditorToolsSidebar from '../components/EditorToolsSidebar';
 import NodeWrapper from '../components/NodeWrapper';
 import 'reactflow/dist/style.css';
 import '../styles/FlowChartEditor.css';
-import { sampleNodes, sampleEdges, sampleAiSuggestions } from '../data/sampleAiFlow';
+import SharedHeader from '../components/SharedHeader';
+import NavigationBar from '../components/SlimNavBar';
+import { sampleNodes, sampleAiSuggestions, sampleEdges } from '../data/sampleAiFlow';
 
+// Placeholder for the profile image
+const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A';
+
+// Node types
 const nodeTypesConfig = {
-  process: NodeWrapper,
-  decision: NodeWrapper,
-  end: NodeWrapper,
+  scenario: NodeWrapper,
+  option: NodeWrapper,
+  ending: NodeWrapper,
 };
 
-
-// Dagre layout
+// Dagre layout setup
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 200;
-const nodeHeight = 50;
+const nodeHeight = 150;
 
 const getLayoutedNodes = (nodes, edges) => {
-  if (!nodes || nodes.length === 0) return nodes;
-
-  dagreGraph.setGraph({ rankdir: 'TB', ranksep: 150 });
+  dagreGraph.setGraph({ rankdir: 'TB', ranksep: 150, nodesep: 100 });
   nodes.forEach((node) => dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight }));
-
-  edges.forEach((edge) => {
-    const sourceExists = nodes.some((n) => n.id === edge.source);
-    const targetExists = nodes.some((n) => n.id === edge.target);
-    if (sourceExists && targetExists) dagreGraph.setEdge(edge.source, edge.target);
-  });
-
+  edges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target));
   dagre.layout(dagreGraph);
 
   return nodes.map((node) => {
@@ -53,60 +48,80 @@ const getLayoutedNodes = (nodes, edges) => {
   });
 };
 
+// Generate edges from node data
+const generateEdgesFromNodes = (nodes) => {
+  const edges = [];
+  nodes.forEach((node) => {
+    const data = node.data || {};
+    if (node.type === 'scenario' && data.options?.length) {
+      data.options.forEach((optId) => {
+        if (nodes.find((n) => n.id === optId)) {
+          edges.push({
+            id: `e-${node.id}-${optId}`,
+            source: node.id,
+            target: optId,
+            type: 'smoothstep',
+            animated: true,
+          });
+        }
+      });
+    }
+    if (node.type === 'option' && data.next) {
+      if (nodes.find((n) => n.id === data.next)) {
+        edges.push({
+          id: `e-${node.id}-${data.next}`,
+          source: node.id,
+          target: data.next,
+          type: 'smoothstep',
+          animated: true,
+        });
+      }
+    }
+  });
+  return edges;
+};
+
 const FlowChartEditor = () => {
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
-const [nodes, setNodes] = useState([]); // must define!
-const [edges, setEdges] = useState([]);
-
-  const [previewData, setPreviewData] = useState(null); // for modal preview
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
+  const [previewData, setPreviewData] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const backendFlow = location.state?.flowData;
 
-  // Editable node labels
+  // === Node label editing ===
   const handleNodeLabelChange = (id, value) => {
     setNodes((nds) =>
-      nds.map((node) =>
-        node.id === id
-          ? { ...node, data: { ...node.data, label: value, onChange: (e) => handleNodeLabelChange(id, e.target.value) } }
-          : node
-      )
+      nds.map((node) => (node.id === id ? { ...node, data: { ...node.data, label: value } } : node))
     );
   };
 
-  // Delete node and connected edges
+  // === Node deletion ===
   const removeNode = (nodeId) => {
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
   };
 
-  // Node & edge handlers
+  // === React Flow handlers ===
   const onNodesChange = useCallback((changes) => setNodes((nds) => applyNodeChanges(changes, nds)), []);
   const onEdgesChange = useCallback((changes) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
-
   const onConnect = useCallback(
-    (connection) =>
-      setEdges((eds) =>
-        addEdge({ ...connection, type: 'smoothstep', animated: true, deletable: true, selectable: true }, eds)
-      ),
+    (connection) => setEdges((eds) => addEdge({ ...connection, type: 'smoothstep', animated: true }, eds)),
     []
   );
-
-  const onEdgeUpdate = useCallback(
-    (oldEdge, newConnection) => {
-      setEdges((els) => els.map((e) => (e.id === oldEdge.id ? { ...e, ...newConnection } : e)));
-    },
-    []
-  );
-
+  const onEdgeUpdate = useCallback((oldEdge, newConnection) => {
+    setEdges((els) => els.map((e) => (e.id === oldEdge.id ? { ...e, ...newConnection } : e)));
+  }, []);
   const onEdgeClick = useCallback((event, edge) => {
     event.preventDefault();
     setEdges((eds) => eds.filter((e) => e.id !== edge.id));
   }, []);
 
-  // Auto layout
+  // === Layout & persistence ===
   const autoLayout = () => setNodes((nds) => getLayoutedNodes(nds, edges));
-
-  // Save / Load
   const saveFlow = () => {
     localStorage.setItem('flowData', JSON.stringify({ nodes, edges }));
     alert('Flow saved!');
@@ -120,18 +135,15 @@ const [edges, setEdges] = useState([]);
     }
   };
 
-  // Drop handler
+  // === Node dropping ===
   const handleDrop = (event) => {
     event.preventDefault();
     if (!reactFlowInstance || !reactFlowWrapper.current) return;
 
     const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
     let data;
-
     try {
-      const dataString = event.dataTransfer.getData('application/reactflow');
-      if (!dataString) return;
-      data = JSON.parse(dataString);
+      data = JSON.parse(event.dataTransfer.getData('application/reactflow'));
     } catch {
       const type = event.dataTransfer.getData('application/reactflow');
       if (!type) return;
@@ -150,15 +162,37 @@ const [edges, setEdges] = useState([]);
       position,
       data: {
         label: data.label || `New ${data.nodeType}`,
+        options: data.options || [],
+        next: data.next || null,
         onChange: (e) => handleNodeLabelChange(id, e.target.value),
         onDelete: () => removeNode(id),
       },
     };
 
-    setNodes((nds) => nds.concat(newNode));
+    // Add new node
+    let updatedNodes = [...nodes, newNode];
+
+    // Auto-link to last node
+    if (nodes.length > 0) {
+      const lastNode = nodes[nodes.length - 1];
+      if (lastNode.type === 'scenario') {
+        lastNode.data = { ...lastNode.data, options: [...(lastNode.data.options || []), newNode.id] };
+      } else if (lastNode.type === 'option') {
+        lastNode.data = { ...lastNode.data, next: newNode.id };
+      }
+      updatedNodes = [...nodes.slice(0, -1), lastNode, newNode];
+    }
+
+    // Generate edges only for the new node
+    const newEdgesFromNode = generateEdgesFromNodes(updatedNodes).filter(
+      (e) => !edges.find((edge) => edge.id === e.id)
+    );
+
+    setNodes(updatedNodes);
+    setEdges([...edges, ...newEdgesFromNode]);
   };
 
-  // Nodes with handlers
+  // === Node data mapping ===
   const nodesWithHandlers = nodes.map((node) => ({
     ...node,
     data: {
@@ -168,213 +202,90 @@ const [edges, setEdges] = useState([]);
     },
   }));
 
-  // Open modal preview
-const openPreview = () => {
-  if (!reactFlowInstance) return;
-
-  const flowData = reactFlowInstance.toObject();
-
-  // Apply auto layout for preview
-  const layoutedNodes = getLayoutedNodes(flowData.nodes, flowData.edges);
-
-  const serializableFlow = {
-    nodes: layoutedNodes.map((n) => ({
-      id: n.id,
-      type: n.type,
-      position: n.position,
-      data: { label: n.data.label },
-    })),
-    edges: flowData.edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      type: e.type,
-    })),
+  // === Preview ===
+  const openPreview = () => {
+    if (!reactFlowInstance) return;
+    const flowData = reactFlowInstance.toObject();
+    const layoutedNodes = getLayoutedNodes(flowData.nodes, flowData.edges);
+    setPreviewData({
+      nodes: layoutedNodes.map((n) => ({ ...n, data: { label: n.data.label, imageUrl: n.data.imageUrl } })),
+      edges: flowData.edges,
+    });
+    setPreviewOpen(true);
   };
 
-  setPreviewData(serializableFlow);
-  setPreviewOpen(true);
-};
-
-  // Send to backend
   const generateImages = () => {
-  if (!previewData) return;
-
-  // Simulate backend call
-  setTimeout(() => {
-    // Create mock nodes with image URLs
+    if (!previewData) return;
     const updatedFlow = {
       nodes: previewData.nodes.map((n) => ({
         ...n,
-        data: {
-          ...n.data,
-          imageUrl: 'https://via.placeholder.com/150', // placeholder image
-        },
+        data: { ...n.data, imageUrl: 'https://via.placeholder.com/150' },
       })),
       edges: previewData.edges,
     };
-
     setPreviewOpen(false);
     navigate('/scene-editor', { state: { flowData: updatedFlow } });
-  }, 1000); // simulate 1-second network delay
-};
-
-  const navigate = useNavigate();
-
-  const previewFlow = () => {
-  const flowData = reactFlowInstance.toObject();
-  const serializableFlow = {
-    nodes: flowData.nodes.map(n => ({ id: n.id, type: n.type, position: n.position, data: { label: n.data.label } })),
-    edges: flowData.edges.map(e => ({ id: e.id, source: e.source, target: e.target, type: e.type })),
   };
 
-  navigate('/preview', { state: { flowData: serializableFlow } });
-};
-useEffect(() => {
-  // Only fetch if reactFlowInstance is ready
-  const fetchFlowData = async () => {
-    try {
-      const res = await fetch('http://127.0.0.1:5000/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          story: "An employee clicks a phishing email and IT must respond. Management faces tough choices.",
-          levels: [3, 3, 3, 3],
-        }),
-      });
-
-      if (!res.ok) throw new Error('Backend error');
-
-      const data = await res.json();
-
-      // Transform backend data into React Flow format
-      const nodes = data.nodes.map((n, idx) => ({
-        id: n.id,
-        type: n.type,
-        position: { x: idx * 200, y: idx * 120 }, // temporary; dagre will auto-layout
-        data: { 
-          label: n.text,
-          narrative: n.narrative,
-          scene: n.scene,
-          imageUrl: n.image || null,
-          onChange: (e) => handleNodeLabelChange(n.id, e.target.value),
-          onDelete: () => removeNode(n.id)
-        },
-      }));
-
-      const edges = data.edges.map((e, idx) => ({
-        id: `e-${idx}`,
-        source: e.from,
-        target: e.to,
-        label: e.label || '',
-      }));
-
-      setNodes(nodes);
-      setEdges(edges);
-
-      // Optional: auto layout
-      setNodes((nds) => getLayoutedNodes(nds, edges));
-
-    } catch (err) {
-      console.error('Failed to fetch flow data:', err);
+  // === Initial load ===
+  useEffect(() => {
+    if (backendFlow) {
+      setNodes(getLayoutedNodes(backendFlow.nodes, backendFlow.edges));
+      setEdges(backendFlow.edges || generateEdgesFromNodes(backendFlow.nodes));
+    } else {
+      const initialNodes = Object.values(sampleNodes).map((n) => ({ ...n }));
+      const initialEdges = sampleEdges?.length ? sampleEdges : generateEdgesFromNodes(initialNodes);
+      setNodes(getLayoutedNodes(initialNodes, initialEdges));
+      setEdges(initialEdges);
     }
-  };
+  }, [backendFlow]);
 
-  fetchFlowData();
-}, []);
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100vh' }}>
-      <EditorToolsSidebar suggestions={sampleAiSuggestions} />
+    <div className='flow-chart-editor-container'>
+      <NavigationBar />
+      <div className="editor-container">
+        <div className="header">
+          <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
+        </div>
 
-      <div style={{ flex: 1, position: 'relative' }} ref={reactFlowWrapper}>
-        <ReactFlowProvider>
-          <ReactFlow
-            nodes={nodesWithHandlers}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onEdgeUpdate={onEdgeUpdate}
-            onEdgeClick={onEdgeClick}
-            onConnect={onConnect}
-            nodeTypes={nodeTypesConfig}
-            fitView
-            onInit={setReactFlowInstance}
-            onDrop={handleDrop}
-            onDragOver={(event) => event.preventDefault()}
-            defaultEdgeOptions={{
-              animated: true,
-              type: 'smoothstep',
-              updatable: true,
-              deletable: true,
-              selectable: true,
-            }}
-            deleteKeyCode={[46, 8]}
-          >
-            <MiniMap />
-            <Controls />
-            <Background />
-          </ReactFlow>
-
-          <div style={{ position: 'absolute', left: 730, bottom: 60, display: 'flex', gap: 10 }}>
-            <button onClick={autoLayout}>Auto Layout</button>
-            <button onClick={saveFlow}>Save Flow</button>
-            <button onClick={loadFlow}>Load Flow</button>
-            <button onClick={openPreview}>Preview</button>
+        <div className="edit-container">
+          <div className="tools-sidebar">
+            <EditorToolsSidebar suggestions={sampleAiSuggestions} />
           </div>
 
-          {/* Modal Preview */}
-          {previewOpen && (
-            <div className='preview-container'
-              style={{
-                position: 'fixed',
-                top: 50,
-                left: 50,
-                width: '80%',
-                height: '80%',
-                background: 'white',
-                border: '1px solid #ccc',
-                boxShadow: '0 0 15px rgba(0,0,0,0.3)',
-                zIndex: 1000,
-                padding: 20,
-                
-              }}
-            >
-             <div>
-              <p className='preview-title'>Preview</p>
-             </div>
+          <div ref={reactFlowWrapper} className='main-editor-area'>
+            <ReactFlowProvider>
+              <ReactFlow
+                nodes={nodesWithHandlers}
+                edges={edges}
+                nodeTypes={nodeTypesConfig}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onEdgeUpdate={onEdgeUpdate}
+                onEdgeClick={onEdgeClick}
+                onConnect={onConnect}
+                fitView
+                onInit={setReactFlowInstance}
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+                defaultEdgeOptions={{ animated: true, type: 'smoothstep', updatable: true }}
+                deleteKeyCode={[46, 8]}
+              >
+                <MiniMap />
+                <Controls />
+                <Background />
+              </ReactFlow>
+            </ReactFlowProvider>
 
-              <ReactFlowProvider>
-                <ReactFlow
-                  nodes={previewData?.nodes}
-                  edges={previewData?.edges}
-                  nodeTypes={nodeTypesConfig}
-                  fitView
-                  defaultEdgeOptions={{ animated: true, type: 'smoothstep' }}
-                     panOnDrag={true}           // allow scrolling/panning
-      zoomOnScroll={true}        // allow zoom with scroll wheel
-      zoomOnPinch={true}    
-                  nodesDraggable={false}
-                >
-                  <MiniMap />
-                  <Controls />
-                </ReactFlow>
-              </ReactFlowProvider>
-          <div className='preview-buttons'> 
-            <button
-                onClick={() => setPreviewOpen(false)}
-              >
-                Close Preview
-              </button>
-              <button
-                onClick={generateImages}
-                
-              >
-                Generate Images
-              </button>
-              </div>
+            {/* Buttons */}
+            <div className="button-container" >
+              <button className='action-buttons' onClick={autoLayout}>Auto Layout</button>
+              <button className='action-buttons' onClick={saveFlow}>Save Flow</button>
+              <button className='action-buttons' onClick={loadFlow}>Load Flow</button>
+              <button className='action-buttons' onClick={openPreview}>Preview</button>
             </div>
-          )}
-        </ReactFlowProvider>
+          </div>
+        </div>
       </div>
     </div>
   );

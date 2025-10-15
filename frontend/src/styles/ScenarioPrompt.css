@@ -1,21 +1,48 @@
-.create-scenario-page {
+/* .create-scenario-page {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 20px;
   background-color: #f0f2f5;
   min-height: 100vh;
+} */
+.scenario-prompt-page{
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
+    width: 100%;
+  }
+
+.header {
+width: 100%;
 }
 
-.header-bar {
+.scenario-prompt-container {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
+ 
+  background-color: #f0f2f5;
+  min-height: 100vh;
   width: 100%;
-  max-width: 800px;
-  margin-bottom: 40px;
-  padding: 10px;
 }
+.scenario-prompt-content {
+  display: flex;
+  flex-direction: row;
+   height: 100vh;
+    width: 100%;
+}
+.scenerio-history-container{
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  justify-content: start;
+  background-color: #fdfdfd;
+padding: 10px;
+margin-top: 0px;
+}
+
+
 
 .back-link {
   display: flex;
@@ -47,7 +74,7 @@
 
 .content-area {
   width: 100%;
-  max-width: 800px;
+  margin-right: 20px;
   background-color: white;
   padding: 40px;
   border-radius: 12px;
@@ -60,13 +87,16 @@
 .form-group {
   width: 100%;
   margin-bottom: 20px;
+  margin-top: 20px;
 }
 
 .form-group label {
   font-size: 18px;
   font-weight: 500;
   color: #4a4a4a;
-  margin-bottom: 8px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  padding-top: 10px;
 }
 
 .form-group input {
@@ -94,12 +124,14 @@
   margin-top: 5px;
 }
 
-.create-button {
+.create-scenario-button {
   background-color: #3f51b5;
   color: white;
   padding: 12px 24px;
   border: none;
   border-radius: 25px;
+  width: 180px;
+  height:60px;
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;

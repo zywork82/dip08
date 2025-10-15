@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
 import { toast } from "react-toastify";
-import LogoLong from '../assets/logolong.png'; 
+import LogoLong from '../assets/logolong.png';
 import "react-toastify/dist/ReactToastify.css";
 
 const SignupPage = () => {
