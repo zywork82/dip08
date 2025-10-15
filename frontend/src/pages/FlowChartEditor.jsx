@@ -19,7 +19,7 @@ import NavigationBar from '../components/SlimNavBar';
 import { sampleNodes, sampleAiSuggestions, sampleEdges } from '../data/sampleAiFlow';
 
 // Placeholder for the profile image
-const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A';
+const profileImage = 'https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg';
 
 // Node types
 const nodeTypesConfig = {

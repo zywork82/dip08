@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer
 from jose import JWTError, jwt
 from passlib.hash import bcrypt
 
-router = APIRouter(prefix="/admins", tags=["admin"])
+router = APIRouter(prefix="/admins", tags=["admins"])
 security = HTTPBearer()
 
 # --- JWT settings (must match your login.py) ---
