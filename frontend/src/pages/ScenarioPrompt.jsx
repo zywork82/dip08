@@ -2,7 +2,13 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../styles/Global.css";
 import "../styles/ScenarioPrompt.css";
+import NavigationBar from '../components/SlimNavBar';
+import SharedHeader from '../components/SharedHeader';
+import ScenarioHistory from "../components/ScenarioHistory";
 
+
+// Placeholder for the profile image
+const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A';
 const ScenarioPrompt = () => {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
@@ -35,62 +41,66 @@ const ScenarioPrompt = () => {
   };
 
   const handleSubmit = async () => {
-    if (!description.trim()) {
-      setError("Please enter a scenario description.");
-      return;
-    }
-    setLoading(true);
-    setError("");
+  if (!description.trim()) {
+    setError("Please enter a scenario description.");
+    return;
+  }
+  setLoading(true);
+  setError("");
 
-    try {
-      const res = await fetch("http://127.0.0.1:5000/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          story: description,
-          levels: [3, 3, 3, 3],
-        }),
-      });
+  try {
+    const res = await fetch("http://127.0.0.1:5000/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        story: description,
+        levels: [3, 3, 3, 3],
+      }),
+    });
 
-      const data = await res.json();
-      if (res.ok) {
-        const flowData = transformFlowData(data);
-        navigate("/editor", { state: { flowData } });
-      } else {
-        setError(data.error || "Something went wrong.");
-      }
-    } catch (err) {
-      setError("Failed to connect to backend: " + err.message);
-    } finally {
-      setLoading(false);
+    const data = await res.json();
+    if (res.ok) {
+      const flowData = transformFlowData(data);
+
+      // ✅ Save scenario to localStorage before navigating
+      const newScenario = {
+        id: Date.now(),
+        title: title || "Untitled Scenario",
+        description,
+        flowData,
+        createdAt: new Date().toISOString(),
+      };
+
+      const existing = JSON.parse(localStorage.getItem("scenarios") || "[]");
+      existing.push(newScenario);
+      localStorage.setItem("scenarios", JSON.stringify(existing));
+
+      // ✅ Then navigate to editor
+      navigate("/editor", { state: { flowData } });
+    } else {
+      setError(data.error || "Something went wrong.");
     }
-  };
+  } catch (err) {
+    setError("Failed to connect to backend: " + err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
-    <div className="create-scenario-page">
-      <div className="header-bar">
-        <Link to="/admin" className="back-link">
-          <span className="back-arrow">&lt; back</span>
-        </Link>
-        <span className="page-title">Scenario Prompt</span>
-        <button className="edit-icon">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-          </svg>
-        </button>
-      </div>
-
+    <div className="scenario-prompt-page">
+      <NavigationBar /> 
+      <div className="scenario-prompt-container">
+        <div className="header">
+            <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
+          </div>
+          <div className="scenario-prompt-content">
+            <div className="scenerio-history-container">
+              <ScenarioHistory />
+            </div>
       <div className="content-area">
+      
         <div className="form-group">
           <label htmlFor="scenario-title">Scenario Title:</label>
           <input
@@ -103,7 +113,7 @@ const ScenarioPrompt = () => {
         </div>
 
         <div className="form-group">
-          <label htmlFor="case-study-description">Describe Case Study</label>
+          <label htmlFor="case-study-description">What's your scenario about?</label>
           <textarea
             id="case-study-description"
             value={description}
@@ -117,14 +127,16 @@ const ScenarioPrompt = () => {
         {error && <div className="error-msg">{error}</div>}
 
         <button
-          className="create-button"
+          className="create-scenario-button"
           onClick={handleSubmit}
           disabled={loading}
         >
           {loading ? "Generating..." : "Create Scenario"}
         </button>
       </div>
+      </div>
     </div>
+    </div> 
   );
 };
 
