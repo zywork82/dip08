@@ -14,7 +14,7 @@ const NodeWrapper = ({ id, data, selected, type }) => {
 
   useEffect(() => {
     resizeTextarea();
-  }, [data.label]);
+  }, [typeof data.label === "string" ? data.label : data.label?.label || ""]);
 
   const handleChange = (e) => {
     if (data.onReprompt) data.onReprompt(e.target.value);
@@ -49,30 +49,35 @@ const NodeWrapper = ({ id, data, selected, type }) => {
     ×
   </button>
 )}
+{(data.b64image || data.imageUrl) && (
+  <img
+    src={data.imageUrl || data.b64image}
+    alt={typeof data.label === "string" ? data.label : data.label?.label || "Untitled"}
+    style={{
+      width: "100%",
+      maxHeight: 120,
+      objectFit: "cover",
+      marginBottom: 5,
+      borderRadius: 5,
+    }}
+  />
+)}
 
-      {data.imageUrl && (
-        <img
-          src={data.imageUrl}
-          alt={data.label}
-          style={{ width: "100%", marginBottom: 5, borderRadius: 5 }}
-        />
-      )}
-
-      <textarea
-        ref={textareaRef}
-        value={data.label}
-        onChange={handleChange}
-        style={{
-          width: "100%",
-          border: "none",
-          background: "transparent",
-          resize: "none",
-          overflow: "hidden",
-          fontSize: "14px",
-          lineHeight: "1.2",
-        }}
-        rows={1}
-      />
+<textarea
+  ref={textareaRef}
+  value={typeof data.label === "string" ? data.label : data.label?.label || ""}
+  onChange={handleChange}
+  style={{
+    width: "100%",
+    border: "none",
+    background: "transparent",
+    resize: "none",
+    overflow: "hidden",
+    fontSize: "14px",
+    lineHeight: "1.2",
+  }}
+  rows={1}
+/>
 
       <Handle type="source" position={Position.Bottom} />
     </div>

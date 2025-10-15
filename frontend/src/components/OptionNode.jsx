@@ -9,7 +9,7 @@ const OptionNode = ({ option, onClick, isSelected }) => {
       onClick={onClick}
     
     >
-      {option.label || "Option"}
+      {option || "Option"}
     </div>
   );
 };
