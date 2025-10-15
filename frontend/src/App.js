@@ -1,25 +1,107 @@
 // App.jsx
 import React, { useState, useRef, useEffect } from "react";
-import { HashRouter, Routes, Route, Link } from "react-router-dom";
+import { HashRouter, Routes, Route, Link, useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import FlowChartEditor from "./pages/FlowChartEditor";
+import SceneEditor from "./pages/SceneEditor.jsx";
 import ScenarioPrompt from "./pages/ScenarioPrompt";
 import StudentPage from "./pages/StudentPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SignupPage from "./pages/SignupPage";
-import PreviewPage from "./pages/PreviewPage";
-import TraineeRecordsPage from "./pages/TraineeRecordsPage";
-import SettingsPage from "./pages/SettingsPage";
-import SceneEditor from "./pages/SceneEditor";
-import TrainerTeam from './pages/TrainerTeam';
-import CaseStudiesPage from './pages/CaseStudiesPage';
-import AnalyticsEngine from "./pages/AnalyticsEngine";
 import "./App.css";
 import ScenarioInterface from "./pages/ScenarioInterface";
+import ReportInterface from './pages/ReportInterface.jsx';
 import {sampleNodes} from '../src/data/sampleAiFlow.js';
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
+
+const AppContent = () => {
+  //Navigation Hook 
+  //useNavigate must be called within a component that is a descendant of <Router>
+  const navigate = useNavigate();
+
+  //Scenario Playthrough State
+  const startScenario = sampleNodes['101'];
+  const [currentScenarioId, setCurrentScenarioId] = useState(startScenario.id);
+  const [analyticsData, setAnalyticsData] = useState([]);
+
+  const currentScenario = sampleNodes[currentScenarioId];
+
+  if (!currentScenario) {
+    return <div>Error: Could not find scenario with ID '{currentScenarioId}'.</div>;
+  }
+
+  const isFinished = !currentScenario.options || currentScenario.options.length === 0;
+
+  // --- Handler Functions ---
+  const handleOptionSelect = (selectedOption, timeTaken) => {
+    const newAnalyticEntry = {
+      scenarioId: currentScenarioId,
+      choice: selectedOption.data.label,
+      timeTaken: parseFloat(timeTaken.toFixed(2)),
+    };
+    setAnalyticsData(prevData => [...prevData, newAnalyticEntry]);
+
+    if (selectedOption.next) {
+      setCurrentScenarioId(selectedOption.next);
+    } else {
+      // This is an end state. The UI will update via isFinished.
+      setCurrentScenarioId(selectedOption.id);
+    }
+  };
+const suppressResizeObserverError = (error) => {
+  // Check if the error message contains the specific text
+  if (error.message && error.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+    // Return immediately, preventing the error from being logged
+    return;
+  }
+  // For all other errors, log them as normal
+  console.error(error);
+};
+
+// Apply the suppression function globally in the browser's window context
+// This will only work in development (non-production) environments.
+window.addEventListener('error', suppressResizeObserverError);
+  const handleRestart = () => {
+    setAnalyticsData([]);
+    setCurrentScenarioId(startScenario.id);
+    navigate('/scenarioInterface'); // Navigate back to the start
+  };
+
+  // This function will be passed to the ScenarioInterface
+  const goToReport = () => {
+    navigate('/report');
+  };
+
+  return (
+    <Routes>
+      {/* Your other routes */}
+      <Route path="/" element={<LoginPage />} />
+      <Route path="/editor" element={<FlowChartEditor />} />
+      <Route path="/scenario" element={<ScenarioPrompt />} />
+      <Route path="/admin" element={<AdminDashboard />} />
+      <Route path="/student" element={<StudentPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/scene-editor" element={<SceneEditor />} />
+
+      {/* --- Updated Scenario and Report Routes --- */}
+      <Route 
+        path="/scenarioInterface" 
+        element={
+          <ScenarioInterface
+            scenario={currentScenario}
+            onOptionSelect={handleOptionSelect}
+            isFinished={isFinished}
+            onGoToReport={goToReport}
+          />
+        }
+      />
+      <Route 
+        path="/report" 
+        element={<ReportInterface data={analyticsData} onRestart={handleRestart} />}
+      />
+    </Routes>
+  );
+};
 
 function App() {
   const navRef = useRef(null);
@@ -55,95 +137,29 @@ function App() {
     });
   };
 
-  const startScenario = sampleNodes[101];
-  const [currentScenarioId, setCurrentScenarioId] = useState(startScenario.id);
-
-  // Look up the full data for the current scenario
-  const currentScenario = sampleNodes[currentScenarioId];
-
-  // Create state to store all analytics data
-  const [analyticsData, setAnalyticsData] = useState([]);
-
-  //Update the handler to accept the `timeTaken` argument
-  const handleOptionSelect = (selectedOption, timeTaken) => {
-    //Create a new entry for our analytics log
-    const newAnalyticEntry = {
-      scenarioId: currentScenarioId,
-      choice: selectedOption.data,
-      timeTaken: timeTaken.toFixed(2) + 's', // Format to 2 decimal places
-    };
-
-    //Add the new entry to our analytics state
-    const updatedAnalytics = [...analyticsData, newAnalyticEntry];
-    setAnalyticsData(updatedAnalytics);
-    console.log('Analytics Log:', updatedAnalytics); // Log to the console
-
-    if (selectedOption.next) {
-      setCurrentScenarioId(selectedOption.next);
-    }
-  };
-
   return (
     <HashRouter>
       {/* Draggable Nav Bar */}
-      <nav
-        ref={navRef}
-        className="test-nav-bar"
-
-      >
+      <nav ref={navRef} className="test-nav-bar" onMouseDown={handleMouseDown} style={{ left: position.x, top: position.y }}>
         <div className="nav-handle">Drag to move</div>
         <ul>
-          <li><Link to="/">Login</Link></li>
-          <li><Link to="/editor">FlowChartEditor</Link></li>
-          <li><Link to="/scene-editor">SceneEditor</Link></li>
-          <li><Link to="/scenario">Scenario</Link></li>
-          <li><Link to="/admin">Admin Dashboard</Link></li>
-          <li><Link to="/student">Student Page</Link></li>
-          <li><Link to="/scenarioInterface">Scenario Interface</Link></li>
-          <li><Link to="/signup">Signup</Link></li>
-          <li><Link to="/analytics">Analytics</Link></li>
+            {/* Your Links */}
+            <li><Link to="/">Login</Link></li>
+            <li><Link to="/editor">Editor</Link></li>
+            <li><Link to="/scenario">Scenario</Link></li>
+            <li><Link to="/admin">Admin Dashboard</Link></li>
+            <li><Link to="/student">Student Page</Link></li>
+            <li><Link to="/scenarioInterface">Scenario Interface</Link></li>
+            <li><Link to="/signup">Signup</Link></li>
         </ul>
       </nav>
 
       {/* Main content */}
-      <main className="main-content-wrapper">
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/editor" element={<FlowChartEditor />} />
-          <Route path="/scenario" element={<ScenarioPrompt />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/student" element={<StudentPage />} />
-          
-          <Route path="/scenarioInterface" element={<ScenarioInterface scenario={currentScenario} 
-        onOptionSelect={handleOptionSelect} />}/>
+      <div className="main-content-wrapper">
 
-          <Route path="/signup" element={<SignupPage />} />
-           <Route path="/preview" element={<PreviewPage />} />
-           <Route path="/trainee-records" element={<TraineeRecordsPage />} />
-           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/analytics" element={<AnalyticsEngine />} />
-           <Route path="/scene-editor" element={<SceneEditor />} />
-           <Route path="/trainer-team" element={<TrainerTeam />} />
-           <Route path="/case-studies" element={<CaseStudiesPage />} />
-
-        </Routes>
-
-        <div>
-      
-    </div>
-      </main>
-        <ToastContainer 
-        position="bottom-right"
-        autoClose={3000}
-        hideProgressBar={true}
-        newestOnTop={true}
-        closeOnClick
-        pauseOnHover={false}
-        draggable={false}
-        theme="colored"
-      />
+        <AppContent />
+      </div>
     </HashRouter>
-
     
   );
 }

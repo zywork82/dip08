@@ -1,9 +1,22 @@
 .scene-editor-container {
   display: flex;
+  flex-direction: row;
   width: 100%;
   height: 100vh;
 }
+.editor-container {
+  display: flex;
+  flex-direction: column; /* header on top */
+  height: 100%;
+  width: 100%;
+}
 
+.scene-editor-content{
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+}
 .node-sidebar {
   width: 300px;
   background: #f9fafb;
