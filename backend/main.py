@@ -1,38 +1,26 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+# app.py
+from flask import Flask
+from flask_cors import CORS
 
-# Routers
-from signup import router as signup_router
-from login import router as login_router
-from users import router as user_router
-from admins import router as admin_router
-from analytics import app as analytics_app  
-from scenarios import router as scenarios_router
+# Blueprints (instead of FastAPI routers)
+from signup import signup_router
+from login import login_router
+from users import user_router
+from admins import admin_router
+from analytics import analytics_app
+from scenarios import scenarios_router
+from flow_routes import flow_router
 
+app = Flask(__name__)
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], supports_credentials=True)
 
+# --- Register blueprints ---
+app.register_blueprint(signup_router)
+app.register_blueprint(login_router)
+app.register_blueprint(user_router)
+app.register_blueprint(admin_router)
+app.register_blueprint(scenarios_router)
+app.register_blueprint(flow_router)
 
-app = FastAPI()
-
-# Allow requests from your frontend
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,   # or ["*"] temporarily
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# --- Routers ---
-app.include_router(signup_router)
-app.include_router(login_router)
-app.include_router(user_router)
-app.include_router(admin_router)
-app.include_router(scenarios_router)
-# app.include_router(scenario_router)  # add when ready
-
+if __name__ == "__main__":
+    app.run(host="127.0.0.1", port=8000, debug=True)
