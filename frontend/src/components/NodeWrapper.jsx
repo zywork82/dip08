@@ -16,10 +16,10 @@ const NodeWrapper = ({ id, data, selected, type }) => {
     resizeTextarea();
   }, [typeof data.label === "string" ? data.label : data.label?.label || ""]);
 
-  const handleChange = (e) => {
-    if (data.onReprompt) data.onReprompt(e.target.value);
-    resizeTextarea();
-  };
+const handleChange = (e) => {
+  if (data.onChange) data.onChange(e); // pass the event to update React Flow state
+  resizeTextarea();
+};
 
   return (
     <div className={`node node-${type} ${selected ? "selected" : ""}`}>
