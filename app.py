@@ -5,6 +5,9 @@ from flask_cors import CORS
 from flask import Flask, request, jsonify, make_response, send_from_directory
 from dotenv import load_dotenv
 from openai import OpenAI
+from scenarios import router as scenarios_router
+
+
 
 # =========================
 # .env loading
@@ -39,6 +42,8 @@ PSYCH_SEED = os.getenv("PSYCH_SEED")  # optional int/str for deterministic assig
 
 app = Flask(__name__)
 CORS(app) 
+app.register_blueprint(scenarios_router, url_prefix="/scenarios")
+
 # --------------------------
 # Utilities
 # --------------------------
@@ -396,6 +401,24 @@ def fill_content_for_nodes(story: str,
         Psychological aspects per node id (align content with these):
         {json.dumps(per_batch_aspects, ensure_ascii=False, indent=2)}
 
+       For EACH NODE_ID:
+        - If NODE_ID is a scenario, provide 'options' as a list of child node IDs.
+        - If NODE_ID is an option, provide 'next' as the ID of the node it leads to (must not be empty).
+        - Always provide 'text' and 'narrative' (<=120 chars each).
+        - Do not omit any field.
+        Return ONLY valid JSON of this structure:
+        {{
+        "NODE_ID": {{
+            "text": "...",
+            "narrative": "...",
+            "options": ["OPTION_ID1", "OPTION_ID2"],
+            "next": "NEXT_NODE_ID"
+        }},
+        "..."
+        }}
+
+        Node IDs: {", ".join(batch_ids)})
+
         Provide concise content for these node ids (<=120 chars each field):
         {ids_serial}
         """)
@@ -415,9 +438,12 @@ def fill_content_for_nodes(story: str,
         for k in batch_ids:
             v = data.get(k, {})
             out[k] = {
-                "text": _as_str(v.get("text", "")).strip()[:120],
-                "narrative": _as_str(v.get("narrative", "")).strip()[:120],
-            }
+        "text": _as_str(v.get("text", "")).strip()[:120],
+        "narrative": _as_str(v.get("narrative", "")).strip()[:120],
+        "options": v.get("options") or [],
+        "next": v.get("next") or None
+    }
+
         return out
 
     for i in range(0, len(node_ids), BATCH_SIZE):
