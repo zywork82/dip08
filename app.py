@@ -2,7 +2,7 @@ import os, json, textwrap, time, re, base64, random
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Set, Optional
-
+from flask_cors import CORS 
 from flask import Flask, request, jsonify, make_response, send_from_directory
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -54,7 +54,7 @@ PSYCH_ASPECTS = _load_aspects_from_env_or_default()
 PSYCH_SEED = os.getenv("PSYCH_SEED")  # optional int/str for deterministic assignment
 
 app = Flask(__name__)
-
+CORS(app) 
 # --------------------------
 # Utilities
 # --------------------------
