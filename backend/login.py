@@ -1,12 +1,12 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, EmailStr
-from passlib.context import CryptContext
+from flask import Blueprint, request, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
 from jose import jwt
+from passlib.context import CryptContext
 from datetime import datetime, timedelta
-from db import db  # ✅ use the shared async MongoDB connection
 from bson import ObjectId
+from db import db
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+login_bp = Blueprint("login", __name__, url_prefix="/login")
 
 # --- Password hashing ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -15,12 +15,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = "supersecret"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
-
-# --- Request model ---
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-    role: str  
 
 # --- Helpers ---
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -32,23 +26,23 @@ def create_access_token(user_id: str):
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 # --- Login endpoint ---
-@router.post("/login")
-async def login(user: LoginRequest):
-    db_user = await db["users"].find_one({"email": user.email})
+@login_bp.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    email = data.get("email")
+    password = data.get("password")
+    role = data.get("role")
+    db_user = db["users"].find_one({"email": email})
     if not db_user:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-
-    if not verify_password(user.password, db_user["password"]):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-    if user.role.lower() != db_user["role"].lower():
-        raise HTTPException(status_code=403, detail="Incorrect role selected")
+        return jsonify({"error": "Invalid email or password"}), 401
+    if not verify_password(password, db_user["password"]):
+        return jsonify({"error": "Invalid email or password"}), 401
+    if role.lower() != db_user["role"].lower():
+        return jsonify({"error": "Incorrect role selected"}), 403
 
     token = create_access_token(str(db_user["_id"]))
    
-   
-
-
-    return {
+    return jsonify({
         "access_token": token,
         "token_type": "bearer",
         "user": {
@@ -57,4 +51,4 @@ async def login(user: LoginRequest):
             "email": db_user["email"],
             "role": db_user["role"],
         },
-    }
+    }), 200

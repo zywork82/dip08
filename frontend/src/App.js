@@ -90,6 +90,7 @@ window.addEventListener('error', suppressResizeObserverError);
       <Route path="/student" element={<StudentPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/scene-editor" element={<SceneEditor />} />
+      <Route path="/report" element={<ReportInterface />} />
       
 
       {/* --- Updated Scenario and Report Routes --- */}

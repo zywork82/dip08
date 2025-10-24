@@ -1,80 +1,101 @@
-from fastapi import APIRouter, Depends, HTTPException
-from db import db
+from flask import Blueprint, request, jsonify
+from jose import jwt, JWTError
 from bson import ObjectId
-from typing import Optional
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from fastapi.security import HTTPBearer
+from db import db  # same as before
 
-router = APIRouter(prefix="/users", tags=["users"])
-security = HTTPBearer()
+users_bp = Blueprint("users", __name__, url_prefix="/users")
 
-# --- JWT settings ---
-SECRET_KEY = "supersecret"  # must match login.py
+# --- JWT Settings ---
+SECRET_KEY = "supersecret"
 ALGORITHM = "HS256"
 
 
-# --- Helper: get current user ---
-async def get_current_user(token: str = Depends(security)):
-    try:
-        payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
+# --- Helper: Get current user ---
+def get_current_user():
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None, jsonify({"error": "Missing or invalid token"}), 401
 
-        user = await db.users.find_one({"_id": ObjectId(user_id)})
+    token = auth_header.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            return None, jsonify({"error": "Invalid token"}), 401
+
+        user = db.users.find_one({"_id": ObjectId(user_id)})
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            return None, jsonify({"error": "User not found"}), 404
 
         user["_id"] = str(user["_id"])
-        return user
+        return user, None, None
+
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        return None, jsonify({"error": "Invalid or expired token"}), 401
 
 
 # --- Get current profile ---
-@router.get("/me")
-async def get_me(current_user: dict = Depends(get_current_user)):
-    return {
+@users_bp.route("/me", methods=["GET"])
+def get_me():
+    current_user, err, status = get_current_user()
+    if err:
+        return err, status
+
+    return jsonify({
         "id": current_user["_id"],
         "username": current_user["username"],
         "email": current_user["email"],
-        "role": current_user.get("role", "student"),
-    }
+        "role": current_user.get("role", "student")
+    })
 
 
 # --- Update profile ---
-@router.put("/me")
-async def update_me(update_data: dict, current_user: dict = Depends(get_current_user)):
-    allowed = {"username"}  # only allow updating username
-    payload = {k: v for k, v in update_data.items() if k in allowed}
+@users_bp.route("/me", methods=["PUT"])
+def update_me():
+    current_user, err, status = get_current_user()
+    if err:
+        return err, status
+
+    data = request.get_json()
+    allowed = {"username"}
+    payload = {k: v for k, v in data.items() if k in allowed}
+
     if not payload:
-        raise HTTPException(status_code=400, detail="Nothing to update")
-    await db.users.update_one(
-        {"_id": ObjectId(current_user["_id"])}, {"$set": payload}
-    )
-    return {"msg": "Profile updated"}
+        return jsonify({"error": "Nothing to update"}), 400
+
+    db.users.update_one({"_id": ObjectId(current_user["_id"])}, {"$set": payload})
+    return jsonify({"msg": "Profile updated"}), 200
 
 
 # --- Log analytics event ---
-@router.post("/me/events")
-async def log_event(event: dict, current_user: dict = Depends(get_current_user)):
+@users_bp.route("/me/events", methods=["POST"])
+def log_event():
+    current_user, err, status = get_current_user()
+    if err:
+        return err, status
+
+    data = request.get_json()
     event_doc = {
         "user_id": ObjectId(current_user["_id"]),
-        "event_type": event.get("event_type"),
-        "duration": float(event.get("duration", 0)),
-        "metadata": event.get("metadata", {}),
+        "event_type": data.get("event_type"),
+        "duration": float(data.get("duration", 0)),
+        "metadata": data.get("metadata", {}),
         "ts": datetime.utcnow(),
     }
-    await db.events.insert_one(event_doc)
-    return {"msg": "Event logged"}
+    db.events.insert_one(event_doc)
+    return jsonify({"msg": "Event logged"}), 201
 
 
 # --- Analytics summary ---
-@router.get("/me/analytics")
-async def analytics(current_user: dict = Depends(get_current_user)):
+@users_bp.route("/me/analytics", methods=["GET"])
+def analytics():
+    current_user, err, status = get_current_user()
+    if err:
+        return err, status
+
     uid = ObjectId(current_user["_id"])
-    total = await db.events.count_documents({"user_id": uid})
+    total = db.events.count_documents({"user_id": uid})
 
     pipeline = [
         {"$match": {"user_id": uid}},
@@ -86,47 +107,47 @@ async def analytics(current_user: dict = Depends(get_current_user)):
             }
         },
     ]
-    by_type = await db.events.aggregate(pipeline).to_list(length=None)
+    by_type = list(db.events.aggregate(pipeline))
 
     since = datetime.utcnow() - timedelta(days=7)
     pipeline2 = [
         {"$match": {"user_id": uid, "ts": {"$gte": since}}},
         {
             "$group": {
-                "_id": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$ts"}
-                },
+                "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$ts"}},
                 "count": {"$sum": 1},
             }
         },
         {"$sort": {"_id": 1}},
     ]
-    daily = await db.events.aggregate(pipeline2).to_list(length=None)
+    daily = list(db.events.aggregate(pipeline2))
 
-    return {
+    return jsonify({
         "total_events": total,
         "by_type": by_type,
         "daily_last_7_days": daily,
-    }
+    })
 
 
-# --- Get all users (optionally filter by role) ---
-@router.get("/")
-async def list_users(
-    role: Optional[str] = None, current_user: dict = Depends(get_current_user)
-):
+# --- Get all users (optional role filter) ---
+@users_bp.route("/", methods=["GET"])
+def list_users():
+    current_user, err, status = get_current_user()
+    if err:
+        return err, status
+
+    role = request.args.get("role")
     query = {}
     if role:
-        query["role"] = {"$regex": f"^{role}$", "$options": "i"}  # case-insensitive
+        query["role"] = {"$regex": f"^{role}$", "$options": "i"}
 
-    users = await db.users.find(query).to_list(100)
-
+    users = list(db.users.find(query))
     normalized_users = []
+
     for u in users:
         u["_id"] = str(u["_id"])
-        # normalize role so frontend always sees "Administrator"
         if u.get("role", "").lower() == "admin":
             u["role"] = "Administrator"
         normalized_users.append(u)
 
-    return normalized_users
+    return jsonify(normalized_users), 200
