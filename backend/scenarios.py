@@ -4,9 +4,10 @@ from db import db  # pymongo client
 from datetime import datetime
 from bson import ObjectId
 
-router = Blueprint("scenarios", __name__)
+scenarios_bp = Blueprint("scenarios", __name__, url_prefix="/scenarios")
 
-@router.route("/saveFlow", methods=["POST"])
+
+@scenarios_bp.route("/saveFlow", methods=["POST"])
 def save_flow():
     try:
         flow = request.json

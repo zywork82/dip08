@@ -9,6 +9,12 @@
 
 }
 
+.header-username {
+  margin-right: 12px;
+  font-weight: 500;
+  color: #333;
+}
+
 .search-bar-container {
   display: flex;
   align-items: center;

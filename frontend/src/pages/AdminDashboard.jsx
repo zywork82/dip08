@@ -11,7 +11,7 @@ import { MdHome, MdPeople, MdAssignment, MdLibraryBooks, MdSettings, MdLogout, M
 import { FaPlusCircle } from 'react-icons/fa';
 import axios from 'axios';
 
-const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A';
+const profileImage = 'https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -21,14 +21,27 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const getInitials = (name) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+  
+  const generatePlaceholder = (name) => {
+    const initials = getInitials(name);
+    return `https://placehold.co/100x100/E6E6FA/3f51b5?text=${initials}`;
+  };
+
+useEffect(() => {
   const username = localStorage.getItem("adminUsername");
-  const profileImg = localStorage.getItem("adminProfileImage") || profileImage;
+  const profileImg = localStorage.getItem("adminProfileImage");
 
   if (username) {
     setCurrentAdmin({
       username,
-      profileImage: profileImg,
+      profileImage: profileImg || generatePlaceholder(username),
+      role: "Admin",
     });
   }
 }, []);
@@ -68,7 +81,7 @@ const AdminDashboard = () => {
   
   const [currentAdmin, setCurrentAdmin] = useState({
   username: "Prof Andy",
-  profileImage: profileImage, // your placeholder
+  profileImage: profileImage, 
   role: "Admin"});
 
   return (
