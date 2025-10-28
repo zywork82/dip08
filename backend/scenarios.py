@@ -6,7 +6,6 @@ from bson import ObjectId
 
 scenarios_bp = Blueprint("scenarios", __name__, url_prefix="/scenarios")
 
-
 @scenarios_bp.route("/saveFlow", methods=["POST"])
 def save_flow():
     try:
@@ -54,5 +53,19 @@ def save_flow():
             "scenarioId": str(scenario_id)
         })
 
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@scenarios_bp.route("/", methods=["GET"])
+def get_all_scenarios():
+    if request.method == "OPTIONS":
+        return '', 200  # preflight OK
+    try:
+        scenarios = list(db.scenarios.find({}))
+        for s in scenarios:
+            s["_id"] = str(s["_id"])
+            if "lastEdited" in s:
+                s["lastEdited"] = s["lastEdited"][:10]
+        return jsonify(scenarios)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
