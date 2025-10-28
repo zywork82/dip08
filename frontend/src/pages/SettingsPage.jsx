@@ -5,7 +5,7 @@ import '../styles/Settings.css';
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState("accounts");
-  const [isEditing, setIsEditing] = useState(false); // ✅ this was missing or placed below
+  const [isEditing, setIsEditing] = useState(false); 
 
 const [profile, setProfile] = useState({
   name: "",

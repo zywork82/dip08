@@ -3,12 +3,18 @@ import { Link } from 'react-router-dom';
 import { MdSearch, MdSettings, MdNotifications } from 'react-icons/md';
 import '../styles/Header.css';
 
-const SharedHeader = ({ profileImage }) => {
+const SharedHeader = ({ profileImage, searchTerm, onSearchChange }) => {
   return (
     <header className="shared-header">
       <div className="search-bar-container">
         <MdSearch className="search-icon" />
-        <input type="text" placeholder="Search for something" className="search-input" />
+        <input
+          type="text"
+          placeholder="Search for something"
+          className="search-input"
+          value={searchTerm}             // controlled input
+          onChange={(e) => onSearchChange(e.target.value)}  // notify parent
+        />
       </div>
       <div className="user-profile-section">
         <Link to="/settings" className="icon-link">

@@ -11,6 +11,7 @@ const getInitials = (name) => {
   if (parts.length === 1) return parts[0][0].toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase(); // e.g. "Prof Andy" → "PA"
 };
+
 const TrainerCard = ({ trainer }) => (
   <div className="trainer-card">
     <div className="trainer-image-container">

@@ -6,7 +6,6 @@ import CaseStudyCard from '../components/CaseStudyCard';
 import StudentRecordCard from '../components/StudentRecordCard';
 import '../styles/Global.css';
 import '../styles/Admin.css';
-import { caseStudies } from '../data/mockdata.js';
 import { MdHome, MdPeople, MdAssignment, MdLibraryBooks, MdSettings, MdLogout, MdFilterList, MdMoreVert } from 'react-icons/md';
 import { FaPlusCircle } from 'react-icons/fa';
 import axios from 'axios';
@@ -19,7 +18,11 @@ const AdminDashboard = () => {
   const [timeRange, setTimeRange] = useState('This year');
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [caseStudies, setCaseStudies] = useState([]);
   const navigate = useNavigate();
+
+  const [loadingCaseStudies, setLoadingCaseStudies] = useState(true);
+  const [caseStudiesError, setCaseStudiesError] = useState(null);
 
   const getInitials = (name) => {
     if (!name) return "U";
@@ -50,16 +53,58 @@ useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const userRes = await axios.get('http://localhost:8000/admin/users', {
+        const userRes = await axios.get('http://localhost:8000/admins/users', {
         headers: { Authorization: `Bearer ${token}` },
         });
         setUsers(userRes.data);
+        
       } catch (err) {
         console.error(err);
       }
     };
     fetchData();
   }, []);
+
+  
+useEffect(() => {
+  const fetchCaseStudies = async () => {
+    setLoadingCaseStudies(true);
+    setCaseStudiesError(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error("No token found in localStorage");
+
+      const res = await axios.get('http://localhost:8000/scenarios', {
+       
+      });
+
+      console.log("Raw response data:", res.data);
+
+      // Handle case if API wraps scenarios in an object
+      let scenariosArray = [];
+      if (Array.isArray(res.data)) {
+        scenariosArray = res.data;
+      } else if (res.data?.scenarios && Array.isArray(res.data.scenarios)) {
+        scenariosArray = res.data.scenarios;
+      } else {
+        throw new Error("Unexpected response format");
+      }
+
+      console.log("Processed scenarios array:", scenariosArray);
+      setCaseStudies(scenariosArray);
+
+    } catch (err) {
+      console.error("Error fetching scenarios:", err);
+      setCaseStudiesError(err.message);
+      setCaseStudies([]); // ensure state is empty on error
+    } finally {
+      setLoadingCaseStudies(false);
+    }
+  };
+
+  fetchCaseStudies();
+}, []);
 
   const handleCreateScenarioClick = () => navigate('/scenario');
 
@@ -87,12 +132,15 @@ useEffect(() => {
   return (
     <div className="admin-page-container">
       <SharedSidebar navItems={adminNavItems} />
+      <div className="admin-dashboard-wrapper">
       <div className="main-content">
         <div className="header">
           <SharedHeader
             profileImage={currentAdmin.profileImage}
             userName={currentAdmin.username}
             userRole="Administrator"
+            searchTerm={searchTerm}                    // state
+            onSearchChange={(value) => setSearchTerm(value)}  // notify parent
         />
 
         </div>
@@ -107,8 +155,13 @@ useEffect(() => {
               <div className="activity-container">
                 <div className="scenario-scroll-wrapper">
                   {caseStudies.map(scenario => (
-                    <div key={scenario.id} className="activity-item-card">
-                      <CaseStudyCard {...scenario} />
+                    <div key={scenario._id} className="activity-item-card">
+                      <CaseStudyCard
+                        title={scenario.title || "Untitled"}
+                        lastEdited={scenario.lastEdited || "N/A"}
+                        status={scenario.status || "Edit"}
+                        image={scenario.image || "https://placehold.co/400x200/525252/FFF?text=No+Image"}
+                      />
                     </div>
                   ))}
                 </div>
@@ -217,16 +270,10 @@ useEffect(() => {
             </div>
           </section>
 
-          {/* Right Column */}
           <aside className="right-column">
             {/* Training Statistics */}
-            <div className="training-statistics-section" style={{
-              backgroundColor: 'var(--secondary-bg)',
-              padding: '24px',
-              borderRadius: '12px',
-              boxShadow: 'var(--shadow)',
-              marginBottom: '24px'
-            }}>
+            <div className="pie-chart-container" style={{ background: `conic-gradient(...)` }}>
+            <div className="pie-chart-center">Total</div>
               <div className="section-header">
                 <h3>Training Statistics</h3>
               </div>
@@ -290,7 +337,7 @@ useEffect(() => {
 
             {/* Students Records */}
             <section className="students-records-section">
-            <div className="section-header">
+             <div className="section-header">
               <h3>Recent Trainees' Records</h3>
               <div className="search-students">
                 <input
@@ -322,6 +369,7 @@ useEffect(() => {
           </section>
           </aside>
         </div>
+      </div>
       </div>
     </div>
   );
