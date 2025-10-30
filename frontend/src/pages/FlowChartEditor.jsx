@@ -223,25 +223,67 @@ const FlowChartEditor = () => {
 
 
   // === Generate images / proceed to scene editor ===
-  const generateImages = () => {
-    if (!reactFlowInstance) return;
+const generateImages = async () => {
+  if (!reactFlowInstance) return;
+
+  try {
+    // Step 1: Collect nodes info for backend
     const flowData = reactFlowInstance.toObject();
     const layoutedNodes = getLayoutedNodes(flowData.nodes, flowData.edges);
 
-    const sanitizedNodes = layoutedNodes.map((n) => ({
-      ...n,
-      data: {
-        label: n.data?.label || "",
-        imageUrl: n.data?.b64image || "https://via.placeholder.com/150",
-        narrative: n.data?.narrative || "",
-        scene: n.data?.scene || "",
-        options: n.data?.options || [],
-        next: n.data?.next || null,
-      },
+    const nodesForApi = layoutedNodes.map((n) => ({
+      id: n.id,
+      data_description:
+        typeof n.data === "object"
+          ? n.data.label || n.data.scene || ""
+          : n.data || "",
     }));
 
-    navigate('/scene-editor', { state: { flowData: { nodes: sanitizedNodes, edges: flowData.edges } } });
+    // Step 2: Send to Flask backend to generate images
+    const res = await fetch("http://127.0.0.1:5000/generate_images", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tmp: true, // optional flag; backend will accept this
+        nodes: nodesForApi,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.images?.length) throw new Error("No images returned");
+
+    // Step 3: Merge returned image data back into nodes
+const newNodes = layoutedNodes.map((n) => {
+  const match = data.images.find((img) => img.id === n.id);
+  const imageUrl = match
+    ? `data:image/png;base64,${match.image_b64}`
+    : n.data?.b64image || "";
+  return {
+    ...n,
+    data: {
+      ...(typeof n.data === "object" ? n.data : { label: n.data }),
+      imageUrl,
+      // remove functions to avoid DataCloneError
+      onChange: undefined,
+      onDelete: undefined,
+    },
   };
+});
+
+// Step 4: Navigate to Scene Editor with sanitized data
+navigate("/scene-editor", {
+  state: {
+    flowData: { nodes: newNodes, edges: flowData.edges },
+  },
+});
+
+  } catch (err) {
+    console.error("Error generating images:", err);
+    alert("⚠️ Failed to generate images — check console for details.");
+  }
+};
+
+
 
 
 // === Initial load (with ResizeObserver-safe fitView) ===
