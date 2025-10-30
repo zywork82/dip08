@@ -1,30 +1,63 @@
 .admin-page-container {
   display: flex;
   min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
 }
 
-.main-content {
+.admin-dashboard-wrapper {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  padding: 24px;
+  overflow-x: hidden;
+  width: calc(100% - 12rem);
+}
+
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;  overflow-x: hidden;
+  gap: 16px;
+  padding: 12px 20px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .main-content-body {
   display: flex;
-  gap: 24px;
-  margin-top: 24px;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 20px;
+  overflow-x: hidden;
 }
 
 .left-column {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  flex: 1 1 65%;
+  width: auto;
+  min-width: 0;
+  text-align: left;
+  overflow: visible;
 }
 
+/* Right column takes less space */
 .right-column {
-  flex: 1;
+  flex: 1 1 35%; /* take up ~35% but allow shrinking */
+  min-width: 0; /* ✅ crucial: allows flex item to shrink */
+  overflow: visible;
 }
 
 /* Tutorial Banner Section */
@@ -54,8 +87,10 @@
 .section-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
   margin-bottom: 16px;
+  flex-direction: column; /* ✅ stack header and search vertically */
+  gap: 0.5rem; /* ✅ optional, adds some spacing */
+  align-items: flex-start;
 }
 
 .section-header h2,
@@ -88,13 +123,18 @@
   color: white !important;
 }
 
-/* Students Records Section (right column) */
+/* ===== Students Records Section ===== */
 .students-records-section {
+  display: inline-block; /* shrink to content */
   background-color: var(--secondary-bg);
-  padding: 24px;
+  padding: 12px 16px;
   border-radius: 12px;
   box-shadow: var(--shadow);
+  max-width: 100%; /* prevent overflowing column */
+  overflow-x: auto; /* scroll if content too wide */
+  box-sizing: border-box;
 }
+
 
 .students-records-section .section-header {
   margin-bottom: 24px;
@@ -121,14 +161,22 @@
   color: var(--text-secondary);
 }
 
+/* Student list cards adapt to content */
 .student-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+/* Fix padding that sometimes pushes it */
+.student-list > * {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .student-card {
-  display: flex;
+  display: inline-flex; /* ✅ shrink to fit content */
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
@@ -289,9 +337,11 @@
 /* Recent Activities Section */
 .recent-activities-section {
   background-color: var(--secondary-bg);
+  padding-top: 24px;
   padding: 24px;
   border-radius: 12px;
   box-shadow: var(--shadow);
+  margin: 24px 0;
 }
 
 .recent-activities-section .section-header {
@@ -308,6 +358,7 @@
   display: flex;
   gap: 16px;
   overflow-x: auto;
+  min-height: 220px;
   padding-bottom: 16px;
   scrollbar-width: thin;
   scrollbar-color: var(--link-color) transparent;
@@ -390,7 +441,8 @@
 .stats-tabs {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   margin-bottom: 24px;
   border-bottom: 1px solid var(--border-color);
 }
@@ -466,3 +518,40 @@
   background-color: #e0e0f0;
   border-radius: 8px;
 }
+
+.training-statistics-section .training-stat-item {
+  display: flex;
+  justify-content: flex-start !important; /* prevent pushing chart too far */
+  align-items: center;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  flex-wrap: wrap;
+  gap: 16px; /* adds natural spacing instead */
+  box-sizing: border-box;
+  max-width: 100%; /* ensure it never exceeds container */
+}
+
+/* Fix training stat list spacing */
+.training-stat-item {
+  display: flex;
+  justify-content: flex-start !important;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pie-chart-container {
+  width: 100%;
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* centers the chart without pushing it out */
+}
+
+.pie-chart-container > div[style*="margin: 20px auto"] {
+  margin: 20px 0 !important; /* ✅ stop it from centering */
+}
+

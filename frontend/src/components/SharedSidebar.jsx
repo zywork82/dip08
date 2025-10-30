@@ -3,9 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { FaHome, FaFolder, FaUsers, FaLaptop, FaCog, FaSignOutAlt, FaChalkboardTeacher } from 'react-icons/fa';
 import '../styles/Sidebar.css';
+import { useNavigate } from 'react-router-dom';
 
 const SharedSidebar = () => {
   const location = useLocation();
+   const navigate = useNavigate(); 
 
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: <FaHome /> },
@@ -18,11 +20,12 @@ const SharedSidebar = () => {
 
   return (
     <aside className="sidebar">
+      <div className="sidebar-top">
       <div className="logo-container">
-        <div className="w-8 h-8">
+        <div className="w-12 h-12">
           <img src={logo} alt="Deciwise Logo" className="logo-icon" />
         </div>
-        <span className="logo-text">Deciwise</span>
+  
       </div>
       <nav className="nav-menu">
         {navItems.map((item) => (
@@ -41,10 +44,18 @@ const SharedSidebar = () => {
           <span className="profile-name">Prof Andy</span>
           <span className="profile-role">Administrator</span>
         </div>
-        <button className="logout-button">
+        <button
+          className="logout-button"
+          onClick={() => {
+            // Optional: clear any auth/session storage here
+            // localStorage.removeItem('authToken'); // if you store a token
+            navigate('/'); // redirect to login page
+          }}
+        >
           <FaSignOutAlt />
         </button>
       </div>
+      </div> 
     </aside>
   );
 };

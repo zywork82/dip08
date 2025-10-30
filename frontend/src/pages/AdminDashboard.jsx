@@ -6,17 +6,11 @@ import CaseStudyCard from '../components/CaseStudyCard';
 import StudentRecordCard from '../components/StudentRecordCard';
 import '../styles/Global.css';
 import '../styles/Admin.css';
-import { caseStudies } from '../data/mockdata.js';
 import { MdHome, MdPeople, MdAssignment, MdLibraryBooks, MdSettings, MdLogout, MdFilterList, MdMoreVert } from 'react-icons/md';
 import { FaPlusCircle } from 'react-icons/fa';
 import axios from 'axios';
 
-
-
-
-
-
-const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A';
+const profileImage = 'https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -24,16 +18,33 @@ const AdminDashboard = () => {
   const [timeRange, setTimeRange] = useState('This year');
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [caseStudies, setCaseStudies] = useState([]);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const [loadingCaseStudies, setLoadingCaseStudies] = useState(true);
+  const [caseStudiesError, setCaseStudiesError] = useState(null);
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+  
+  const generatePlaceholder = (name) => {
+    const initials = getInitials(name);
+    return `https://placehold.co/100x100/E6E6FA/3f51b5?text=${initials}`;
+  };
+
+useEffect(() => {
   const username = localStorage.getItem("adminUsername");
-  const profileImg = localStorage.getItem("adminProfileImage") || profileImage;
+  const profileImg = localStorage.getItem("adminProfileImage");
 
   if (username) {
     setCurrentAdmin({
       username,
-      profileImage: profileImg,
+      profileImage: profileImg || generatePlaceholder(username),
+      role: "Admin",
     });
   }
 }, []);
@@ -42,16 +53,58 @@ const AdminDashboard = () => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const userRes = await axios.get('http://localhost:8000/admin/users', {
+        const userRes = await axios.get('http://localhost:8000/admins/users', {
         headers: { Authorization: `Bearer ${token}` },
         });
         setUsers(userRes.data);
+        
       } catch (err) {
         console.error(err);
       }
     };
     fetchData();
   }, []);
+
+  
+useEffect(() => {
+  const fetchCaseStudies = async () => {
+    setLoadingCaseStudies(true);
+    setCaseStudiesError(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error("No token found in localStorage");
+
+      const res = await axios.get('http://localhost:8000/scenarios', {
+       
+      });
+
+      console.log("Raw response data:", res.data);
+
+      // Handle case if API wraps scenarios in an object
+      let scenariosArray = [];
+      if (Array.isArray(res.data)) {
+        scenariosArray = res.data;
+      } else if (res.data?.scenarios && Array.isArray(res.data.scenarios)) {
+        scenariosArray = res.data.scenarios;
+      } else {
+        throw new Error("Unexpected response format");
+      }
+
+      console.log("Processed scenarios array:", scenariosArray);
+      setCaseStudies(scenariosArray);
+
+    } catch (err) {
+      console.error("Error fetching scenarios:", err);
+      setCaseStudiesError(err.message);
+      setCaseStudies([]); // ensure state is empty on error
+    } finally {
+      setLoadingCaseStudies(false);
+    }
+  };
+
+  fetchCaseStudies();
+}, []);
 
   const handleCreateScenarioClick = () => navigate('/scenario');
 
@@ -73,18 +126,21 @@ const AdminDashboard = () => {
   
   const [currentAdmin, setCurrentAdmin] = useState({
   username: "Prof Andy",
-  profileImage: profileImage, // your placeholder
+  profileImage: profileImage, 
   role: "Admin"});
 
   return (
     <div className="admin-page-container">
       <SharedSidebar navItems={adminNavItems} />
+      <div className="admin-dashboard-wrapper">
       <div className="main-content">
         <div className="header">
           <SharedHeader
             profileImage={currentAdmin.profileImage}
             userName={currentAdmin.username}
             userRole="Administrator"
+            searchTerm={searchTerm}                    // state
+            onSearchChange={(value) => setSearchTerm(value)}  // notify parent
         />
 
         </div>
@@ -99,8 +155,13 @@ const AdminDashboard = () => {
               <div className="activity-container">
                 <div className="scenario-scroll-wrapper">
                   {caseStudies.map(scenario => (
-                    <div key={scenario.id} className="activity-item-card">
-                      <CaseStudyCard {...scenario} />
+                    <div key={scenario._id} className="activity-item-card">
+                      <CaseStudyCard
+                        title={scenario.title || "Untitled"}
+                        lastEdited={scenario.lastEdited || "N/A"}
+                        status={scenario.status || "Edit"}
+                        image={scenario.image || "https://placehold.co/400x200/525252/FFF?text=No+Image"}
+                      />
                     </div>
                   ))}
                 </div>
@@ -209,16 +270,10 @@ const AdminDashboard = () => {
             </div>
           </section>
 
-          {/* Right Column */}
           <aside className="right-column">
             {/* Training Statistics */}
-            <div className="training-statistics-section" style={{
-              backgroundColor: 'var(--secondary-bg)',
-              padding: '24px',
-              borderRadius: '12px',
-              boxShadow: 'var(--shadow)',
-              marginBottom: '24px'
-            }}>
+            <div className="pie-chart-container" style={{ background: `conic-gradient(...)` }}>
+            <div className="pie-chart-center">Total</div>
               <div className="section-header">
                 <h3>Training Statistics</h3>
               </div>
@@ -282,7 +337,7 @@ const AdminDashboard = () => {
 
             {/* Students Records */}
             <section className="students-records-section">
-            <div className="section-header">
+             <div className="section-header">
               <h3>Recent Trainees' Records</h3>
               <div className="search-students">
                 <input
@@ -314,6 +369,7 @@ const AdminDashboard = () => {
           </section>
           </aside>
         </div>
+      </div>
       </div>
     </div>
   );

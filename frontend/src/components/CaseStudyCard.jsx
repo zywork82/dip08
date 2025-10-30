@@ -1,6 +1,6 @@
 import React from 'react';
 
-const CaseStudyCard = ({ title, status, lastEdited, image }) => {
+const CaseStudyCard = ({ title, lastEdited, status, image }) => {
   const isCompleted = status === 'Completed';
   const buttonClass = isCompleted ? 'case-study-btn completed' : 'case-study-btn in-progress';
   return (
@@ -11,7 +11,7 @@ const CaseStudyCard = ({ title, status, lastEdited, image }) => {
       </div>
       <div className="case-study-info">
         <h3 className="case-study-title">{title}</h3>
-        <p className="case-study-date">Last attempted on {lastEdited}</p>
+        <p className="case-study-date">Last edited on {lastEdited}</p>
         <button className={buttonClass}>
           {isCompleted ? 'Completed' : 'Go'}
         </button>

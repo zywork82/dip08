@@ -5,12 +5,12 @@ import SharedHeader from '../components/SharedHeader';
 import { FaTh, FaBars } from 'react-icons/fa';
 import '../styles/CaseStudiesPage.css'; // Import the new CSS file
 
-// Mock data for collaborators
-const collaboratorsData = [
-  { initials: 'HP', color: '#9B50E5' },
-  { initials: 'SH', color: '#2ECC71' },
-  { initials: 'TY', color: '#E74C3C' },
-];
+const getInitials = (name) => {
+  if (!name) return 'A';
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase(); // e.g. "Prof Andy" → "PA"
+};
 
 const CaseStudiesPage = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -18,19 +18,28 @@ const CaseStudiesPage = () => {
   const navigate = useNavigate();
   const [caseStudiesData, setCaseStudiesData] = useState([]);
   const [collaboratorsData, setCollaboratorsData] = useState([]);
+  const storedUser = JSON.parse(localStorage.getItem('user')) || {};
+  const userName = storedUser.username || 'User';
+  const userEmail = storedUser.email || 'user@example.com';
+  const profileImage = storedUser.imageUrl 
+    || `https://placehold.co/100x100/E6E6FA/3f51b5?text=${getInitials(userName)}`;
 
 useEffect(() => {
-  const fetchCollaborators = async () => {
+  const fetchAdmins = async () => {
     try {
-      const response = await fetch("http://localhost:8000/collaborators");
+      const token = localStorage.getItem('token'); // JWT if needed
+      const response = await fetch('http://localhost:8000/admins/users', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
-      setCollaboratorsData(data);
+      setCollaboratorsData(data || []);
     } catch (error) {
-      console.error("Error fetching collaborators:", error);
+      console.error('Error fetching admins:', error);
+      setCollaboratorsData([]); // fallback
     }
   };
 
-  fetchCollaborators();
+  fetchAdmins();
 }, []);
   
 
@@ -53,11 +62,11 @@ useEffect(() => {
 
   const filteredCaseStudies = caseStudiesData.filter((cs) => {
     if (activeTab === 'All') return true;
-    if (activeTab === 'Completed') return cs.status === 'Completed';
-    if (activeTab === 'In-Progress') return cs.status === 'In-Progress';
+    if (activeTab === 'Published') return cs.status === 'Published';
+    if (activeTab === 'In-Progress') return cs.status === 'In-Progress' || cs.status === 'Edit';
     return false;
   });
-
+  
   const renderCaseStudies = () => {
     if (viewMode === 'grid') {
       return (
@@ -124,7 +133,10 @@ useEffect(() => {
     <div className="case-studies-container">
       <SharedSidebar />
       <div className="main-content">
-        <SharedHeader />
+        <SharedHeader 
+          profileImage={profileImage} 
+          userName={userName} 
+          userEmail={userEmail}/>
         <div className="page-body">
           <div className="case-studies-section">
             <div className="banner">
@@ -148,7 +160,7 @@ useEffect(() => {
 
             <div className="tab-container">
               <div className="tabs">
-                {['All', 'Completed', 'In-Progress'].map((tab) => (
+                {['All', 'Published', 'In-Progress'].map((tab) => (
                   <div
                     key={tab}
                     className={`tab ${activeTab === tab ? 'active' : ''}`}
@@ -178,10 +190,13 @@ useEffect(() => {
           <div className="collaborator-section">
             <h3 className="collaborator-title">Collaborator List</h3>
             <div className="collaborator-list">
-              {collaboratorsData.map((collaborator, index) => (
+              {collaboratorsData.map((admin, index) => (
                 <div key={index} className="collaborator-item">
-                  <div className="collaborator-avatar" style={{ backgroundColor: collaborator.color }}>
-                    {collaborator.initials}
+                  <div className="collaborator-avatar" style={{ backgroundColor: admin.color || '#5a466dff' }}>
+                    {getInitials(admin.username)}
+                  </div>
+                  <div className="collaborator-info">
+                    <span className="collaborator-name">{admin.username}</span>
                   </div>
                 </div>
               ))}

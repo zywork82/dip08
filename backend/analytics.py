@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
-from db import db  # ✅ import your shared MongoDB connection
+from db import db  
 
 app = FastAPI(title="Analytics Engine Backend")
 
@@ -49,6 +49,24 @@ async def get_all_analytics():
     cursor = db["reports"].find({}, {"_id": 0})  # exclude _id field
     analytics = await cursor.to_list(length=None)
     return {"status": "success", "analytics": analytics}
+
+class PlaythroughAnalytics(BaseModel):
+    username: str
+    scenario_id: str
+    choices: list  # list of {node_id, selected_option, time_taken, is_correct}
+
+@app.post("/api/analytics/playthrough")
+async def record_playthrough(data: PlaythroughAnalytics):
+    entry = {
+        "username": data.username,
+        "scenario_id": data.scenario_id,
+        "choices": data.choices,
+        "ts": datetime.utcnow().isoformat()
+    }
+    result = await db["reports"].insert_one(entry)
+    if not result.inserted_id:
+        raise HTTPException(status_code=500, detail="Failed to insert playthrough")
+    return {"status": "success", "data": entry}
 
 if __name__ == "__main__":
     import uvicorn
