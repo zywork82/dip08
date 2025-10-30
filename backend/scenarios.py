@@ -55,3 +55,51 @@ def save_flow():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- List all scenarios ---
+@router.route("/list", methods=["GET"])
+def list_scenarios():
+    try:
+        scenarios = []
+        for s in db.scenarios.find():
+            scenarios.append({
+                "id": str(s["_id"]),
+                "title": s.get("title", "Untitled Scenario"),
+                "status": s.get("status", "Draft"),
+                "lastEdited": s.get("lastEdited"),
+                "image": s.get("image"),
+            })
+        return jsonify(scenarios)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# --- Get flow data for one scenario ---
+@router.route("/getFlow/<scenario_id>", methods=["GET"])
+def get_flow(scenario_id):
+    try:
+        scenario = db.scenarios.find_one({"_id": ObjectId(scenario_id)})
+        if not scenario:
+            return jsonify({"error": "Scenario not found"}), 404
+
+        # Fetch all nodes for this scenario
+        nodes = list(db.scenarioNodes.find({"scenarioId": ObjectId(scenario_id)}))
+
+        # Convert ObjectIds to strings for JSON serialization
+        for n in nodes:
+            n["_id"] = str(n["_id"])
+            n["scenarioId"] = str(n["scenarioId"])
+
+        flow_data = {
+            "title": scenario.get("title"),
+            "status": scenario.get("status"),
+            "image": scenario.get("image"),
+            "startNodeId": scenario.get("startNodeId"),
+            "nodes": nodes,
+            "edges": [],  # Optional: add edge collection later
+        }
+
+        return jsonify(flow_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
