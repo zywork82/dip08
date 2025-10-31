@@ -58,7 +58,7 @@ def save_flow():
 
 
 # --- List all scenarios ---
-@router.route("/list", methods=["GET"])
+@scenarios_bp.route("/list", methods=["GET"])
 def list_scenarios():
     try:
         scenarios = []
@@ -76,7 +76,7 @@ def list_scenarios():
 
 
 # --- Get flow data for one scenario ---
-@router.route("/getFlow/<scenario_id>", methods=["GET"])
+@scenarios_bp.route("/getFlow/<scenario_id>", methods=["GET"])
 def get_flow(scenario_id):
     try:
         scenario = db.scenarios.find_one({"_id": ObjectId(scenario_id)})
@@ -104,7 +104,7 @@ def get_flow(scenario_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-    
+
 @scenarios_bp.route("/", methods=["GET"])
 def get_all_scenarios():
     if request.method == "OPTIONS":
