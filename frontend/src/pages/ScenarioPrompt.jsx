@@ -17,37 +17,38 @@ const ScenarioPrompt = () => {
   const [error, setError] = useState("");
 
   // Transform backend flat JSON into React Flow nodes & edges
-  const transformFlowData = (data) => {
-    const nodes = Object.values(data).map((n, idx) => ({
-      id: n.id,
-      type: n.type,
-      position: { x: idx * 200, y: idx * 120 },
-      data: {
-        label: n.description || n.data || '',
-        narrative: n.data || '',
-        options: n.options || [],
-        psych_dimensions: n.psych_dimensions || '',
-        scene: n.scene || '',
-        imageUrl: n.b64image || null,
-      },
-    }));
+// Transform backend flat JSON into React Flow nodes & edges
+const transformFlowData = (data) => {
+  const nodes = Object.values(data).map((n, idx) => ({
+    id: n.id,
+    type: n.type, 
+    position: { x: idx * 200, y: idx * 120 }, // simple layout
+    data: {
+      data_description: n.data_description || "",   // <- use exactly backend field
+      options: n.options || [],
+      psych_dimensions: n.psych_dimensions || "",
+      scene: n.scene || "",
+      b64image: n.b64image || null,
+    },
+  }));
 
-    // Generate edges from node options
-    const edges = [];
-    nodes.forEach((node) => {
-      node.data.options.forEach((optId) => {
-        edges.push({
-          id: `e-${node.id}-${optId}`,
-          source: node.id,
-          target: optId,
-          type: "smoothstep",
-          animated: true,
-        });
+  // generate edges
+  const edges = [];
+  nodes.forEach((node) => {
+    node.data.options.forEach((optId) => {
+      edges.push({
+        id: `e-${node.id}-${optId}`,
+        source: node.id,
+        target: optId,
+        type: "smoothstep",
+        animated: true,
       });
     });
+  });
 
-    return { nodes, edges };
-  };
+  return { nodes, edges };
+};
+
 
   // Save scenario to local file
   const handleSaveClick = async (newScenario) => {
