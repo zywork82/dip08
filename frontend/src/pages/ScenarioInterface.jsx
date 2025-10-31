@@ -3,18 +3,17 @@ import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/Global.css";
 import "../styles/ScenarioInterface.css";
 import OptionNode from "../components/OptionNode.jsx";
-import { sampleNodes } from "../data/sampleAiFlow.js";
 
-const ScenarioInterface = ({scenario,onOptionSelect,isFinished, onGoToReport}) => {
+const ScenarioInterface = ({ onOptionSelect, isFinished, onGoToReport }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ✅ Get flow data (can be null)
+  // Get flow data
   const flowDataFromState = location.state?.flowData;
-  const flowDataFromStorage = JSON.parse(localStorage.getItem("latestFlow"));
-  const flowData = flowDataFromState || flowDataFromStorage || null;
+  const flowDataFromStorage = JSON.parse(localStorage.getItem("latestFlow") || "null");
+  const flowData = flowDataFromState || flowDataFromStorage;
 
-  // ✅ Hooks must be declared unconditionally
+  // Determine start node
   const startNodeId = flowData?.startNodeId || flowData?.nodes?.[0]?.id || null;
   const [currentNodeId, setCurrentNodeId] = useState(startNodeId);
   const [startTime, setStartTime] = useState(Date.now());
@@ -23,7 +22,7 @@ const ScenarioInterface = ({scenario,onOptionSelect,isFinished, onGoToReport}) =
     setStartTime(Date.now());
   }, [currentNodeId]);
 
-  if (!flowData) {
+  if (!flowData || !flowData.nodes || flowData.nodes.length === 0) {
     return (
       <div>
         ⚠️ No scenario data found. Go back to{" "}
@@ -35,100 +34,89 @@ const ScenarioInterface = ({scenario,onOptionSelect,isFinished, onGoToReport}) =
   const currentNode = flowData.nodes.find((n) => n.id === currentNodeId);
   if (!currentNode) return <div>⚠️ Node not found!</div>;
 
+  // Access node fields safely
+  const { data_description, options = [], next, imageUrl, scene } = currentNode.data;
+
   const handleOptionClick = (optionId) => {
-    const optionData = sampleNodes[optionId];
-    if (!optionData) return;
+    const nextNode = flowData.nodes.find((n) => n.id === optionId);
+    if (!nextNode) return console.warn(`⚠️ Could not find node with ID '${optionId}'`);
 
     const timeTaken = (Date.now() - startTime) / 1000;
-    console.log("Option selected:", optionData.data, "Time:", timeTaken, "s");
+    if (onOptionSelect) onOptionSelect(nextNode, timeTaken);
 
-    if (optionData.next) {
-      setCurrentNodeId(optionData.next);
-    } else {
-      setCurrentNodeId(optionData.id);
-    }
+    setCurrentNodeId(optionId);
   };
 
   const handleNext = () => {
-    if (currentNode.data.next) setCurrentNodeId(currentNode.data.next);
+    if (next) setCurrentNodeId(next);
   };
 
   const handleRestart = () => setCurrentNodeId(startNodeId);
 
   return (
-  <div className="playthrough-container">
-    <div className="node-visual-container">
-      {/* ... Node Visual / Image content ... */}
-      {currentNode.data.imageUrl && (
-        <img
-          className="node-visual"
-          src={currentNode.data.imageUrl}
-          alt="Node Visual"
-        />
-      )}
-      {currentNode.scene && <p>{currentNode.scene}</p>}
+    <div className="playthrough-container">
+      <div className="node-visual-container">
+        {imageUrl && (
+          <img className="node-visual" src={imageUrl} alt="Node Visual" />
+        )}
 
-      {/* NEW LOGIC: Check for the end-scenario condition first.
-        The scenario is "over" if there are no options AND no 'next' link. 
-      */}
-      {!currentNode.options?.length && !currentNode.data.next ? (
-        // 1. SHOW ONLY THE END SCENARIO BLOCK
-        <div className="promptBox">
-          <div className="end-scenario-container">
-            <span className="end-scenario-heading">✅End of scenario</span>
-            <button className="end-scenario-buttons" onClick={handleRestart} >
-              Restart
-            </button>
-            <button
-              className="end-scenario-buttons" onClick={() => navigate("/scene-editor")}
-             
-            >
-              Back to Editor
-            </button>
-          </div>
-        </div>
-      ) : (
-        // 2. SHOW THE REGULAR PROMPT BOX (OPTIONS or NEXT button)
-      <section className="promptBox">
-        {/* Made this more robust to handle different data shapes */}
-        <p>{scenario.data}</p>
+        {scene && <p>{scene}</p>}
 
-        <div className="optionsWrapper">
-          {/* --- 3. UPDATED LOGIC --- */}
-          {/* If the playthrough is finished, show the report button */}
-          {isFinished ? (
-            <div className="report-navigation">
-              <p>You have reached the end of the playthrough.</p>
-              <button onClick={onGoToReport} className="restart-button">
-                View Your Report
+        {/* --- END OF SCENARIO --- */}
+        {options.length === 0 && !next ? (
+          <div className="promptBox">
+            <div className="end-scenario-container">
+              <span className="end-scenario-heading">✅ End of scenario</span>
+              <button className="end-scenario-buttons" onClick={handleRestart}>
+                Restart
+              </button>
+              <button
+                className="end-scenario-buttons"
+                onClick={() => navigate("/scene-editor")}
+              >
+                Back to Editor
               </button>
             </div>
-          ) : (
-            /* Otherwise, show the available options using your existing map logic */
-            scenario.options.map(optionId => {
-              const optionData = sampleNodes[optionId];
-              if (!optionData) return null;
+          </div>
+        ) : (
+          /* --- NORMAL SCENARIO BLOCK --- */
+          <section className="promptBox">
+            <p>{data_description}</p>
 
-              const handleSelect = () => {
-                const timeTaken = (Date.now() - startTime) / 1000;
-                onOptionSelect(optionData, timeTaken);
-              };
+            <div className="optionsWrapper">
+              {isFinished ? (
+                <div className="report-navigation">
+                  <p>You have reached the end of the playthrough.</p>
+                  <button onClick={onGoToReport} className="restart-button">
+                    View Your Report
+                  </button>
+                </div>
+              ) : (
+                options.map((optionId) => {
+                  const optionNode = flowData.nodes.find((n) => n.id === optionId);
+                  if (!optionNode) return null;
 
-              return (
-                <OptionNode
-                  key={optionData.id}
-                  option={optionData.data}
-                  onClick={handleSelect}
-                />
-              );
-            })
-          )}
-        </div>
-      </section>
-      )}
+                  return (
+                    <OptionNode
+                      key={optionNode.id}
+                      option={optionNode.data.data_description} // <-- only string
+                      onClick={() => handleOptionClick(optionNode.id)}
+                    />
+                  );
+                })
+              )}
+            </div>
+
+            {next && options.length === 0 && (
+              <button onClick={handleNext} className="next-button">
+                Next
+              </button>
+            )}
+          </section>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default ScenarioInterface;

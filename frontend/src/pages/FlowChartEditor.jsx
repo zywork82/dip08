@@ -86,7 +86,7 @@ const generateEdgesFromNodes = (nodes) => {
 
 // Standardize node data
 const standardizeNodeData = (node) => {
-  const dataFromBackend = typeof node.data === 'object' ? node.data : { label: node.data || '' };
+  const dataFromBackend = typeof node.data === 'object' ? node.data : { data_description: node.data || '' };
   return {
     ...node,
     data: {
@@ -100,6 +100,7 @@ const standardizeNodeData = (node) => {
     },
   };
 };
+
 
 
 const FlowChartEditor = () => {
@@ -117,7 +118,7 @@ const FlowChartEditor = () => {
   setNodes((nds) =>
     nds.map((node) =>
       node.id === id
-        ? { ...node, data: { ...node.data, label: value } }
+        ? { ...node, data: { ...node.data, data_description: value } } // 
         : node
     )
   );
@@ -172,42 +173,42 @@ const FlowChartEditor = () => {
     alert('Flow saved locally!');
   };
 
-  // === Node drop ===
-  const handleDrop = (event) => {
-    event.preventDefault();
-    if (!reactFlowInstance || !reactFlowWrapper.current) return;
+// === Node drop ===
+const handleDrop = (event) => {
+  event.preventDefault();
+  if (!reactFlowInstance || !reactFlowWrapper.current) return;
 
-    const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-    let data;
-    try {
-      data = JSON.parse(event.dataTransfer.getData('application/reactflow'));
-    } catch {
-      const type = event.dataTransfer.getData('application/reactflow');
-      if (!type) return;
-      data = { nodeType: type, label: `New ${type}` };
-    }
+  const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
+  let data;
+  try {
+    data = JSON.parse(event.dataTransfer.getData('application/reactflow'));
+  } catch {
+    const type = event.dataTransfer.getData('application/reactflow');
+    if (!type) return;
+    data = { nodeType: type, data_description: `New ${type}` }; // <- updated
+  }
 
-    const position = reactFlowInstance.project({
-      x: event.clientX - reactFlowBounds.left,
-      y: event.clientY - reactFlowBounds.top,
-    });
+  const position = reactFlowInstance.project({
+    x: event.clientX - reactFlowBounds.left,
+    y: event.clientY - reactFlowBounds.top,
+  });
 
-    const id = `${data.nodeType}_${+new Date()}`;
-    const newNode = standardizeNodeData({
-      id,
-      type: data.nodeType,
-      position,
-      data: {
-        label: data.label || `New ${data.nodeType}`,
-        options: [],
-        next: null,
-        scene: '',
-        b64image: '',
-      },
-    });
+  const id = `${data.nodeType}_${+new Date()}`;
+  const newNode = standardizeNodeData({
+    id,
+    type: data.nodeType,
+    position,
+    data: {
+      data_description: data.data_description || `New ${data.nodeType}`, // <- updated
+      options: [],
+      next: null,
+      scene: '',
+      b64image: '',
+    },
+  });
 
-    setNodes((nds) => [...nds, newNode]);
-  };
+  setNodes((nds) => [...nds, newNode]);
+};
 
   // === Nodes with handlers ===
  const nodesWithHandlers = nodes.map((node) => ({
@@ -222,7 +223,7 @@ const FlowChartEditor = () => {
 }));
 
 
-  // === Generate images / proceed to scene editor ===
+// === Generate images / proceed to scene editor ===
 const generateImages = async () => {
   if (!reactFlowInstance) return;
 
@@ -235,7 +236,7 @@ const generateImages = async () => {
       id: n.id,
       data_description:
         typeof n.data === "object"
-          ? n.data.label || n.data.scene || ""
+          ? n.data.data_description || n.data.scene || ""  // <- updated
           : n.data || "",
     }));
 
@@ -244,7 +245,7 @@ const generateImages = async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        tmp: true, // optional flag; backend will accept this
+        tmp: true,
         nodes: nodesForApi,
       }),
     });
@@ -253,35 +254,35 @@ const generateImages = async () => {
     if (!res.ok || !data.images?.length) throw new Error("No images returned");
 
     // Step 3: Merge returned image data back into nodes
-const newNodes = layoutedNodes.map((n) => {
-  const match = data.images.find((img) => img.id === n.id);
-  const imageUrl = match
-    ? `data:image/png;base64,${match.image_b64}`
-    : n.data?.b64image || "";
-  return {
-    ...n,
-    data: {
-      ...(typeof n.data === "object" ? n.data : { label: n.data }),
-      imageUrl,
-      // remove functions to avoid DataCloneError
-      onChange: undefined,
-      onDelete: undefined,
-    },
-  };
-});
+    const newNodes = layoutedNodes.map((n) => {
+      const match = data.images.find((img) => img.id === n.id);
+      const imageUrl = match
+        ? `data:image/png;base64,${match.image_b64}`
+        : n.data?.b64image || "";
+      return {
+        ...n,
+        data: {
+          ...(typeof n.data === "object" ? n.data : { data_description: n.data }), // <- updated
+          imageUrl,
+          onChange: undefined,
+          onDelete: undefined,
+        },
+      };
+    });
 
-// Step 4: Navigate to Scene Editor with sanitized data
-navigate("/scene-editor", {
-  state: {
-    flowData: { nodes: newNodes, edges: flowData.edges },
-  },
-});
+    // Step 4: Navigate to Scene Editor
+    navigate("/scene-editor", {
+      state: {
+        flowData: { nodes: newNodes, edges: flowData.edges },
+      },
+    });
 
   } catch (err) {
     console.error("Error generating images:", err);
     alert("⚠️ Failed to generate images — check console for details.");
   }
 };
+
 
 
 
@@ -331,17 +332,17 @@ useEffect(() => {
 const handleSave = async () => {
   if (!scenarioTitle) return alert("Please enter a scenario title!");
   if (!nodes.length) return alert("No nodes to save!");
+// Prepare nodes in backend format
+const sanitizedNodes = nodes.map((n) => ({
+  id: n.id,
+  type: n.type,
+  data: n.data?.data_description || "",           // <- updated
+  description: n.data?.data_description || "",    // <- updated
+  options: n.data?.options || [],
+  psych_dimensions: n.data?.psych_dimensions || "",
+  position: "", // frontend position not needed
+}));
 
-  // Prepare nodes in backend format
-  const sanitizedNodes = nodes.map((n) => ({
-    id: n.id,
-    type: n.type,
-    data: n.data?.label || n.data?.text || "",      // backend 'data'
-    description: n.data?.label ? n.data.label : (n.data?.text || ""), // cleaned-up short desc
-    options: n.data?.options || [],
-    psych_dimensions: n.data?.psych_dimensions || "", // optional, can leave empty
-    position: "", // frontend position not needed
-  }));
 
   const nodesForBackend = nodes.map((node) => {
   const children = edges
@@ -351,8 +352,8 @@ const handleSave = async () => {
   return {
     id: node.id,
     type: node.type,
-    data: node.data?.label || node.data?.text || "",
-    description: node.data?.label || node.data?.text || "",
+     data: node.data?.data_description || "",           // <- updated
+    description: node.data?.data_description || "", 
      options: children.length ? children : (node.data?.options || []), // fallback to original options
     psych_dimensions: node.data?.psych_dimensions || "",
     position: node.position || "",
