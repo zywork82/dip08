@@ -1,65 +1,115 @@
-import React from 'react';
-import '../styles/EditorToolsSidebar.css';
+import React, { useState } from "react";
+import "../styles/EditorToolsSidebar.css";
 
-const nodeTypes = ['scenario', 'option', 'ending'];
+const nodeTypes = ["scenario", "option", "ending"];
 
-const EditorToolsSidebar = ({ scenarioTitle = '',setScenarioTitle = () => {}, suggestions = [] }) => {
+const EditorToolsSidebar = ({
+  scenarioTitle = "",
+  setScenarioTitle = () => {},
+}) => {
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleDragStart = (event, nodeType, label) => {
-    // Always pass JSON with nodeType and label
     event.dataTransfer.setData(
-      'application/reactflow',
+      "application/reactflow",
       JSON.stringify({ nodeType, label })
     );
-    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.effectAllowed = "move";
+  };
+
+  // --- Generate AI Suggestions ---
+  const handleGenerateClick = async () => {
+    if (!scenarioTitle.trim()) {
+      alert("Please enter a scenario title or description first.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("http://127.0.0.1:5000/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context: scenarioTitle }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) throw new Error(data.error || "AI generation failed.");
+
+      setSuggestions(data.suggestions || []);
+      console.log("✅ AI suggestions:", data.suggestions);
+    } catch (err) {
+      console.error("Error generating suggestions:", err);
+      setError(err.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-     <aside className="editor-sidebar">
-    <div className="scenario-title">
-      <span className='scenario-title-heading'>Scenario Title</span>
-      <input
-        className='scenario-title-input'
-        type="text"
-        value={scenarioTitle}
-        onChange={(e) => setScenarioTitle(e.target.value)}
-        placeholder="Enter Scenario Title"
-      />
-    </div>
-     <div className="node-toolbox-container">
-      {/* Node Toolbox */}
-      <span className='scenario-title-heading'>Node Toolbox</span>
-      {nodeTypes.map((type) => (
-        <div
-          key={type}
-          className={`sidebar-node sidebar-node-${type} node-type-${type}`}
-          draggable
-          onDragStart={(e) => handleDragStart(e, type, `New ${type}`)}
-        >
-          {type.charAt(0).toUpperCase() + type.slice(1)}
-        </div>
-      ))}
+    <aside className="editor-sidebar">
+      {/* --- Scenario Title --- */}
+      <div className="scenario-title">
+        <span className="scenario-title-heading">Scenario Title</span>
+        <input
+          className="scenario-title-input"
+          type="text"
+          value={scenarioTitle}
+          onChange={(e) => setScenarioTitle(e.target.value)}
+          placeholder="Enter Scenario Title"
+        />
       </div>
-      {/* AI Suggestions */}
-      {suggestions.length > 0 && (
-        <>
-          <div className='suggestion-header'>
-             <span className='scenario-title-heading'>AI Suggestions</span>
-            <button className='ai-suggestion-button' onClick={() => {}}>Generate</button>
+
+      {/* --- Node Toolbox --- */}
+      <div className="node-toolbox-container">
+        <span className="scenario-title-heading">Node Toolbox</span>
+        {nodeTypes.map((type) => (
+          <div
+            key={type}
+            title={`Drag to create a ${type} node`}
+            className={`sidebar-node sidebar-node-${type}`}
+            draggable
+            onDragStart={(e) =>
+              handleDragStart(e, type, `${type.charAt(0).toUpperCase() + type.slice(1)} Node`)
+            }
+          >
+            {type.charAt(0).toUpperCase() + type.slice(1)}
           </div>
-          {suggestions.map((sugg, idx) => (
-            <div
-              key={`sugg-${idx}`}
-              className="sidebar-node sidebar-node-suggestion"
-              draggable
-              onDragStart={(e) => handleDragStart(e, sugg.nodeType, sugg.label)}
-              style={{ background: '#fff5d1', cursor: 'grab', margin: 5, padding: 8 }}
-            >
-              {sugg.label}
-            </div>
-          ))}
-        </>
-      )}
+        ))}
+      </div>
+
+      {/* --- AI Suggestions Section --- */}
+      <div className="ai-suggestion-section">
+        <div className="suggestion-header">
+          <span className="scenario-title-heading">AI Suggestions</span>
+          <button
+            className="ai-suggestion-button"
+            onClick={handleGenerateClick}
+            disabled={loading}
+          >
+            {loading ? "Generating..." : "Generate"}
+          </button>
+        </div>
+
+        {error && <div className="error-msg">{error}</div>}
+
+        {suggestions.map((sugg, idx) => (
+          <div
+            key={`sugg-${idx}`}
+            className="sidebar-node sidebar-node-suggestion"
+            draggable
+            onDragStart={(e) =>
+              handleDragStart(e, sugg.nodeType || "option", sugg.label || "New Option")
+            }
+          >
+            {sugg.label}
+          </div>
+        ))}
+      </div>
     </aside>
   );
 };
