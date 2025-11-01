@@ -1,121 +1,136 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Global.css";
 import "../styles/ScenarioPrompt.css";
-import NavigationBar from '../components/SlimNavBar';
-import SharedHeader from '../components/SharedHeader';
+import NavigationBar from "../components/SlimNavBar";
+import SharedHeader from "../components/SharedHeader";
 import ScenarioHistory from "../components/ScenarioHistory";
 
+const profileImage = "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
 
-// Placeholder for the profile image
-const profileImage = 'https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg';
 const ScenarioPrompt = () => {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [progress, setProgress] = useState(0);
 
-  // Transform backend flat JSON into React Flow nodes & edges
-// Transform backend flat JSON into React Flow nodes & edges
-const transformFlowData = (data) => {
-  const nodes = Object.values(data).map((n, idx) => ({
-    id: n.id,
-    type: n.type, 
-    position: { x: idx * 200, y: idx * 120 }, // simple layout
-    data: {
-      data_description: n.data_description || "",   // <- use exactly backend field
-      options: n.options || [],
-      psych_dimensions: n.psych_dimensions || "",
-      scene: n.scene || "",
-      b64image: n.b64image || null,
-    },
-  }));
+  // === Fake progress animation ===
+  useEffect(() => {
+    let timer;
+    if (loading) {
+      setProgress(0);
+      timer = setInterval(() => {
+        setProgress((p) => (p < 95 ? p + Math.random() * 5 : p));
+      }, 500);
+    } else {
+      clearInterval(timer);
+      setProgress(0);
+    }
+    return () => clearInterval(timer);
+  }, [loading]);
 
-  // generate edges
-  const edges = [];
-  nodes.forEach((node) => {
-    node.data.options.forEach((optId) => {
-      edges.push({
-        id: `e-${node.id}-${optId}`,
-        source: node.id,
-        target: optId,
-        type: "smoothstep",
-        animated: true,
+  // === Transform backend JSON to frontend flow ===
+  const transformFlowData = (data) => {
+    const nodes = Object.values(data).map((n, idx) => ({
+      id: n.id,
+      type: n.type,
+      position: { x: idx * 200, y: idx * 120 },
+      data: {
+        data_description: n.data_description || "",
+        options: n.options || [],
+        psych_dimensions: n.psych_dimensions || "",
+        scene: n.scene || "",
+        b64image: n.b64image || null,
+      },
+    }));
+
+    const edges = [];
+    nodes.forEach((node) => {
+      node.data.options.forEach((optId) => {
+        edges.push({
+          id: `e-${node.id}-${optId}`,
+          source: node.id,
+          target: optId,
+          type: "smoothstep",
+          animated: true,
+        });
       });
     });
-  });
 
-  return { nodes, edges };
-};
-
-
-  // Save scenario to local file
-  const handleSaveClick = async (newScenario) => {
-    try {
-      const fileHandle = await window.showSaveFilePicker({
-        suggestedName: `${newScenario.title.replace(/\s+/g, "_")}_${newScenario.id}.json`,
-        types: [{ description: "JSON File", accept: { "application/json": [".json"] } }],
-      });
-      const writable = await fileHandle.createWritable();
-      await writable.write(JSON.stringify(newScenario, null, 2));
-      await writable.close();
-      console.log("✅ Scenario saved successfully");
-    } catch (err) {
-      console.warn("User cancelled file save or save failed", err);
-    }
+    return { nodes, edges };
   };
 
-  // Main create & save flow
+  // === Create & Generate Scenario ===
   const handleCreateAndSave = async () => {
-    if (!description.trim()) {
-      setError("Please enter a scenario description.");
+    if (!title.trim() && !description.trim()) {
+      setError("Please provide at least a title or description before generating.");
       return;
     }
+
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch("http://127.0.0.1:5000/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          story: description,
-          psych_seed: 42, // optional deterministic aspects
-        }),
-      });
+      // Reuse existing empty draft if it exists
+      let existingDraft = JSON.parse(localStorage.getItem("latestDraft") || "null");
+      let scenarioId = existingDraft?._id;
 
-      const data = await res.json();
+      if (!existingDraft || existingDraft.title !== title) {
+        const createRes = await fetch("http://127.0.0.1:5000/scenarios/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title || "Untitled Scenario",
+            description,
+            status: "Draft",
+          }),
+        });
 
-      if (!res.ok) {
-        setError(data.error || "Something went wrong.");
-        return;
+        const createData = await createRes.json();
+        if (!createData.success) throw new Error(createData.error || "Failed to create scenario");
+        existingDraft = createData.scenario;
+        scenarioId = existingDraft._id;
+        localStorage.setItem("latestDraft", JSON.stringify(existingDraft));
       }
 
-      const flowData = transformFlowData(data);
+      // === Generate Flow from AI ===
+      const genRes = await fetch("http://127.0.0.1:5000/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ story: description, psych_seed: 42 }),
+      });
+
+      const genData = await genRes.json();
+      if (!genRes.ok) throw new Error(genData.error || "AI generation failed");
+
+      const flowData = transformFlowData(genData);
 
       const newScenario = {
-        id: Date.now(),
+        id: scenarioId,
         title: title || "Untitled Scenario",
         description,
         flowData,
+        status: "Draft",
         createdAt: new Date().toISOString(),
+        lastEdited: new Date().toISOString(),
+        image: null,
       };
 
-      // Save to localStorage
+      // Save to localStorage for ScenarioHistory
       const existing = JSON.parse(localStorage.getItem("scenarios") || "[]");
-      existing.push(newScenario);
+      const existingIndex = existing.findIndex((s) => s.id === scenarioId);
+      if (existingIndex >= 0) existing[existingIndex] = newScenario;
+      else existing.push(newScenario);
       localStorage.setItem("scenarios", JSON.stringify(existing));
 
-      // Save to file
-      await handleSaveClick(newScenario);
-
-      // Navigate to editor
-      navigate("/editor", { state: { flowData, scenarioTitle: title || "Untitled Scenario" } });
-
-
+      navigate("/editor", {
+        state: { flowData, scenarioTitle: newScenario.title, scenarioId },
+      });
     } catch (err) {
-      setError("Failed to connect to backend: " + err.message);
+      console.error("Error generating scenario:", err);
+      setError("Error: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -123,7 +138,7 @@ const transformFlowData = (data) => {
 
   return (
     <div className="scenario-prompt-page">
-      <NavigationBar /> 
+      <NavigationBar />
       <div className="scenario-prompt-container">
         <div className="header">
           <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
@@ -153,7 +168,7 @@ const transformFlowData = (data) => {
                   id="case-study-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe your scenario here...."
+                  placeholder="Describe your scenario here..."
                 />
               </div>
               <div className="word-count">{description.length}/2000 chars</div>
@@ -162,7 +177,7 @@ const transformFlowData = (data) => {
             {error && <div className="error-msg">{error}</div>}
 
             <button
-              className="create-scenario-button"
+              className={`create-scenario-button ${loading ? "loading" : ""}`}
               onClick={handleCreateAndSave}
               disabled={loading}
             >
@@ -171,6 +186,20 @@ const transformFlowData = (data) => {
           </div>
         </div>
       </div>
+
+      {/* === AI Loading Overlay === */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-box">
+            <div className="spinner"></div>
+            <p className="loading-text">AI is generating your flowchart...</p>
+            <div className="progress-bar">
+              <div className="progress" style={{ width: `${progress}%` }}></div>
+            </div>
+            <small>Estimated time: about 1–2 minutes</small>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
