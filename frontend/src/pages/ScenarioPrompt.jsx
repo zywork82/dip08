@@ -62,6 +62,14 @@ const ScenarioPrompt = () => {
     return { nodes, edges };
   };
 
+  // === Smart title generator ===
+  const generateSmartTitle = (text) => {
+    if (!text.trim()) return "Untitled Scenario";
+    const firstWords = text.split(" ").slice(0, 5).join(" ");
+    const formatted = firstWords.charAt(0).toUpperCase() + firstWords.slice(1);
+    return formatted.replace(/[^\w\s]/gi, "");
+  };
+
   // === Create & Generate Scenario ===
   const handleCreateAndSave = async () => {
     if (!title.trim() && !description.trim()) {
@@ -73,16 +81,19 @@ const ScenarioPrompt = () => {
     setError("");
 
     try {
+      // Auto-generate title if blank
+      const finalTitle = title.trim() ? title : generateSmartTitle(description);
+
       // Reuse existing empty draft if it exists
       let existingDraft = JSON.parse(localStorage.getItem("latestDraft") || "null");
       let scenarioId = existingDraft?._id;
 
-      if (!existingDraft || existingDraft.title !== title) {
+      if (!existingDraft || existingDraft.title !== finalTitle) {
         const createRes = await fetch("http://127.0.0.1:5000/scenarios/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: title || "Untitled Scenario",
+            title: finalTitle,
             description,
             status: "Draft",
           }),
@@ -109,7 +120,7 @@ const ScenarioPrompt = () => {
 
       const newScenario = {
         id: scenarioId,
-        title: title || "Untitled Scenario",
+        title: finalTitle,
         description,
         flowData,
         status: "Draft",
