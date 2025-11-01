@@ -10,7 +10,6 @@
   background-color: #fff;
   border-bottom: 1px solid #d3d0e0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-
   width: auto;     /* fill main-content, not entire viewport */
   z-index: 998;
   max-width: calc(100% - 12rem);

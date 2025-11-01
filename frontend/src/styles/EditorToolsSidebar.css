@@ -93,3 +93,15 @@ margin-right: 5px;
   font-weight: 700;
   cursor: pointer;
 }
+.sidebar-node-suggestion {
+  background: #fff5d1;
+  cursor: grab;
+  margin: 5px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.sidebar-node-suggestion:hover {
+  background: #ffef9d;
+}
