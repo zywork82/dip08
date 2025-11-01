@@ -36,6 +36,7 @@ const AppContent = () => {
 
   const isFinished = !currentScenario.options || currentScenario.options.length === 0;
 
+  
   // --- Handler Functions ---
   const handleOptionSelect = (selectedOption, timeTaken) => {
     const newAnalyticEntry = {
@@ -75,6 +76,7 @@ window.addEventListener('error', suppressResizeObserverError);
   const goToReport = () => {
     navigate('/report');
   };
+  
 
   return (
     <Routes>
@@ -138,6 +140,16 @@ function App() {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging, offset]);
+ useEffect(() => {
+  fetch("http://127.0.0.1:5000/health")
+    .then((res) => {
+      if (res.ok) console.log("✅ Backend connected successfully!");
+      else console.warn("⚠️ Backend responded, but not OK:", res.status);
+    })
+    .catch(() => console.error("❌ Backend not reachable."));
+}, []);
+
+
 
   const handleMouseDown = (e) => {
     setIsDragging(true);
@@ -146,6 +158,7 @@ function App() {
       y: e.clientY - position.y,
     });
   };
+  
 
   return (
     <HashRouter>
@@ -157,6 +170,7 @@ function App() {
             <li><Link to="/">Login</Link></li>
             <li><Link to="/editor">Editor</Link></li>
             <li><Link to="/scenario">Scenario</Link></li>
+            <li><Link to="/scene-editor">SceneEditor</Link></li>
             <li><Link to="/admin">Admin Dashboard</Link></li>
             <li><Link to="/student">Student Page</Link></li>
             <li><Link to="/scenarioInterface">Scenario Interface</Link></li>
