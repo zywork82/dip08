@@ -17,6 +17,8 @@ def get_current_user():
     if not auth_header or not auth_header.startswith("Bearer "):
         return None, jsonify({"error": "Missing or invalid token"}), 401
 
+    print("🧠 Received header:", request.headers.get("Authorization"))
+    
     token = auth_header.split(" ")[1]
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

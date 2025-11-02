@@ -49,21 +49,25 @@ useEffect(() => {
   }
 }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const userRes = await axios.get('http://localhost:8000/admins/users', {
+ useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log("🪪 Token being sent:", token);
+
+      const res = await axios.get('http://localhost:5000/admins/users', {
         headers: { Authorization: `Bearer ${token}` },
-        });
-        setUsers(userRes.data);
-        
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchData();
-  }, []);
+      });
+
+      console.log("✅ Users:", res.data);
+      setUsers(res.data); // store the user list in state
+    } catch (err) {
+      console.error("❌ Error fetching users:", err);
+    }
+  };
+
+  fetchData();
+}, []);
 
   
 useEffect(() => {
@@ -75,7 +79,7 @@ useEffect(() => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error("No token found in localStorage");
 
-      const res = await axios.get('http://localhost:8000/scenarios', {
+      const res = await axios.get('http://localhost:5000/scenarios/', {
        
       });
 
@@ -171,7 +175,7 @@ useEffect(() => {
                     <span>Create New Scenarios</span>
                     <FaPlusCircle className="activity-icon" />
                   </button>
-                  <div className="activity-button view-all-scenarios">
+                  <div className="activity-button view-all-scenarios" onClick={() => navigate('/case-studies')}>
                     <span>View All Scenarios</span>
                     <FaPlusCircle className="activity-icon" />
                   </div>
@@ -179,7 +183,7 @@ useEffect(() => {
                     <span>Manage Collaborators</span>
                     <FaPlusCircle className="activity-icon" />
                   </div>
-                  <div className="activity-button manage-team">
+                  <div className="activity-button manage-team" onClick={() => navigate('/trainer-team')} >
                     <span>Manage Team</span>
                     <FaPlusCircle className="activity-icon" />
                   </div>
@@ -349,23 +353,28 @@ useEffect(() => {
                 <i className="icon-search"></i>
               </div>
             </div>
-            <div className="student-list">
-              {users
-                .filter((user) =>
-                  user.username?.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map((user) => (
-                  <StudentRecordCard
-                    key={user._id}
-                    student={{
-                      id: user._id,
-                      name: user.username,
-                      email: user.email,
-                      role: user.role,
-                    }}
-                  />
-                ))}
-            </div>
+           <div className="student-list">
+            {[
+              { id: 1, name: "Ava Tan", email: "ava.tan@example.com", role: "Student", imageUrl: `https://placehold.co/100x100/E6E6FA/3f51b5?text=AT` },
+              { id: 2, name: "Lucas Lim", email: "lucas.lim@example.com", role: "Student", imageUrl: `https://placehold.co/100x100/E6E6FA/3f51b5?text=LL` },
+              { id: 3, name: "Cheryl Ong", email: "cheryl.ong@example.com", role: "Student", imageUrl: `https://placehold.co/100x100/E6E6FA/3f51b5?text=CO` },
+            ]
+              .filter((user) =>
+                user.name.toLowerCase().includes(searchTerm.toLowerCase())
+              )
+              .map((user) => (
+                <StudentRecordCard
+                  key={user.id}
+                  student={{
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    imageUrl: user.imageUrl,
+                  }}
+                />
+              ))}
+          </div>
           </section>
           </aside>
         </div>

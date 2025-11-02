@@ -5,9 +5,6 @@ from bson import ObjectId
 
 scenarios_bp = Blueprint("scenarios", __name__, url_prefix="/scenarios")
 
-# =========================================================
-# ✅ Create scenario (POST) & List all (GET)
-# =========================================================
 @scenarios_bp.route("/", methods=["GET", "POST", "OPTIONS"])
 def scenarios_root():
     if request.method == "OPTIONS":
