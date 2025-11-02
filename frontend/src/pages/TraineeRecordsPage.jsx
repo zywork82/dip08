@@ -56,11 +56,11 @@ const TraineeReportModal = ({ trainee, onClose }) => {
     borderTopRightRadius: '12px',
   };
 
-  const modalBodyStyle = {
-    padding: '2rem',
-    overflowY: 'auto',
-    maxHeight: '70vh',
-  };
+ const modalBodyStyle = {
+  padding: '20px 0 0 20px', // top right bottom left
+  overflowY: 'auto',
+  flexGrow: 1,
+};
 
   const reportTitleStyle = {
     textAlign: 'center',
@@ -245,12 +245,11 @@ const TraineeRecordsPage = () => {
     flexDirection: 'column',
   };
 
-  const bodyStyle = {
-    padding: '20px 40px',
-    overflowY: 'auto',
-    flexGrow: 1,
-  };
-
+ const bodyStyle = {
+  padding: '92px 0 0 220px', // more noticeable top and left
+  overflowY: 'auto',
+  flexGrow: 1,
+};
   const titleStyle = {
     margin: '0 0 20px 0',
     fontSize: '1.5rem',
