@@ -121,8 +121,9 @@ def save_flow():
                     "options": raw_data.get("options", node.get("options", [])),
                     "next": raw_data.get("next", node.get("next", None)),
                     "scene": raw_data.get("scene", ""),
-                    "imageUrl": node["data"].get("imageUrl", ""),        # ✅ Store frontend image path or base64 URL
-                    "b64image": node["data"].get("b64image", ""),                             # ✅ Store raw base64 for safe retrieval
+                    "imageUrl": raw_data.get("imageUrl", ""),
+"b64image": raw_data.get("b64image", ""),
+                           # ✅ Store raw base64 for safe retrieval
                     "generatedImages": raw_data.get("generatedImages", []),
                 }
 
