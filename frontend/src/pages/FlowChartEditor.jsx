@@ -18,6 +18,7 @@ import "../styles/FlowChartEditor.css";
 import SharedHeader from "../components/SharedHeader";
 import NavigationBar from "../components/SlimNavBar";
 import { sampleNodes, sampleAiSuggestions, sampleEdges } from "../data/sampleAiFlow";
+import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
 
 const profileImage =
   "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
@@ -218,12 +219,14 @@ const [debugOpen, setDebugOpen] = useState(false);
 
   const navigate = useNavigate();
 const location = useLocation();
-const backendFlow = location.state?.flowData;
-const initialScenarioId = location.state?.scenarioId || null;
-const initialScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario";
 
+const backendFlow = location.state?.flowData;
+const initialScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario";
+const initialScenarioId =
+  location.state?.scenarioId || localStorage.getItem("lastScenarioId") || null;
 const [scenarioId, setScenarioId] = useState(initialScenarioId);
 const [scenarioTitle, setScenarioTitle] = useState(initialScenarioTitle);
+const passedFlow = location.state?.flowData || null;
 
   // === Duplicate check ===
   useEffect(() => {
@@ -437,46 +440,76 @@ const payload = {
   }
 }, [nodes, edges, scenarioTitle, scenarioId]);
 
-
-  
-  // === Initial Load ===
+// === Initial Load ===
 useEffect(() => {
-  if (!backendFlow) {
-    // 🧠 Load fallback sample flow if no backend data
-    const initNodes = Object.values(sampleNodes).map(standardizeNodeData);
-    const initEdges = sampleEdges?.length ? sampleEdges : generateEdgesFromNodes(initNodes);
-    setNodes(getLayoutedNodes(initNodes, initEdges));
-    setEdges(initEdges);
-    return;
-  }
+  const loadFlow = async () => {
+    try {
+      // 🧠 Determine source of truth
+      const flowFromState = passedFlow || backendFlow;
+      const currentScenarioId =
+        scenarioId || backendFlow?.id || localStorage.getItem("lastScenarioId");
 
-  // 🧩 1️⃣ Standardize incoming data
-  const stdNodes = backendFlow.nodes.map(standardizeNodeData);
-  const rawEdges = backendFlow.edges || generateEdgesFromNodes(stdNodes);
+      // ✅ Case 1: Flow passed from navigation (switch editor)
+      if (flowFromState) {
+        console.log("🎯 Loading flow from state for scenario:", currentScenarioId);
 
-  // 🧹 2️⃣ Apply filters
-  let cleanedNodes = filterLetteredNodes(stdNodes);
-  cleanedNodes = filterDisconnectedNodes(cleanedNodes, rawEdges);
+        const stdNodes = flowFromState.nodes.map(standardizeNodeData);
+        const rawEdges = flowFromState.edges || generateEdgesFromNodes(stdNodes);
 
-  // 🧠 3️⃣ Remove edges that point to deleted nodes
-  const cleanedEdges = rawEdges.filter(
-    (e) => cleanedNodes.some((n) => n.id === e.source) && cleanedNodes.some((n) => n.id === e.target)
-  );
+        let cleanedNodes = filterLetteredNodes(stdNodes);
+        cleanedNodes = filterDisconnectedNodes(cleanedNodes, rawEdges);
 
-  // 📐 4️⃣ Apply layout
-  const layoutedNodes = getLayoutedNodes(cleanedNodes, cleanedEdges);
+        const cleanedEdges = rawEdges.filter(
+          (e) =>
+            cleanedNodes.some((n) => n.id === e.source) &&
+            cleanedNodes.some((n) => n.id === e.target)
+        );
 
-  // ✅ 5️⃣ Update states
-  setNodes(layoutedNodes);
-  setEdges(cleanedEdges);
+        const layoutedNodes = getLayoutedNodes(cleanedNodes, cleanedEdges);
+        setNodes(layoutedNodes);
+        setEdges(cleanedEdges);
 
-  if (backendFlow.id) setScenarioId(backendFlow.id);
+        if (currentScenarioId) setScenarioId(currentScenarioId);
+        localStorage.setItem("lastScenarioId", currentScenarioId);
+        console.log("✅ Flow loaded from passed state or backend flow");
+        return;
+      }
 
-  console.log("🧹 Flow cleaned on initial load:", {
-    keptNodes: layoutedNodes.map((n) => n.id),
-    removed: stdNodes.length - cleanedNodes.length,
-  });
-}, [backendFlow]);
+      // ✅ Case 2: Try fetching from backend using scenarioId
+      if (!flowFromState && currentScenarioId) {
+        console.log("🌐 Fetching flow from backend for scenario:", currentScenarioId);
+        const res = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${currentScenarioId}`);
+        if (!res.ok) throw new Error("Failed to fetch scenario flow");
+        const data = await res.json();
+
+        if (data && data.flowData) {
+          const stdNodes = data.flowData.nodes.map(standardizeNodeData);
+          const rawEdges = data.flowData.edges || generateEdgesFromNodes(stdNodes);
+          const layoutedNodes = getLayoutedNodes(stdNodes, rawEdges);
+          setNodes(layoutedNodes);
+          setEdges(rawEdges);
+          setScenarioId(currentScenarioId);
+          console.log("✅ Flow loaded from backend");
+          return;
+        }
+      }
+
+      // ✅ Case 3: Fallback sample flow (no data at all)
+      console.warn("⚠️ No flow found — loading sample flow");
+      const initNodes = Object.values(sampleNodes).map(standardizeNodeData);
+      const initEdges = sampleEdges?.length
+        ? sampleEdges
+        : generateEdgesFromNodes(initNodes);
+      setNodes(getLayoutedNodes(initNodes, initEdges));
+      setEdges(initEdges);
+    } catch (err) {
+      console.error("❌ Error during flow load:", err);
+    }
+  };
+
+  loadFlow();
+}, [backendFlow, passedFlow, scenarioId]);
+
 
 // === Generate AI Images & Go to Scene Editor ===
 const generateImages = useCallback(async () => {
@@ -796,8 +829,23 @@ const generateImages = useCallback(async () => {
     onClick={generateImages}
   >
     {isGenerating ? "Generating..." : "Generate Images"}
-  </button>
+  </button><button
+      className="action-buttons"
+      onClick={() => {
+        // ✅ Step 1: Clean the flow so it’s serializable
+        const safeFlow = sanitizeFlowForNavigation({ nodes, edges });
+
+        // ✅ Step 2: Save to localStorage for persistence
+        localStorage.setItem("latestFlow", JSON.stringify(safeFlow));
+
+        // ✅ Step 3: Navigate to SceneEditor
+        navigate("/scene-editor", { state: { scenarioId } });
+      }}
+    >
+      🖼️ Switch to Image Editor
+    </button>
 </div>
+
 
 
             </ReactFlowProvider>

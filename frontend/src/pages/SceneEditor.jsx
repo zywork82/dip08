@@ -19,6 +19,38 @@ import {
 
 import "reactflow/dist/style.css";
 import "../styles/SceneEditor.css";
+import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
+// 🚫 Gemini quota exhaustion guard
+let GEMINI_QUOTA_EXCEEDED = false;
+
+          // ===============================
+// 🧩 Helper: Validate image quality
+// ===============================
+const hasValidImage = (node) => {
+  const url = node.data?.imageUrl || "";
+  const b64 = node.data?.b64image || "";
+  // Ignore 1x1 placeholders or empty strings
+  if (!url && !b64) return false;
+  if (url.includes("placehold") || url.length < 100) return false;
+  return true;
+};
+
+const getLightweightFlow = (nodes, edges) => {
+  const lightNodes = nodes.map((n) => ({
+    id: n.id,
+    type: n.type,
+    position: n.position,
+    data: {
+      data_description: n.data?.data_description || "",
+      options: n.data?.options || [],
+      next: n.data?.next || null,
+      scene: n.data?.scene || "",
+      // ✅ only keep image URL reference (no base64!)
+      imageUrl: n.data?.imageUrl || "",
+    },
+  }));
+  return { nodes: lightNodes, edges };
+};
 
 // ===============================
 // Config
@@ -105,6 +137,10 @@ const generateEdgesFromNodes = (nodes) => {
 // Backend image generation
 // ===============================
 const generateImagesFromBackend = async (nodeId, prompt) => {
+   if (GEMINI_QUOTA_EXCEEDED) {
+    console.warn("🚫 Skipping image generation — Gemini quota already exceeded.");
+    return { images: [] };
+  }
   try {
     const res = await fetch("http://127.0.0.1:5000/generate_images", {
       method: "POST",
@@ -154,7 +190,10 @@ const SceneEditor = () => {
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [promptText, setPromptText] = useState("");
-  const [scenarioId, setScenarioId] = useState(passedScenarioId || null);
+// ✅ Load scenarioId from navigation OR fallback to localStorage
+const storedScenarioId = localStorage.getItem("lastScenarioId");
+const [scenarioId, setScenarioId] = useState(passedScenarioId || storedScenarioId || null);
+
   const [scenarioTitle, setScenarioTitle] = useState("Untitled Scenario");
   const [loadingOverlay, setLoadingOverlay] = useState(false);
 
@@ -208,28 +247,34 @@ const SceneEditor = () => {
     return () => clearTimeout(debounce);
   }, [promptText, selectedNode]);
 
-  // Regenerate images for a node
-  const handleReprompt = async (nodeId, prompt, count = 3) => {
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.id === nodeId ? { ...n, data: { ...n.data, loadingImages: true } } : n
-      )
+ // ===============================
+// ✅ Regenerate images for a node (with fail tracking)
+// ===============================
+const handleReprompt = async (nodeId, prompt, count = 3) => {
+  // Mark node as loading
+  setNodes((nds) =>
+    nds.map((n) =>
+      n.id === nodeId ? { ...n, data: { ...n.data, loadingImages: true } } : n
+    )
+  );
+
+  const variations = [];
+
+  for (let i = 0; i < count; i++) {
+    const data = await generateImagesFromBackend(
+      nodeId,
+      prompt + ` (variation ${i + 1})`
     );
 
-    const variations = [];
-    for (let i = 0; i < count; i++) {
-      const data = await generateImagesFromBackend(
-        nodeId,
-        prompt + ` (variation ${i + 1})`
-      );
-      if (data.images?.length > 0) {
-  variations.push(...data.images);
-} else {
-  console.warn(`⚠️ Skipped empty image for node ${nodeId}`);
-}
-
+    if (data.images?.length > 0) {
+      variations.push(...data.images);
+    } else {
+      console.warn(`⚠️ Skipped empty image for node ${nodeId} (try ${i + 1})`);
     }
+  }
 
+  if (variations.length === 0) {
+    console.warn(`❌ No images generated for node ${nodeId}, marking failed.`);
     setNodes((nds) =>
       nds.map((n) =>
         n.id === nodeId
@@ -237,15 +282,36 @@ const SceneEditor = () => {
               ...n,
               data: {
                 ...n.data,
-                generatedImages: variations,
-                imageUrl: variations[0] || "",
                 loadingImages: false,
+                failedImage: true,
+                generatedImages: [],
+                imageUrl: "",
               },
             }
           : n
       )
     );
-  };
+    return;
+  }
+
+  // Success: update with new images
+  setNodes((nds) =>
+    nds.map((n) =>
+      n.id === nodeId
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              generatedImages: variations,
+              imageUrl: variations[0] || "",
+              loadingImages: false,
+              failedImage: false,
+            },
+          }
+        : n
+    )
+  );
+};
 
   // Select preferred image
   const selectImageForNode = (nodeId, imgUrl) =>
@@ -255,18 +321,21 @@ const SceneEditor = () => {
       )
     );
 
-  // Generate missing images for all nodes
-  const autoGenerateImagesForAll = async (nodesList) => {
-    setLoadingOverlay(true);
-    await Promise.all(
-      nodesList.map((node) =>
-        node.data.generatedImages?.length
-          ? null
-          : handleReprompt(node.id, node.data.data_description)
-      )
-    );
-    setLoadingOverlay(false);
-  };
+
+// ✅ Sequential auto-generation (one node at a time)
+// ===============================
+const autoGenerateImagesForAll = async (nodesList) => {
+  setLoadingOverlay(true);
+  for (const node of nodesList) {
+    const hasImages = node.data.generatedImages?.length > 0;
+    const failed = node.data.failedImage;
+    if (!hasImages && !failed) {
+      await handleReprompt(node.id, node.data.data_description);
+    }
+  }
+  setLoadingOverlay(false);
+};
+
 
   // Initial load
   useEffect(() => {
@@ -290,45 +359,53 @@ const SceneEditor = () => {
 
     setNodes(layoutedNodes);
     setEdges(edgesGenerated);
+// 🧠 Diagnostic check for image completeness
+const totalNodes = layoutedNodes.length;
+const nodesWithImages = layoutedNodes.filter(hasValidImage).length;
+const missingImages = layoutedNodes.filter((n) => !hasValidImage(n));
 
-    const missingImages = layoutedNodes.filter(
-  (n) =>
-    (!n.data?.imageUrl || n.data.imageUrl.length < 200) &&
-    !n.data.loadingImages
+console.log(
+  `🧩 Image status check → ${nodesWithImages}/${totalNodes} nodes have valid images.`
 );
 
-
-    if (missingImages.length > 0) {
-      console.log(
-        `🖼️ Auto-generating ${missingImages.length} missing node images...`
-      );
-      setLoadingOverlay(true);
-      autoGenerateImagesForAll(missingImages).finally(() =>
-        setLoadingOverlay(false)
-      );
-    }
-  }, [passedFlow]);
-//periodic check for mising images
-useEffect(() => {
-  if (!nodes.length) return;
-
-  const allImagesValid = nodes.every(
-    (n) => n.data?.imageUrl && n.data.imageUrl.length >= 200
+if (missingImages.length > 0) {
+  // ✅ Only auto-generate if *no b64image stored either*
+  const trulyMissing = missingImages.filter(
+    (n) => !n.data?.b64image || n.data.b64image.length < 100
   );
 
-  // 🧠 Don't even start interval if all are already valid
-  if (allImagesValid) {
-    console.log("✅ All node images already valid — skipping auto-check.");
-    return;
+  if (trulyMissing.length > 0) {
+    console.warn(
+      `🖼️ Auto-generating ${trulyMissing.length} *new* missing images...`
+    );
+    setLoadingOverlay(true);
+    autoGenerateImagesForAll(trulyMissing).finally(() =>
+      setLoadingOverlay(false)
+    );
+  } else {
+    console.log("✅ All nodes have stored base64 images. Skipping regeneration.");
   }
+} else {
+  console.log("✅ All nodes already have valid images. Skipping generation.");
+}
 
-  let interval;
+
+  }, [passedFlow]);
+// ===============================
+// ✅ Periodic check for missing images (safe + single interval)
+// ===============================
+const hasStartedAutoCheck = React.useRef(false);
+
+useEffect(() => {
+  if (hasStartedAutoCheck.current || !nodes.length) return;
+  hasStartedAutoCheck.current = true;
 
   const checkAndGenerate = () => {
     const missing = nodes.filter(
       (n) =>
         (!n.data?.imageUrl || n.data.imageUrl.length < 200) &&
-        !n.data.loadingImages
+        !n.data.loadingImages &&
+        !n.data.failedImage
     );
 
     if (missing.length > 0) {
@@ -342,23 +419,20 @@ useEffect(() => {
         `✅ [Auto Image Check] ${new Date().toLocaleTimeString()} → All nodes have valid images.`
       );
       clearInterval(interval);
-      interval = null;
     }
   };
 
+  // run once on start
   checkAndGenerate();
-  interval = setInterval(checkAndGenerate, 30000);
 
+  const interval = setInterval(checkAndGenerate, 30000);
   console.log("🧠 Auto image regeneration interval started.");
 
   return () => {
-    if (interval) {
-      clearInterval(interval);
-      console.log("🧹 Auto image regeneration interval cleared.");
-    }
+    clearInterval(interval);
+    console.log("🧹 Auto image regeneration interval cleared.");
   };
 }, [nodes]);
-
 
   // ====================================
 // Save & Play
@@ -367,28 +441,30 @@ const handleSaveAndPlay = async () => {
   const updatedEdges = generateEdgesFromNodes(nodes);
   setEdges(updatedEdges);
 
+  // Check missing descriptions
   if (nodes.some((n) => !n.data?.data_description)) {
     alert("Some nodes have no descriptions. Please fill them before saving!");
     return;
   }
 
-  // Clean node data
-const cleanNodes = nodes.map((n) => ({
-  ...n,
-  data: {
-    data_description: n.data.data_description || "Untitled",
-    imageUrl: n.data.imageUrl || "",
-    b64image: n.data.imageUrl?.startsWith("data:image/")
-      ? n.data.imageUrl.split(",")[1] // extract base64 part
-      : n.data.b64image || "",
-    generatedImages: n.data.generatedImages || [],
-    options: n.data.options || [],
-    next: n.data.next || null,
-  },
-}));
+  // ✅ Prepare clean, full node data
+  const cleanNodes = nodes.map((n) => ({
+    ...n,
+    data: {
+      data_description: n.data.data_description || "Untitled",
+      scene: n.data.scene || "",
+      options: n.data.options || [],
+      next: n.data.next || null,
+      imageUrl: n.data.imageUrl || "",
+      b64image:
+        n.data.imageUrl?.startsWith("data:image/")
+          ? n.data.imageUrl.split(",")[1] // extract base64
+          : n.data.b64image || "",
+      generatedImages: n.data.generatedImages || [],
+    },
+  }));
 
-
-  // ✅ Convert for backend — produces array of nodes
+  // ✅ Convert for backend (uses your helper correctly)
   const flowToSaveBackend = {
     nodes: convertFrontendToBackend(
       Object.fromEntries(cleanNodes.map((n) => [n.id, n]))
@@ -396,24 +472,18 @@ const cleanNodes = nodes.map((n) => ({
     edges: updatedEdges,
   };
 
-  // Debug logging
-  console.log("🧠 Scenario ID before save:", scenarioId);
-  console.log(
-    "🛰️ Sending flowData to backend:",
-    flowToSaveBackend.nodes.map((n) => ({
-      id: n.id,
-      options: n.data?.options,
-      next: n.data?.next,
-    }))
-  );
+  // 🧠 Debug log — make sure you see images here now
+  console.log("🛰️ Sending flowData to backend:", flowToSaveBackend.nodes);
 
-  const updatedScenario = {
-    id: /^[0-9a-fA-F]{24}$/.test(scenarioId) ? scenarioId : null,
-    title: scenarioTitle || "Untitled Scenario",
-    description: "",
-    flowData: flowToSaveBackend,
-    lastEdited: new Date().toISOString(),
-  };
+  // ✅ Build request body
+const updatedScenario = {
+  id: /^[0-9a-fA-F]{24}$/.test(scenarioId) ? scenarioId : null,
+  title: scenarioTitle || "Untitled Scenario",
+  description: "",
+  nodes: Object.values(flowToSaveBackend.nodes), // ✅ Flatten nodes object into array
+  edges: flowToSaveBackend.edges || [],
+  lastEdited: new Date().toISOString(),
+};
 
   try {
     const res = await fetch("http://127.0.0.1:5000/scenarios/saveFlow", {
@@ -425,14 +495,17 @@ const cleanNodes = nodes.map((n) => ({
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Save failed");
 
+    // ✅ Update scenarioId if new
     let finalScenarioId = scenarioId;
     if (data.scenarioId) {
       setScenarioId(data.scenarioId);
       finalScenarioId = data.scenarioId;
+      localStorage.setItem("lastScenarioId", finalScenarioId); // ✅ persist ID
     }
 
-    console.log("✅ Final Scenario ID for navigation:", finalScenarioId);
+    console.log("✅ Saved scenario successfully:", finalScenarioId);
 
+    // ✅ Navigate to ScenarioInterface
     navigate("/scenarioInterface", {
       state: {
         scenarioId: finalScenarioId,
@@ -448,6 +521,7 @@ const cleanNodes = nodes.map((n) => ({
     alert("⚠️ Error saving scenario. Check console for details.");
   }
 };
+
 
   // ===============================
   // Render
@@ -472,6 +546,38 @@ const cleanNodes = nodes.map((n) => ({
 
             {/* Sidebar */}
             <div className="node-sidebar">
+
+<button
+  className="action-buttons"
+  onClick={() => {
+         // ✅ Step 1: Clean the flow so it’s serializable
+       try {
+  const lightweightFlow = getLightweightFlow(nodes, edges);
+
+  if (scenarioId) {
+  localStorage.setItem(`flow_${scenarioId}`, JSON.stringify(lightweightFlow));
+  localStorage.setItem("lastScenarioId", scenarioId);
+}
+
+  navigate("/editor", {
+    state: {
+      scenarioId,
+      flowData: lightweightFlow, // ✅ pass it explicitly
+    },
+  });
+} catch (err) {
+  console.warn("⚠️ Storage quota exceeded — skipping image data:", err);
+  const minimalFlow = getLightweightFlow(nodes.map(n => ({ ...n, data: { data_description: n.data?.data_description || "" } })), edges);
+  localStorage.setItem("latestFlow", JSON.stringify(minimalFlow));
+  navigate("/editor", { state: { scenarioId } });
+}
+
+  }}
+>
+  🔄 Switch to Flow Chart Editor
+</button>
+
+
               {selectedNode ? (
                 <>
                   <h3 className="sidebar-node-title">
