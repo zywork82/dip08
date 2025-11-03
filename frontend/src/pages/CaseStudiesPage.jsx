@@ -75,15 +75,19 @@ const CaseStudiesPage = () => {
       }
 
       // ✅ Navigate based on status
-      if (scenario.status === "ImageReady") {
-        navigate("/scene-editor", {
-          state: { flowData, scenarioId: scenario._id },
-        });
-      } else {
-        navigate("/editor", {
-          state: { flowData, scenarioId: scenario._id },
-        });
-      }
+      // if (scenario.status === "ImageReady") {
+      //   navigate("/scene-editor", {
+      //     state: { flowData, scenarioId: scenario._id },
+      //   });
+      // } else {
+      //   navigate("/editor", {
+      //     state: { flowData, scenarioId: scenario._id },
+      //   });
+      // }
+      navigate("/scene-editor", {
+  state: { flowData, scenarioId: scenario._id },
+});
+
     } catch (err) {
       console.error("Error opening scenario:", err);
       alert("⚠️ Failed to load scenario. Please try again.");

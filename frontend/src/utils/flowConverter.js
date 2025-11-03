@@ -3,29 +3,36 @@
  * for SceneEditor & ScenarioInterface.
  */
 export function convertBackendToFrontend(backendFlow) {
-  return Object.entries(backendFlow).reduce((acc, [id, node]) => {
-    acc[id] = {
+  const nodesArray = Array.isArray(backendFlow)
+    ? backendFlow
+    : Object.values(backendFlow);
+
+  return nodesArray.map((node) => {
+    const b64image = node.data?.b64image || node["b64 image"] || "";
+    const imageUrl =
+      b64image && !node.data?.imageUrl?.startsWith("data:")
+        ? `data:image/png;base64,${b64image}`
+        : node.data?.imageUrl || "";
+
+    return {
       id: node.id,
       type: node.type || "scenario",
       position: node.position || { x: 0, y: 0 },
       data: {
         data_description:
-          node.data?.data_description || node.data || "",
+          typeof node.data?.data_description === "string"
+            ? node.data.data_description
+            : "",
         options: node.data?.options || node.options || [],
         next: node.data?.next || node.next || null,
         scene: node.data?.scene || node.scene || "",
-        b64image: node.data?.b64image || node["b64 image"] || "",
-        imageUrl:
-          node.data?.imageUrl ||
-          (node.data?.b64image
-            ? `data:image/png;base64,${node.data.b64image}`
-            : ""),
+        b64image,
+        imageUrl,
         generatedImages: node.data?.generatedImages || [],
         loadingImages: false,
       },
     };
-    return acc;
-  }, {});
+  });
 }
 
 /**
@@ -34,8 +41,11 @@ export function convertBackendToFrontend(backendFlow) {
  * ✅ Always returns an array, not object.
  */
 export function convertFrontendToBackend(frontendFlow) {
-  // frontendFlow is an object like { "101": { ... }, "101A": { ... } }
-  return Object.values(frontendFlow).map((node) => ({
+  const nodesArray = Array.isArray(frontendFlow)
+    ? frontendFlow
+    : Object.values(frontendFlow);
+
+  return nodesArray.map((node) => ({
     id: node.id,
     type: node.type || "scenario",
     position: node.position || { x: 0, y: 0 },

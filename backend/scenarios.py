@@ -78,9 +78,7 @@ def save_flow():
         }
 
         # --- Determine if we are updating or creating ---
-        scenario_oid = None
         if scenario_id and is_valid_objectid(scenario_id):
-            # ✅ Valid ObjectId: try update
             result = db.scenarios.update_one(
                 {"_id": ObjectId(scenario_id)},
                 {"$set": scenario_doc},
@@ -92,7 +90,6 @@ def save_flow():
             else:
                 scenario_oid = ObjectId(scenario_id)
         else:
-            # 🚀 Invalid or missing ID: create new
             existing = db.scenarios.find_one({"title": scenario_doc["title"]})
             if existing:
                 db.scenarios.update_one({"_id": existing["_id"]}, {"$set": scenario_doc})
@@ -100,39 +97,30 @@ def save_flow():
             else:
                 scenario_oid = db.scenarios.insert_one(scenario_doc).inserted_id
 
-        # --- Upsert nodes ---
+        # =========================================================
+        # 🧩 FIX 1: Convert node dict → list (frontend sends object)
+        # =========================================================
+        nodes = flow.get("nodes", [])
+        if isinstance(nodes, dict):
+            nodes = list(nodes.values())
+
         saved_nodes = []
-        for node in flow.get("nodes", []):
-            raw_data = node.get("data", {})
+        for node in nodes:
+            raw_data = node.get("data", {}) or {}
 
-            if isinstance(raw_data, str):
-                formatted_data = {
-                    "data_description": raw_data,
-                    "options": node.get("options", []),
-                    "next": node.get("next", None),
-                    "scene": "",
-                    "b64image": "",
-                    "imageUrl": "",
-                    "generatedImages": []
-                }
-            else:
-                formatted_data = {
-                    "data_description": raw_data.get("data_description", node.get("description", "")),
-                    "options": raw_data.get("options", node.get("options", [])),
-                    "next": raw_data.get("next", node.get("next", None)),
-                    "scene": raw_data.get("scene", ""),
-                    "imageUrl": raw_data.get("imageUrl", ""),
-"b64image": raw_data.get("b64image", ""),
-                           # ✅ Store raw base64 for safe retrieval
-                    "generatedImages": raw_data.get("generatedImages", []),
-                }
-
-            # 🧠 Log (shortened to avoid flooding console)
-            print(f"[saveFlow] Node {node.get('id')} — img={bool(formatted_data.get('imageUrl'))}")
+            formatted_data = {
+                "data_description": raw_data.get("data_description", node.get("description", "")),
+                "options": raw_data.get("options", node.get("options", [])),
+                "next": raw_data.get("next", node.get("next", None)),
+                "scene": raw_data.get("scene", ""),
+                "b64image": raw_data.get("b64image", ""),
+                "imageUrl": raw_data.get("imageUrl", ""),
+                "generatedImages": raw_data.get("generatedImages", []),
+            }
 
             node_doc = {
-                "id": node.get("id"),
-                "type": node.get("type"),
+                "id": str(node.get("id")).strip(),
+                "type": node.get("type", "scenario"),
                 "data": formatted_data,
                 "psych_dimensions": node.get("psych_dimensions", ""),
                 "position": node.get("position", {}),
@@ -146,7 +134,6 @@ def save_flow():
             )
             saved_nodes.append(node_doc)
 
-        # --- Normalize IDs for response ---
         for n in saved_nodes:
             if "_id" in n:
                 n["_id"] = str(n["_id"])
@@ -168,25 +155,6 @@ def save_flow():
         print("❌ Error saving flow:", e)
         return jsonify({"success": False, "error": str(e)}), 500
 
-# =========================================================
-# ✅ List scenarios (summary)
-# =========================================================
-@scenarios_bp.route("/list", methods=["GET"])
-def list_scenarios():
-    try:
-        scenarios = []
-        for s in db.scenarios.find():
-            scenarios.append({
-                "id": str(s["_id"]),
-                "title": s.get("title", "Untitled Scenario"),
-                "status": s.get("status", "Draft"),
-                "lastEdited": s.get("lastEdited"),
-                "image": s.get("image"),
-            })
-        return jsonify(scenarios)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 
 # =========================================================
 # ✅ Get full flow (ReactFlow-ready, returns images)
@@ -198,34 +166,28 @@ def get_flow(scenario_id):
         if not scenario:
             return jsonify({"error": "Scenario not found"}), 404
 
+        # 🧩 Fetch nodes for scenario
         nodes = list(db.scenarioNodes.find({"scenarioId": ObjectId(scenario_id)}))
         edges = []
 
         for n in nodes:
             data_field = n.get("data", {})
             if isinstance(data_field, str):
-                n["data"] = {
-                    "data_description": data_field,
-                    "options": n.get("options", []),
-                    "next": n.get("next", None),
-                    "scene": "",
-                    "b64image": "",
-                    "imageUrl": "",
-                    "generatedImages": []
-                }
-            else:
-                n["data"] = {
-                    "data_description": data_field.get("data_description", n.get("description", "")),
-                    "options": data_field.get("options", n.get("options", [])),
-                    "next": data_field.get("next", n.get("next", None)),
-                    "scene": data_field.get("scene", ""),
-                    "b64image": data_field.get("b64image", ""),
-                    "imageUrl": data_field.get("imageUrl", ""),
-                    "generatedImages": data_field.get("generatedImages", [])
-                }
+                data_field = {"data_description": data_field}
 
-            # --- Build edges ---
-            for opt_id in n["data"].get("options", []):
+            # 🧩 FIX 2: Always read options from n["data"]
+            n["data"] = {
+                "data_description": data_field.get("data_description", ""),
+                "options": data_field.get("options", []),
+                "next": data_field.get("next", None),
+                "scene": data_field.get("scene", ""),
+                "b64image": data_field.get("b64image", ""),
+                "imageUrl": data_field.get("imageUrl", ""),
+                "generatedImages": data_field.get("generatedImages", []),
+            }
+
+            # --- Build edges safely ---
+            for opt_id in n["data"]["options"]:
                 edges.append({
                     "id": f"e-{n['id']}-{opt_id}",
                     "source": n["id"],
@@ -233,7 +195,8 @@ def get_flow(scenario_id):
                     "type": "smoothstep",
                     "animated": True
                 })
-            if n["data"].get("next"):
+
+            if n["data"]["next"]:
                 edges.append({
                     "id": f"e-{n['id']}-{n['data']['next']}",
                     "source": n["id"],
@@ -244,6 +207,10 @@ def get_flow(scenario_id):
 
             n["_id"] = str(n["_id"])
             n["scenarioId"] = str(n["scenarioId"])
+
+        # 🧩 FIX 3: Normalize all node IDs as strings
+        for n in nodes:
+            n["id"] = str(n["id"]).strip()
 
         flow_data = {
             "id": str(scenario["_id"]),
