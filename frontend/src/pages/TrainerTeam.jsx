@@ -7,9 +7,7 @@ import axios from 'axios';
 
 const getInitials = (name) => {
   if (!name) return 'A';
-  const parts = name.trim().split(' ');
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase(); // e.g. "Prof Andy" → "PA"
+  return name.trim()[0].toUpperCase();
 };
 
 const TrainerCard = ({ trainer }) => (
@@ -35,14 +33,14 @@ const TrainerTeam = () => {
   const userName = storedUser?.username || 'User';
   const userEmail = storedUser?.email || 'user@example.com';
   const profileImage = storedUser?.imageUrl 
-  || `https://placehold.co/100x100/E6E6FA/3f51b5?text=${getInitials(userName)}`;
+  || `https://placehold.co/100x100/E6E6FA/3f51b5?text=A`;
 
 
   useEffect(() => {
     const fetchAdmins = async () => {
       try {
         const token = localStorage.getItem('token'); // JWT token
-        const res = await axios.get('http://localhost:8000/admins/users', {
+        const res = await axios.get('http://localhost:5000/admins/users', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const adminsWithImages = res.data.map((user) => ({

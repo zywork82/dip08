@@ -11,7 +11,7 @@ const [profile, setProfile] = useState({
   name: "",
   email: "",
   password: "***************",
-  profileImage: "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg", // default
+  profileImage: "https://placehold.co/100x100/E6E6FA/3f51b5?text=A", // default
 });
 const [originalProfile, setOriginalProfile] = useState(profile);
 
@@ -25,7 +25,7 @@ useEffect(() => {
       password: "***************",
       profileImage:
         parsedUser.profileImage ||
-        "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg", // default if none in DB
+        "https://placehold.co/100x100/E6E6FA/3f51b5?text=A", // default if none in DB
     });
     setOriginalProfile({
       name: parsedUser.name || "",
@@ -33,7 +33,7 @@ useEffect(() => {
       password: "***************",
       profileImage:
         parsedUser.profileImage ||
-        "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg",
+        "https://placehold.co/100x100/E6E6FA/3f51b5?text=A",
     });
   }
 }, []);

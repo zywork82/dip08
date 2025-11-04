@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import SharedSidebar from '../components/SharedSidebar';
 import SharedHeader from '../components/SharedHeader';
+import StudentSidebar from '../components/StudentSidebar';
 import { FaTh, FaBars } from 'react-icons/fa';
 import '../styles/CaseStudiesPage.css'; // Import the new CSS file
 
@@ -12,7 +12,7 @@ const getInitials = (name) => {
   return (parts[0][0] + parts[1][0]).toUpperCase(); // e.g. "Prof Andy" → "PA"
 };
 
-const CaseStudiesPage = () => {
+const StudentCaseStudies = () => {
   const [activeTab, setActiveTab] = useState('All');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const navigate = useNavigate();
@@ -55,10 +55,6 @@ useEffect(() => {
   };
   fetchCaseStudies();
 }, []);
-
-  const handleCreateNewCase = () => {
-    navigate('/scenario');
-  };
 
   const filteredCaseStudies = caseStudiesData.filter((cs) => {
     if (activeTab === 'All') return true;
@@ -131,7 +127,7 @@ useEffect(() => {
 
   return (
     <div className="case-studies-container">
-      <SharedSidebar />
+      <StudentSidebar />
       <div className="main-content">
         <SharedHeader 
           profileImage={profileImage} 
@@ -149,18 +145,12 @@ useEffect(() => {
 
             <div className="header-row">
               <h2 className="page-title">Case Studies</h2>
-              <button 
-                className="create-button"
-                onClick={handleCreateNewCase}
-                title="Create new case study"
-              >
-                +
-              </button>
+
             </div>
 
             <div className="tab-container">
               <div className="tabs">
-                {['All', 'Published', 'In-Progress'].map((tab) => (
+                {['All', 'Completed', 'To Complete'].map((tab) => (
                   <div
                     key={tab}
                     className={`tab ${activeTab === tab ? 'active' : ''}`}
@@ -208,4 +198,4 @@ useEffect(() => {
   );
 };
 
-export default CaseStudiesPage;
+export default StudentCaseStudies;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaSearch, FaRedo, FaTimes, FaDownload } from 'react-icons/fa';
 import { traineeData } from '../data/TraineeData.js';
-import SharedSidebar from '../components/SharedSidebar';
+import StudentSidebar from '../components/StudentSidebar.jsx';
 import SharedHeader from '../components/SharedHeader';
 
 // Mock data for the report's internal details
@@ -334,7 +334,7 @@ const TraineeRecordsPage = () => {
 
   return (
     <div style={containerStyle}>
-      <SharedSidebar />
+      <StudentSidebar />
       <div style={mainContentStyle}>
         <SharedHeader
           profileImage={`https://placehold.co/100x100/E6E6FA/3f51b5?text=A`}

@@ -520,6 +520,7 @@ html, body {
 }
 
 .training-statistics-section .training-stat-item {
+  margin-left: 8px;
   display: flex;
   justify-content: flex-start !important; /* prevent pushing chart too far */
   align-items: center;
@@ -552,6 +553,6 @@ html, body {
 }
 
 .pie-chart-container > div[style*="margin: 20px auto"] {
-  margin: 20px 0 !important; /* ✅ stop it from centering */
+  margin: 25px 0 !important; /* ✅ stop it from centering */
 }
 

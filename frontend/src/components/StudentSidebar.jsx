@@ -5,15 +5,14 @@ import { FaHome, FaFolder, FaUsers, FaLaptop, FaCog, FaSignOutAlt, FaChalkboardT
 import '../styles/Sidebar.css';
 import { useNavigate } from 'react-router-dom';
 
-const SharedSidebar = () => {
+const StudentSidebar = () => {
   const location = useLocation();
    const navigate = useNavigate(); 
 
   const navItems = [
-    { name: 'Dashboard', path: '/admin', icon: <FaHome /> },
-    { name: 'Case Studies', path: '/case-studies', icon: <FaFolder /> },
-    { name: 'Trainer Team', path: '/trainer-team', icon: <FaUsers /> },
-    { name: 'Trainee Records', path: '/trainee-records', icon: <FaChalkboardTeacher /> },
+    { name: 'Dashboard', path: '/student', icon: <FaHome /> },
+    { name: 'Case Studies', path: '/student-case-studies', icon: <FaFolder /> },
+    { name: 'My Records', path: '/my-records', icon: <FaChalkboardTeacher /> },
     { name: 'Tutorial', path: '/tutorial', icon: <FaLaptop /> },
     { name: 'Settings', path: '/settings', icon: <FaCog /> }
   ];
@@ -41,8 +40,8 @@ const SharedSidebar = () => {
       </nav>
       <div className="profile-section">
         <div className="profile-info">
-          <span className="profile-name">Andy</span>
-          <span className="profile-role">Administrator</span>
+          <span className="profile-name">Helen Wong</span>
+          <span className="profile-role">Student</span>
         </div>
         <button
           className="logout-button"
@@ -60,4 +59,4 @@ const SharedSidebar = () => {
   );
 };
 
-export default SharedSidebar;
+export default StudentSidebar;
