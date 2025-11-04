@@ -4,6 +4,7 @@ import SharedHeader from '../components/SharedHeader';
 import StudentSidebar from '../components/StudentSidebar';
 import { FaTh, FaBars } from 'react-icons/fa';
 import '../styles/CaseStudiesPage.css'; // Import the new CSS file
+import StudentCasestudycard from '../components/StudentCasestudycard.jsx';
 
 const getInitials = (name) => {
   if (!name) return 'A';
@@ -63,89 +64,61 @@ useEffect(() => {
     return false;
   });
   
-  const renderCaseStudies = () => {
-    if (viewMode === 'grid') {
-      return (
-        <div className="cards-grid">
-          {filteredCaseStudies.map((cs) => (
-            <div 
-              key={cs.id} 
-              className="card"
-            >
-              <img src={cs.image} alt={cs.title} className="card-image" />
-              <div className="card-content">
-                <h3 className="card-title">{cs.title}</h3>
-                <p className="card-date">Last edited on {cs.lastEdited}</p>
-                <div className="card-footer">
-                  {cs.status === 'Edit' ? (
-                    <button className="edit-button">
-                      Edit
-                    </button>
-                  ) : (
-                    <span className={`status-badge status-${cs.status.replace('-', '')}`}>
-                      {cs.status}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    } else {
-      return (
-        <div className="cards-list">
-          {filteredCaseStudies.map((cs) => (
-            <div 
-              key={cs.id} 
-              className="list-item"
-            >
-              <img src={cs.image} alt={cs.title} className="list-image" />
-              <div className="list-content">
-                <div className="list-info">
-                  <h3 className="list-title">{cs.title}</h3>
-                  <p className="list-date">Last edited on {cs.lastEdited}</p>
-                </div>
-                <div className="list-actions">
-                  {cs.status === 'Edit' ? (
-                    <button className="edit-button">
-                      Edit
-                    </button>
-                  ) : (
-                    <span className={`status-badge status-${cs.status.replace('-', '')}`}>
-                      {cs.status}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
+   const renderCaseStudies = () => {
+  // Step 1: filter based on tab
+  const filteredCaseStudies = caseStudiesData.filter((cs) => {
+    if (activeTab === 'All') {
+      return cs.status === 'Published' || cs.status === 'Completed';
     }
-  };
+    if (activeTab === 'Completed') {
+      return cs.status === 'Completed';
+    }
+    if (activeTab === 'To Complete') {
+      return cs.status === 'Published'; // show published but not yet completed
+    }
+    return false;
+  });
+
+  // Step 2: handle empty results
+  if (filteredCaseStudies.length === 0) {
+    return <p className="no-case-studies">No case studies available.</p>;
+  }
+
+  // Step 3: render cards
+  return (
+    <div className={viewMode === 'grid' ? 'cards-grid' : 'cards-list'}>
+      {filteredCaseStudies.map((cs) => (
+        <StudentCasestudycard
+          key={cs.id}
+          title={cs.title}
+          lastEdited={cs.lastEdited}
+          status={cs.status}
+          image={cs.image}
+        />
+      ))}
+    </div>
+  );
+};
 
   return (
     <div className="case-studies-container">
       <StudentSidebar />
       <div className="main-content">
-        <SharedHeader 
-          profileImage={profileImage} 
-          userName={userName} 
-          userEmail={userEmail}/>
+        <SharedHeader profileImage={profileImage} userName={userName} userEmail={userEmail} />
         <div className="page-body">
           <div className="case-studies-section">
             <div className="banner">
               <div style={{ lineHeight: 1.5 }}>
                 <span style={{ fontSize: '1rem', fontWeight: 400 }}>New to Deciwise?</span>
                 <br />
-                <a href="/tutorial" className="banner-link"><span className="banner-text">Begin your Tutorial</span></a>
+                <a href="/tutorial" className="banner-link">
+                  <span className="banner-text">Begin your Tutorial</span>
+                </a>
               </div>
             </div>
 
             <div className="header-row">
               <h2 className="page-title">Case Studies</h2>
-
             </div>
 
             <div className="tab-container">
@@ -161,13 +134,13 @@ useEffect(() => {
                 ))}
               </div>
               <div className="view-toggle">
-                <FaTh 
-                  className={`view-icon ${viewMode === 'grid' ? 'active' : ''}`} 
+                <FaTh
+                  className={`view-icon ${viewMode === 'grid' ? 'active' : ''}`}
                   onClick={() => setViewMode('grid')}
                   title="Grid view"
                 />
-                <FaBars 
-                  className={`view-icon ${viewMode === 'list' ? 'active' : ''}`} 
+                <FaBars
+                  className={`view-icon ${viewMode === 'list' ? 'active' : ''}`}
                   onClick={() => setViewMode('list')}
                   title="List view"
                 />
@@ -182,7 +155,10 @@ useEffect(() => {
             <div className="collaborator-list">
               {collaboratorsData.map((admin, index) => (
                 <div key={index} className="collaborator-item">
-                  <div className="collaborator-avatar" style={{ backgroundColor: admin.color || '#5a466dff' }}>
+                  <div
+                    className="collaborator-avatar"
+                    style={{ backgroundColor: admin.color || '#5a466dff' }}
+                  >
                     {getInitials(admin.username)}
                   </div>
                   <div className="collaborator-info">
@@ -197,5 +173,4 @@ useEffect(() => {
     </div>
   );
 };
-
 export default StudentCaseStudies;
