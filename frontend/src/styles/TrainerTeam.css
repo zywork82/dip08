@@ -3,6 +3,7 @@
 .page-container {
   display: flex;
   height: 100vh;
+  width: 100%;
   background-color: #f9f9fc; /* Ensure a consistent background */
 }
 
@@ -10,8 +11,8 @@
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+  width: calc(100% - 12rem); /* leave space for sidebar */
 }
-
 .header {
   /* Assuming your SharedHeader has its own styling */
   /* If you need specific padding/margin around the header, add it here */
@@ -25,14 +26,14 @@
 }
 
 .trainer-team-section {
-  padding: 2rem;
-  background-color: #ffffff;
+  padding: 24px; /* match Case Studies */
+  width: 100%; 
+  background-color: #fff;
   border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  display: flex; /* Use flexbox for the section itself to arrange title and grid */
-  flex-direction: column; /* Stack title and grid vertically */
-  align-items: flex-start; /* Align content to the start */
-  width: 100%; /* Ensure it takes full width of its parent */
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .section-title {
@@ -44,13 +45,11 @@
 
 .trainer-grid {
   display: grid;
-  /* Adjust grid-template-columns for responsiveness */
-  /* This creates columns that are at least 220px wide and grow to fill space */
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 2rem; /* Space between grid items */
-  width: 100%; /* Ensure the grid takes full width available */
-  justify-content: center; /* Center grid items if they don't fill the row */
-  align-items: stretch; /* Ensure cards stretch to equal height if content varies */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* same min width as cards */
+  gap: 20px; /* same gap */
+  width: 100%;
+  justify-content: flex-start; /* align with Case Studies layout */
+  align-items: stretch;
 }
 
 .trainer-card {
@@ -59,7 +58,7 @@
   align-items: center;
   text-align: center;
   background-color: #ffffff;
-  padding: 1.5rem;
+  padding: 16px;
   border-radius: 12px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   border: 1px solid #e2e8f0;
@@ -134,8 +133,9 @@
 
 @media (max-width: 480px) {
   .main-content-body {
-    padding: 0.5rem;
-  }
+  padding: 2rem 24px; /* top/bottom 2rem, left/right 24px */
+  overflow-y: auto;
+}
   .trainer-grid {
     grid-template-columns: 1fr; /* Stack cards on very small screens */
     gap: 1rem;
