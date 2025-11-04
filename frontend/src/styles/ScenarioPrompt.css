@@ -1,0 +1,231 @@
+/* .create-scenario-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+} */
+.scenario-prompt-page{
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
+    width: 100%;
+  }
+
+.header {
+width: 100%;
+height: 50px;
+}
+
+.scenario-prompt-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #ECECF8;
+  min-height: 100vh;
+  width: 100%;
+}
+.scenario-prompt-content {
+  display: flex;
+  flex-direction: row;
+   height: 100vh;
+    width: 100%;
+}
+.scenerio-history-container{
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  justify-content: start;
+  background-color: #fdfdfd;
+padding: 10px;
+margin-top: 0px;
+}
+
+.content-area{
+  display: flex;
+  flex-direction: column;
+  max-height: 550px;
+  max-width:80%;
+  margin: 80px;
+}
+
+.scenario-title-header{
+  font-size: 30px;
+  font-weight: 700;
+  color: #575ACB;
+  
+}
+
+.form-group {
+  width: 100%;
+  margin-bottom: 10px;
+  
+ 
+}
+
+.form-group input {
+  width: 100%;
+  border: none;
+  background-color: #eeeef3;
+  /* border-bottom: 2px solid #ccc; */
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 20px;
+}
+
+.form-group label {
+  font-size: 18px;
+  font-weight: 500;
+  color: #575ACB;
+  padding-bottom: 20px;
+  padding-top: 10px;
+}
+.form-group textarea {
+  width:100%;
+  height: 200px;
+  padding: 10px;
+  margin-top: 20px;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+  resize: vertical;
+  font-size: 18px;
+}
+
+.description-input-container{
+  width: 100%;
+}
+
+.back-link {
+  display: flex;
+  align-items: center;
+  color: #3f51b5;
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.back-arrow {
+  margin-right: 5px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #3f51b5;
+}
+
+.edit-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.edit-icon svg {
+  color: #3f51b5;
+}
+
+.content-area {
+  width: 100%;
+  margin-right: 20px;
+  background-color: white;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+
+
+
+
+.word-count {
+  text-align: right;
+  font-size: 12px;
+  color: #888;
+  margin-top: 5px;
+}
+
+.create-scenario-button {
+  background-color: #3f51b5;
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 25px;
+  width: 180px;
+  height:60px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease-in-out;
+}
+
+.create-button:hover {
+  transform: translateY(-2px);
+  background-color: #303f9f;
+}
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(20, 20, 20, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  backdrop-filter: blur(6px);
+}
+
+.loading-box {
+  background: #121212;
+  padding: 2rem 3rem;
+  border-radius: 16px;
+  text-align: center;
+  color: white;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.spinner {
+  border: 4px solid #555;
+  border-top: 4px solid #00b4d8;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 20px auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.progress-bar {
+  width: 100%;
+  background: #333;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 12px 0;
+  height: 8px;
+}
+
+.progress {
+  height: 100%;
+  background: linear-gradient(90deg, #00b4d8, #48cae4);
+  transition: width 0.4s ease;
+}
+
+.loading-text {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.error-msg{
+  color: red;
+  margin-bottom: 10px;
+}

@@ -11,7 +11,7 @@ function createWindow() {
     },
   });
 
- const indexPath = path.join(__dirname, 'build', 'index.html');
+ const indexPath = path.join(__dirname,'build', 'index.html');
   console.log("Loading:", indexPath);  // Debug
   win.loadFile(indexPath);
 }

@@ -1,0 +1,20 @@
+.option-node{
+  height: 50px;
+  width: 400px;
+  padding: 10px 15px;
+  border: 3px solid #7e3dd3;
+  border-radius:40px ;
+  cursor: "pointer";
+  background-color: #f7f0f0;
+  transition: "all 0.2s ease";
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.option-node:hover {
+  background-color: #b8cef0;
+}
+.option-node.selected {
+  background-color: #cce0ff;
+}

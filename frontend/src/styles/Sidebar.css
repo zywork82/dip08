@@ -1,0 +1,140 @@
+/* --- Sidebar --- */
+.sidebar {
+  position: fixed; 
+  left: 0;         
+  top: 0;
+  height: 100vh;   
+  width: 12rem;
+  background-color: #fff;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  height: 100%;
+  border-right: 1px solid #d3d0e0;
+}
+
+.sidebar .logo-container {
+  display: block;
+  justify-content: flex-start;
+  width: 10rem;
+  height: auto ;
+  margin: 0 auto;
+}
+
+.sidebar .logo-icon {
+  width: 80px;     /* bigger size */
+  height: 80px;    /* maintain aspect ratio */
+  border-radius: 12px; 
+  object-fit: contain; 
+  display: block;
+  margin: 0 auto;  /* center horizontally */
+}
+
+.sidebar .logo-text {
+  /* Adjusted font size to make the text bigger */
+  font-size: 1.5rem; /* Equivalent to text-2xl in Tailwind CSS */
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  color: #1f2937;
+}
+
+.sidebar .nav-menu {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 1rem;
+}
+
+.sidebar .nav-item {
+  display: flex;
+  align-items: center;  /* vertically center icon + text */
+  justify-content: flex-start; /* left-align icon + text */
+  gap: 0.75rem;
+  color: #4b5563;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.sidebar .nav-item.active {
+  color: #6b46c1;
+  background-color: #f3f4f6;
+  font-weight: 700; /* Make the active item bold */
+}
+
+.sidebar .nav-item:hover {
+  color: #6b46c1;
+  background-color: #f3f4f6;
+  font-weight: 700; /* This makes the item bold on hover */
+}
+
+.sidebar .nav-item-icon {
+  height: 1.5rem; /* same as before */
+  width: 1.5rem;
+  display: flex;
+  justify-content: center; /* centers the icon horizontally */
+  align-items: center;     /* centers the icon vertically */
+  stroke: currentColor;
+  flex-shrink:0; 
+}
+
+/* --- Profile Section --- */
+.profile-section {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 1rem 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.profile-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.profile-role {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.logout-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 1.25rem;
+  /* Make it a square */
+  width: 2.5rem; 
+  height: 2.5rem;
+  /* Center the icon inside */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Add a circular shape and transition */
+  border-radius: 0.75rem; /* Or 50% for a circle */
+  transition: background-color 0.2s ease;
+}
+
+.logout-button:hover {
+  background-color: #f3f4f6; /* A subtle hover effect */
+  color: #ef4444; 
+}
+
+
+.main-content {
+  margin-left: 12rem; /* same as sidebar width */
+  transition: margin-left 0.3s;
+  padding: 20px;
+}

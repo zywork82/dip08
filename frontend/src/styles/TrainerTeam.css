@@ -1,0 +1,147 @@
+/* TrainerTeam.css */
+
+.page-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background-color: #f9f9fc; /* Ensure a consistent background */
+}
+
+.main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 12rem); /* leave space for sidebar */
+}
+.header {
+  /* Assuming your SharedHeader has its own styling */
+  /* If you need specific padding/margin around the header, add it here */
+  margin-bottom: 20px; /* Space between header and page content */
+}
+
+.main-content-body {
+  flex-grow: 1; /* Allows the body to take available space */
+  padding: 2rem;
+  overflow-y: auto; /* Enables scrolling if content overflows */
+}
+
+.trainer-team-section {
+  padding: 24px; /* match Case Studies */
+  width: 100%; 
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin-bottom: 2rem; /* Space below the title */
+}
+
+.trainer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* same min width as cards */
+  gap: 20px; /* same gap */
+  width: 100%;
+  justify-content: flex-start; /* align with Case Studies layout */
+  align-items: stretch;
+}
+
+.trainer-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background-color: #ffffff;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s ease-in-out; /* Add a slight hover effect */
+}
+
+.trainer-card:hover {
+  transform: translateY(-5px); /* Lift card on hover */
+}
+
+.trainer-image-container {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  border: 3px solid #cbd5e0; /* A slightly softer border color */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+.trainer-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trainer-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0.5rem 0 0.25rem 0; /* Adjusted margin */
+}
+
+.trainer-role {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+  margin-bottom: 0.5rem; /* Space below role */
+}
+
+.trainer-email {
+  font-size: 0.875rem;
+  color: #4a5568;
+  margin-top: 0; /* Remove default top margin */
+  word-break: break-all;
+  font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .main-content-body {
+    padding: 1rem;
+  }
+  .trainer-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+  }
+  .trainer-card {
+    padding: 1rem;
+  }
+  .trainer-image-container {
+    width: 80px;
+    height: 80px;
+  }
+  .trainer-name {
+    font-size: 1.1rem;
+  }
+  .trainer-role, .trainer-email {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content-body {
+  padding: 2rem 24px; /* top/bottom 2rem, left/right 24px */
+  overflow-y: auto;
+}
+  .trainer-grid {
+    grid-template-columns: 1fr; /* Stack cards on very small screens */
+    gap: 1rem;
+  }
+  .trainer-image-container {
+    width: 70px;
+    height: 70px;
+  }
+}
