@@ -96,7 +96,15 @@ useEffect(() => {
       }
 
       console.log("Processed scenarios array:", scenariosArray);
-      setCaseStudies(scenariosArray);
+      // Sort by lastEdited (newest first)
+const sortedScenarios = [...scenariosArray].sort((a, b) => {
+  const dateA = new Date(a.lastEdited || 0);
+  const dateB = new Date(b.lastEdited || 0);
+  return dateB - dateA; // descending
+});
+
+setCaseStudies(sortedScenarios);
+
 
     } catch (err) {
       console.error("Error fetching scenarios:", err);

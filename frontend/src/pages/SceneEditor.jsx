@@ -1,26 +1,68 @@
-  import React, { useState, useEffect } from "react";
-  import { useLocation, useNavigate } from "react-router-dom";
-  import ReactFlow, {
-    ReactFlowProvider,
-    MiniMap,
-    Controls,
-    Background,
-    applyNodeChanges,
-  } from "reactflow";
-  import NodeWrapper from "../components/NodeWrapper";
-  import "reactflow/dist/style.css";
-  import "../styles/SceneEditor.css";
-  import SharedHeader from "../components/SharedHeader";
-  import NavigationBar from "../components/SlimNavBar";
-  import dagre from "dagre";
-  import { convertBackendToFrontend, convertFrontendToBackend } from "../utils/flowConverter";
+// src/pages/SceneEditor.jsx
+import React, { useState, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import ReactFlow, {
+  ReactFlowProvider,
+  MiniMap,
+  Controls,
+  Background,
+  applyNodeChanges,
+} from "reactflow";
+import dagre from "dagre";
+import NodeWrapper from "../components/NodeWrapper";
+import NavigationBar from "../components/SlimNavBar";
+import SharedHeader from "../components/SharedHeader";
+import {
+  convertFrontendToBackend,
+  convertBackendToFrontend,
+} from "../utils/flowConverter";
 
-  // Node types
-  const nodeTypesConfig = {
-    scenario: NodeWrapper,
-    option: NodeWrapper,
-    ending: NodeWrapper,
-  };
+import "reactflow/dist/style.css";
+import "../styles/SceneEditor.css";
+import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
+// 🚫 Gemini quota exhaustion guard
+let GEMINI_QUOTA_EXCEEDED = false;
+// 🚨 Global stop flag
+let stopGeneration = false;
+
+
+          // ===============================
+// 🧩 Helper: Validate image quality
+// ===============================
+const hasValidImage = (node) => {
+  const url = node.data?.imageUrl || "";
+  const b64 = node.data?.b64image || "";
+  // Ignore 1x1 placeholders or empty strings
+  if (!url && !b64) return false;
+  if (url.includes("placehold") || url.length < 100) return false;
+  return true;
+};
+
+const getLightweightFlow = (nodes, edges) => {
+  const lightNodes = nodes.map((n) => ({
+    id: n.id,
+    type: n.type,
+    position: n.position,
+    data: {
+      data_description: n.data?.data_description || "",
+      options: n.data?.options || [],
+      next: n.data?.next || null,
+      scene: n.data?.scene || "",
+      // ✅ only keep image URL reference (no base64!)
+      imageUrl: n.data?.imageUrl || "",
+    },
+  }));
+  return { nodes: lightNodes, edges };
+};
+
+// ===============================
+// Config
+// ===============================
+const nodeTypesConfig = {
+  scenario: NodeWrapper,
+  option: NodeWrapper,
+  ending: NodeWrapper,
+};
 
   // Dagre layout config
   const dagreGraph = new dagre.graphlib.Graph();
@@ -99,84 +141,162 @@
     const navigate = useNavigate();
     const passedFlow = location.state?.flowData;
 
-    const [nodes, setNodes] = useState([]);
-    const [edges, setEdges] = useState([]);
-    const [selectedNode, setSelectedNode] = useState(null);
-    const [promptText, setPromptText] = useState("");
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [promptText, setPromptText] = useState("");
+// ✅ Load scenarioId from navigation OR fallback to localStorage
+const storedScenarioId = localStorage.getItem("lastScenarioId");
+const [scenarioId, setScenarioId] = useState(passedScenarioId || storedScenarioId || null);
 
-    // Regenerate images for a node
-  const handleReprompt = async (nodeId, prompt) => {
-    try {
-      const data = await generateImagesFromBackend(nodeId, prompt);
-      if (!data.images.length) throw new Error("No images returned");
+  const [scenarioTitle, setScenarioTitle] = useState("Untitled Scenario");
+  const [loadingOverlay, setLoadingOverlay] = useState(false);
 
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === nodeId
-            ? { ...n, data: { ...n.data, generatedImages: data.images, imageUrl: data.images[0] || "" } }
-            : n
-        )
-      );
-    } catch (err) {
-      console.error("Error generating images:", err);
-      alert("Image generation failed. Check backend logs.");
-    }
+  const profileImage =
+    "https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A";
+
+  // Node selection
+  const onNodeClick = (_, node) => {
+    setSelectedNode(node);
+    setPromptText(node.data.data_description || "");
   };
 
+  const onNodesChange = (changes) =>
+    setNodes((nds) => applyNodeChanges(changes, nds));
 
-    // Select image
-    const selectImageForNode = (nodeId, imgUrl) => {
-      setNodes((nds) =>
-        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, imageUrl: imgUrl } } : n))
-      );
-    };
+  // Update prompt edits
+  useEffect(() => {
+    if (!selectedNode) return;
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === selectedNode.id
+          ? { ...n, data: { ...n.data, data_description: promptText } }
+          : n
+      )
+    );
+  }, [promptText, selectedNode]);
 
-    // Auto-generate images for all nodes asynchronously
-  const autoGenerateImagesForAll = async (nodesList) => {
-    for (const node of nodesList) {
-      // Skip if images already exist
-      if (node.data.generatedImages?.length > 0) continue;
+  // Auto-save prompt edits (lightweight)
+  useEffect(() => {
+    if (!selectedNode) return;
 
-      // Mark as loading
-      setNodes(prev =>
-        prev.map(n =>
-          n.id === node.id ? { ...n, data: { ...n.data, loadingImages: true } } : n
-        )
-      );
+    const debounce = setTimeout(() => {
+      try {
+        const localFlow = JSON.parse(localStorage.getItem("latestFlow") || "{}");
+        const lightweightNode = {
+          id: selectedNode.id,
+          data: {
+            data_description: promptText,
+            options: selectedNode.data?.options || [],
+            next: selectedNode.data?.next || null,
+          },
+        };
+        localFlow[selectedNode.id] = lightweightNode;
+        localStorage.setItem("latestFlow", JSON.stringify(localFlow));
+        console.log("✅ Auto-saved lightweight node", selectedNode.id);
+      } catch (e) {
+        console.warn("⚠️ Skipped auto-save — storage quota exceeded.", e);
+      }
+    }, 1500);
 
-      const data = await generateImagesFromBackend(node.id, node.data.data_description);
+    return () => clearTimeout(debounce);
+  }, [promptText, selectedNode]);
 
-      // Merge results safely
-      setNodes(prev =>
-        prev.map(n =>
-          n.id === node.id
-            ? {
-                ...n,
-                data: {
-                  ...n.data,
-                  generatedImages: data.images,
-                  imageUrl: data.images[0] || "",
-                  loadingImages: false,
-                },
-              }
-            : n
-        )
-      );
+ // ===============================
+// ✅ Regenerate images for a node (with fail tracking)
+// ===============================
+const handleReprompt = async (nodeId, prompt, count = 3) => {
+  // Mark node as loading
+  setNodes((nds) =>
+    nds.map((n) =>
+      n.id === nodeId ? { ...n, data: { ...n.data, loadingImages: true } } : n
+    )
+  );
+
+  const variations = [];
+
+  for (let i = 0; i < count; i++) {
+    const data = await generateImagesFromBackend(
+      nodeId,
+      prompt + ` (variation ${i + 1})`
+    );
+
+    if (data.images?.length > 0) {
+      variations.push(...data.images);
+    } else {
+      console.warn(`⚠️ Skipped empty image for node ${nodeId} (try ${i + 1})`);
     }
-  };
+  }
+
+  if (variations.length === 0) {
+    console.warn(`❌ No images generated for node ${nodeId}, marking failed.`);
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === nodeId
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                loadingImages: false,
+                failedImage: true,
+                generatedImages: [],
+                imageUrl: "",
+              },
+            }
+          : n
+      )
+    );
+    return;
+  }
+
+  // Success: update with new images
+  setNodes((nds) =>
+    nds.map((n) =>
+      n.id === nodeId
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              generatedImages: variations,
+              imageUrl: variations[0] || "",
+              loadingImages: false,
+              failedImage: false,
+            },
+          }
+        : n
+    )
+  );
+};
+
+  // Select preferred image
+  const selectImageForNode = (nodeId, imgUrl) =>
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, imageUrl: imgUrl } } : n
+      )
+    );
 
 
-    const onNodesChange = (changes) => setNodes((nds) => applyNodeChanges(changes, nds));
+// ✅ Sequential auto-generation (one node at a time)
+// ===============================
+const autoGenerateImagesForAll = async (nodesList) => {
+  setLoadingOverlay(true);
+  for (const node of nodesList) {
+    const hasImages = node.data.generatedImages?.length > 0;
+    const failed = node.data.failedImage;
+    if (!hasImages && !failed) {
+      await handleReprompt(node.id, node.data.data_description);
+    }
+  }
+  setLoadingOverlay(false);
+};
 
-    const onNodeClick = (_, node) => {
-      setSelectedNode(node);
-      setPromptText(node.data.data_description || "");
-    };
 
-    // Initialize flow
-    useEffect(() => {
-      let flowData = passedFlow || JSON.parse(localStorage.getItem("latestFlow"));
-      if (!flowData) return;
+  // Initial load
+  useEffect(() => {
+    let flowData =
+      passedFlow || JSON.parse(localStorage.getItem("latestFlow"));
+    if (!flowData) return;
 
       if (!flowData.nodes) {
         const frontendFlow = convertBackendToFrontend(flowData);
@@ -290,35 +410,44 @@
               )}
             </div>
 
-            <div style={{ flex: 1 }}>
-              <ReactFlowProvider>
-                <ReactFlow
-                  nodes={nodes}
-                  edges={edges}
-                  nodeTypes={nodeTypesConfig}
-                  fitView
-                  onNodeClick={onNodeClick}
-                  onNodesChange={onNodesChange}
-                  nodesDraggable
-                  zoomOnScroll
-                  panOnDrag
-                  zoomOnPinch
-                  defaultEdgeOptions={{
-                    animated: true,
-                    type: "smoothstep",
-                    style: { stroke: "#333", strokeWidth: 4 },
-                  }}
-                >
-                  <MiniMap />
-                  <Controls />
-                  <Background />
-                </ReactFlow>
-              </ReactFlowProvider>
-            </div>
+          <div style={{ flex: 1 }}>
+            <ReactFlowProvider>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={nodeTypesConfig}
+                fitView
+                onNodeClick={onNodeClick}
+                onNodesChange={onNodesChange}
+                nodesDraggable
+                zoomOnScroll
+                panOnDrag
+                zoomOnPinch
+                defaultEdgeOptions={{
+                  animated: true,
+                  type: "smoothstep",
+                  style: { stroke: "#333", strokeWidth: 3 },
+                }}
+              >
+                <MiniMap />
+                <Controls />
+                <Background />
+              </ReactFlow>
+            </ReactFlowProvider>
           </div>
         </div>
       </div>
-    );
-  };
+
+      {loadingOverlay && (
+        <div className="loading-overlay">
+          <div className="loading-box">
+            <div className="spinner"></div>
+            <p>Auto-generating missing images...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
   export default SceneEditor;

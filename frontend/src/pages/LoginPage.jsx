@@ -107,7 +107,7 @@ const LoginPage = () => {
                 value="student"
                 checked={role === 'student'}
                 onChange={() => setRole('student')}
-              /> Student
+              /> Trainee
             </label>
           </div>
           <button type="submit">Login</button>
