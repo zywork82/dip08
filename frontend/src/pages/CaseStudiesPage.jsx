@@ -20,11 +20,10 @@ const CaseStudiesPage = () => {
   const navigate = useNavigate();
 
   const storedUser = JSON.parse(localStorage.getItem('user')) || {};
-  const userName = storedUser.username || 'User';
-  const userEmail = storedUser.email || 'user@example.com';
-  const profileImage =
-    storedUser.imageUrl ||
-    `https://placehold.co/100x100/E6E6FA/3f51b5?text=${getInitials(userName)}`;
+  const userName = storedUser.username || 'Admin';
+  const userEmail = storedUser.email || 'admin1@example.com';
+  const profileImage = storedUser.imageUrl 
+    || `https://placehold.co/100x100/E6E6FA/3f51b5?text=${getInitials(userName)}`;
 
 useEffect(() => {
   const fetchAdmins = async () => {
