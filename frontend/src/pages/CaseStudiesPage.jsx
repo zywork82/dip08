@@ -30,7 +30,7 @@ const CaseStudiesPage = () => {
   useEffect(() => {
     const fetchAdmins = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:5000/admins/users');
+        const response = await fetch('http://127.0.0.1:3000/admins/users');
         if (!response.ok) throw new Error("Failed to load admins");
         const data = await response.json();
         setCollaboratorsData(data || []);
@@ -46,7 +46,7 @@ const CaseStudiesPage = () => {
   useEffect(() => {
     const fetchCaseStudies = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:5000/scenarios");
+        const response = await fetch("http://127.0.0.1:3000/scenarios");
         if (!response.ok) throw new Error("Failed to load scenarios");
         const data = await response.json();
         setCaseStudiesData(Array.isArray(data) ? data : data.scenarios || []);
@@ -65,7 +65,7 @@ const CaseStudiesPage = () => {
   // === Open an existing scenario
   const handleOpenScenario = async (scenario) => {
     try {
-      const response = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${scenario._id}`);
+      const response = await fetch(`http://127.0.0.1:3000/scenarios/getFlow/${scenario._id}`);
       if (!response.ok) throw new Error("Scenario not found");
       const flowData = await response.json();
 

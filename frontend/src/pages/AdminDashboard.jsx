@@ -53,7 +53,7 @@ useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const userRes = await axios.get('http://localhost:8000/admins/users', {
+        const userRes = await axios.get('http://localhost:3000/admins/users', {
         headers: { Authorization: `Bearer ${token}` },
         });
         setUsers(userRes.data);
@@ -75,7 +75,7 @@ useEffect(() => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error("No token found in localStorage");
 
-      const res = await axios.get('http://localhost:8000/scenarios', {
+      const res = await axios.get('http://localhost:3000/scenarios', {
        
       });
 
