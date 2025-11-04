@@ -50,7 +50,11 @@ useEffect(() => {
         const response = await fetch("http://127.0.0.1:5000/scenarios");
         if (!response.ok) throw new Error("Failed to load scenarios");
         const data = await response.json();
-        setCaseStudiesData(Array.isArray(data) ? data : data.scenarios || []);
+        const sortedData = (Array.isArray(data) ? data : data.scenarios || [])
+  .sort((a, b) => new Date(b.lastEdited || 0) - new Date(a.lastEdited || 0));
+
+setCaseStudiesData(sortedData);
+
       } catch (error) {
         console.error("Error fetching case studies:", error);
       }
