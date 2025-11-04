@@ -26,23 +26,25 @@ const CaseStudiesPage = () => {
     storedUser.imageUrl ||
     `https://placehold.co/100x100/E6E6FA/3f51b5?text=${getInitials(userName)}`;
 
-  // === Fetch collaborators (admins)
-  useEffect(() => {
-    const fetchAdmins = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:5000/admins/users');
-        if (!response.ok) throw new Error("Failed to load admins");
-        const data = await response.json();
-        setCollaboratorsData(data || []);
-      } catch (error) {
-        console.error('Error fetching admins:', error);
-        setCollaboratorsData([]);
-      }
-    };
-    fetchAdmins();
-  }, []);
+useEffect(() => {
+  const fetchAdmins = async () => {
+    try {
+      const token = localStorage.getItem('token'); // JWT if needed
+      const response = await fetch('http://localhost:5000/admins/users', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      setCollaboratorsData(data || []);
+    } catch (error) {
+      console.error('Error fetching admins:', error);
+      setCollaboratorsData([]); // fallback
+    }
+  };
 
-  // === Fetch scenarios (case studies)
+  fetchAdmins();
+}, []);
+  
+
   useEffect(() => {
     const fetchCaseStudies = async () => {
       try {
