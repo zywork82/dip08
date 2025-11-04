@@ -18,6 +18,7 @@ import {sampleNodes} from '../src/data/sampleAiFlow.js';
 import TrainerTeam from "./pages/TrainerTeam.jsx";
 import StudentCaseStudies from "./pages/StudentCaseStudies.jsx";
 import StudentRecords from "./pages/StudentRecords.jsx";
+import StudentSettings from "./pages/StudentSetting.jsx";
 
 
 const AppContent = () => {
@@ -97,6 +98,7 @@ window.addEventListener('error', suppressResizeObserverError);
       <Route path="/report" element={<ReportInterface />} />
       <Route path="/student-case-studies" element={<StudentCaseStudies />} />
       <Route path="/my-records" element={<StudentRecords />} />
+      <Route path="/student-settings" element={<StudentSettings />} />
       
 
       {/* --- Updated Scenario and Report Routes --- */}

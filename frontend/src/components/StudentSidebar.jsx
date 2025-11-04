@@ -14,7 +14,7 @@ const StudentSidebar = () => {
     { name: 'Case Studies', path: '/student-case-studies', icon: <FaFolder /> },
     { name: 'My Records', path: '/my-records', icon: <FaChalkboardTeacher /> },
     { name: 'Tutorial', path: '/tutorial', icon: <FaLaptop /> },
-    { name: 'Settings', path: '/settings', icon: <FaCog /> }
+    { name: 'Settings', path: '/student-settings', icon: <FaCog /> }
   ];
 
   return (

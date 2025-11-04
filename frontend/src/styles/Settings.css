@@ -2,11 +2,14 @@
 .settings-container {
   display: flex;
   height: 100vh;
+  width: 100%;
   background-color: #F8F8FC;
 }
 
 .settings-main {
   flex-grow: 1;
+  flex-direction: column;
+  justify-content: center;
   display: flex;
   flex-direction: column;
 }
@@ -15,6 +18,8 @@
   padding: 30px 50px;
   overflow-y: auto;
   flex-grow: 1;
+  justify-content: center; /* centers horizontally */
+  align-items: center;     /* centers vertically */
 }
 
 /* ===== Tabs ===== */
