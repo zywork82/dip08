@@ -49,13 +49,11 @@ useEffect(() => {
   }
 }, []);
 
- useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      console.log("🪪 Token being sent:", token);
-
-      const res = await axios.get('http://localhost:5000/admins/users', {
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const userRes = await axios.get('http://localhost:3000/admins/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -79,7 +77,7 @@ useEffect(() => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error("No token found in localStorage");
 
-      const res = await axios.get('http://localhost:5000/scenarios/', {
+      const res = await axios.get('http://localhost:3000/scenarios', {
        
       });
 

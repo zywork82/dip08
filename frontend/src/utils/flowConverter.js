@@ -1,64 +1,83 @@
-// src/utils/flowConverter.js
-
 /**
  * Converts backend flow format → frontend ReactFlow format
- * so the editor can display it properly.
+ * for SceneEditor & ScenarioInterface.
  */
 export function convertBackendToFrontend(backendFlow) {
-  return Object.entries(backendFlow).reduce((acc, [id, node]) => {
-    acc[id] = {
-      id: node.id,
-      type: node.type,
-      position: node.position && node.position.x !== undefined
-        ? node.position
-        : { x: 0, y: 0 },
-      data: { label: node.data || "" },
-      scene: node.scene || "",
-      options: node.options || [],
-      psych_dimensions: node.psych_dimensions || "",
-      b64image: node["b64 image"] || node.b64image || "",
-    };
-    return acc;
-  }, {});
-}
+  const nodesArray = Array.isArray(backendFlow)
+    ? backendFlow
+    : Object.values(backendFlow);
 
-/**
- * Converts frontend ReactFlow format → backend flow format
- * for saving or sending to API.
- */
-export function convertFrontendToBackend(frontendFlow) {
-  return Object.entries(frontendFlow).reduce((acc, [id, node]) => {
-    acc[id] = {
+  return nodesArray.map((node) => {
+    const b64image = node.data?.b64image || node["b64 image"] || "";
+    const imageUrl =
+      b64image && !node.data?.imageUrl?.startsWith("data:")
+        ? `data:image/png;base64,${b64image}`
+        : node.data?.imageUrl || "";
+
+    return {
       id: node.id,
-      type: node.type,
+      type: node.type || "scenario",
       position: node.position || { x: 0, y: 0 },
-      data: node.data?.label || "",
-      scene: node.scene || "",
-      options: node.options || [],
-      psych_dimensions: node.psych_dimensions || "",
-      "b64 image": node.b64image || "",
-    };
-    return acc;
-  }, {});
-}
-
-/**
- * Optional: Helper to convert ReactFlow node/edge arrays
- * into an object-based format (like backend expects).
- */
-export function buildFlowObject(nodes, edges) {
-  const flow = {};
-  nodes.forEach((n) => {
-    flow[n.id] = {
-      id: n.id,
-      type: n.type,
-      position: n.position,
-      data: n.data?.label || "",
-      scene: n.scene || "",
-      options: n.options || [],
-      psych_dimensions: n.psych_dimensions || "",
-      "b64 image": n.b64image || "",
+      data: {
+        data_description:
+          typeof node.data?.data_description === "string"
+            ? node.data.data_description
+            : "",
+        options: node.data?.options || node.options || [],
+        next: node.data?.next || node.next || null,
+        scene: node.data?.scene || node.scene || "",
+        b64image,
+        imageUrl,
+        generatedImages: node.data?.generatedImages || [],
+        loadingImages: false,
+      },
     };
   });
-  return flow;
+}
+
+/**
+ * Converts frontend ReactFlow nodes → backend format
+ * for saving to database or API.
+ * ✅ Always returns an array, not object.
+ */
+export function convertFrontendToBackend(frontendFlow) {
+  const nodesArray = Array.isArray(frontendFlow)
+    ? frontendFlow
+    : Object.values(frontendFlow);
+
+  return nodesArray.map((node) => ({
+    id: node.id,
+    type: node.type || "scenario",
+    position: node.position || { x: 0, y: 0 },
+    data: {
+      data_description: node.data?.data_description || "",
+      options: node.data?.options || [],
+      next: node.data?.next || null,
+      scene: node.data?.scene || "",
+      b64image: node.data?.b64image || "",
+      imageUrl: node.data?.imageUrl || "",
+      generatedImages: node.data?.generatedImages || [],
+    },
+    psych_dimensions: node.psych_dimensions || "",
+  }));
+}
+
+/**
+ * Helper: build a backend flow object from ReactFlow node/edge arrays
+ */
+export function buildFlowObject(nodes, edges) {
+  return nodes.map((n) => ({
+    id: n.id,
+    type: n.type || "scenario",
+    position: n.position || { x: 0, y: 0 },
+    data: {
+      data_description: n.data?.data_description || "",
+      options: n.data?.options || [],
+      next: n.data?.next || null,
+      scene: n.data?.scene || "",
+      b64image: n.data?.b64image || "",
+      imageUrl: n.data?.imageUrl || "",
+      generatedImages: n.data?.generatedImages || [],
+    },
+  }));
 }

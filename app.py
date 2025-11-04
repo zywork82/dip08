@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import google.generativeai as genai
 from PIL import Image
-from scenarios import router as scenarios_router
+from scenarios import scenarios_bp as scenarios_router
+
 # =========================
 # Load environment
 # =========================
@@ -58,9 +59,10 @@ PSYCH_SEED = os.getenv("PSYCH_SEED")
 # Flask app
 # =========================
 app = Flask(__name__)
-CORS(app) 
-app.register_blueprint(scenarios_router, url_prefix="/scenarios")
 
+app.register_blueprint(scenarios_router)
+
+CORS(app) 
 
 # =========================
 # Small helpers
@@ -590,6 +592,7 @@ def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
 
         print(f"[image-gen] Saved {file_path}")
         return True
+    
 
     except Exception as e:
         # on any decode failure -> fallback
@@ -766,7 +769,63 @@ def clear_tmp():
                 print("[WARN] couldn't delete", f, e)
         return jsonify({"deleted": count})
     return jsonify({"deleted": 0})
+#added /suggestions 
+@app.post("/suggestions")
+def suggestions():
+    """
+    Generate 3 short AI branching ideas for scenario design.
+    Body:
+    {
+      "context": "Current scenario title or description"
+    }
+    """
+    body = request.get_json(silent=True) or {}
+    context = (body.get("context") or "").strip()
+
+    if not OPENAI_API_KEY:
+        return jsonify({"error": "OpenAI API key missing"}), 500
+    if not context:
+        return jsonify({"error": "Please provide 'context'"}), 400
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    prompt = f"""
+    You are a scenario design assistant. Suggest 3 concise, realistic
+    branching decision points for a training simulation based on this context:
+
+    "{context}"
+
+    Return JSON only in this format:
+    [
+      {{ "nodeType": "option", "label": "..." }},
+      {{ "nodeType": "option", "label": "..." }},
+      {{ "nodeType": "option", "label": "..." }}
+    ]
+    """
+
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {"role": "system", "content": "You are a helpful scenario AI assistant."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.8,
+    )
+
+    raw = response.choices[0].message.content or ""
+    json_text = _extract_json_block(raw)
+    try:
+        suggestions = json.loads(json_text)
+    except Exception:
+        suggestions = []
+
+    return jsonify({"suggestions": suggestions})
+
 
 if __name__ == "__main__":
     # You can switch to "0.0.0.0" if you want LAN access
+    print("🚀 Backend server starting...")
+    from datetime import datetime
+    print(f"✅ Flask backend running properly at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("🌐 Visit: http://127.0.0.1:5000/")
     app.run(host="127.0.0.1", port=5000, debug=True)
