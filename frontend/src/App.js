@@ -141,7 +141,7 @@ function App() {
     };
   }, [isDragging, offset]);
  useEffect(() => {
-  fetch("http://127.0.0.1:3000/health")
+  fetch("http://127.0.0.1:5000/health")
     .then((res) => {
       if (res.ok) console.log("✅ Backend connected successfully!");
       else console.warn("⚠️ Backend responded, but not OK:", res.status);

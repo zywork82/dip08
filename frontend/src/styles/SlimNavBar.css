@@ -4,7 +4,6 @@
   --nav-color: #a0aec0; /* Light gray for inactive icons */
   --nav-active-bg: #5a67d8; /* Indigo/Purple for active background */
   --nav-active-color: white;
-  z-index: 1000;
 }
 
 .navigation-bar-container {
@@ -17,7 +16,6 @@
   padding: 10px 0;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
   box-sizing: border-box;
-  z-index: 1000;
 }
 
 .app-logo {
