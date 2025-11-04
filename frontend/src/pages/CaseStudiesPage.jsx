@@ -28,7 +28,7 @@ useEffect(() => {
   const fetchAdmins = async () => {
     try {
       const token = localStorage.getItem('token'); // JWT if needed
-      const response = await fetch('http://localhost:8000/admins/users', {
+      const response = await fetch('http://localhost:5000/admins/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -145,15 +145,19 @@ useEffect(() => {
                   <p className="list-date">Last edited on {cs.lastEdited}</p>
                 </div>
                 <div className="list-actions">
-                  {cs.status === 'Edit' ? (
-                    <button className="edit-button">
-                      Edit
-                    </button>
-                  ) : (
-                    <span className={`status-badge status-${cs.status.replace('-', '')}`}>
-                      {cs.status}
-                    </span>
-                  )}
+                 {cs.status === 'Edit' ? (
+  <button 
+    className="edit-button"
+    onClick={() => handleOpenScenario(cs)} // 👈 add this line
+  >
+    Edit
+  </button>
+) : (
+  <span className={`status-badge status-${cs.status.replace('-', '')}`}>
+    {cs.status}
+  </span>
+)}
+
                 </div>
               </div>
             </div>
