@@ -19,7 +19,7 @@ const LoginPage = () => {
     e.preventDefault();
 
     try {
-    const response = await axios.post("http://localhost:8000/login/login", {
+    const response = await axios.post("http://localhost:5000/login/login", {
       email,
       password,
       role,
@@ -107,7 +107,7 @@ const LoginPage = () => {
                 value="student"
                 checked={role === 'student'}
                 onChange={() => setRole('student')}
-              /> Student
+              /> Trainee
             </label>
           </div>
           <button type="submit">Login</button>
