@@ -55,8 +55,8 @@ html, body {
 
 /* Right column takes less space */
 .right-column {
-  flex: 1 1 35%; /* take up ~35% but allow shrinking */
-  min-width: 0; /* ✅ crucial: allows flex item to shrink */
+  flex: 1 1 0%; /* take up ~35% but allow shrinking */
+  /* min-width: 0; ✅ crucial: allows flex item to shrink */
   overflow: visible;
 }
 
@@ -350,6 +350,7 @@ html, body {
 
 .activity-container {
   display: flex;
+  align-items: flex-start;
   gap: 24px;
 }
 
@@ -387,6 +388,7 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 0px; 
 }
 
@@ -544,11 +546,17 @@ html, body {
 }
 
 .pie-chart-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
   width: 100%;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* centers the chart without pushing it out */
+  padding: 20px;
+  margin-bottom: 20px;
+  
 }
 
 .pie-chart-container > div[style*="margin: 20px auto"] {
