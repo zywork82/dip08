@@ -44,22 +44,56 @@ useEffect(() => {
   
 
   useEffect(() => {
-  const fetchCaseStudies = async () => {
-    try {
-      const response = await fetch("http://localhost:8000/scenarios");
-      const data = await response.json();
-      setCaseStudiesData(data);
-    } catch (error) {
-      console.error("Error fetching case studies:", error);
-    }
-  };
-  fetchCaseStudies();
-}, []);
+    const fetchCaseStudies = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:5000/scenarios");
+        if (!response.ok) throw new Error("Failed to load scenarios");
+        const data = await response.json();
+        setCaseStudiesData(Array.isArray(data) ? data : data.scenarios || []);
+      } catch (error) {
+        console.error("Error fetching case studies:", error);
+      }
+    };
+    fetchCaseStudies();
+  }, []);
 
   const handleCreateNewCase = () => {
     navigate('/scenario');
   };
 
+  // === Open an existing scenario
+  const handleOpenScenario = async (scenario) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${scenario._id}`);
+      if (!response.ok) throw new Error("Scenario not found");
+      const flowData = await response.json();
+
+      if (!flowData || !flowData.nodes) {
+        alert("No flow data found for this scenario.");
+        return;
+      }
+
+      // ✅ Navigate based on status
+      // if (scenario.status === "ImageReady") {
+      //   navigate("/scene-editor", {
+      //     state: { flowData, scenarioId: scenario._id },
+      //   });
+      // } else {
+      //   navigate("/editor", {
+      //     state: { flowData, scenarioId: scenario._id },
+      //   });
+      // }
+      navigate("/scene-editor", {
+  state: { flowData, scenarioId: scenario._id },
+});
+
+    } catch (err) {
+      console.error("Error opening scenario:", err);
+      alert("⚠️ Failed to load scenario. Please try again.");
+    }
+  };
+
+  // === Filter tabs
   const filteredCaseStudies = caseStudiesData.filter((cs) => {
     if (activeTab === 'All') return true;
     if (activeTab === 'Published') return cs.status === 'Published';
