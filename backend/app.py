@@ -60,11 +60,11 @@ PSYCH_SEED = os.getenv("PSYCH_SEED")
 # Flask app
 # =========================
 app = Flask(__name__)
+CORS(app) 
 
 app.register_blueprint(scenarios_router)
 app.register_blueprint(login_bp)
 
-CORS(app) 
 
 # =========================
 # Small helpers
@@ -324,10 +324,11 @@ def apply_content(model, content_map):
         n["narrative"] = _as_str(c.get("narrative", n.get("narrative", "")))
     return model
 
-# =========================
-# Flatten for frontend
-# =========================
 def build_flat_with_hubs(model, aspect_map):
+    """
+    Flattens hierarchical AI skeleton into a clean branching structure:
+    SCENARIO (101) -> OPTION (101A/B/C) -> SCENARIO (201/202/203) -> ...
+    """
     nodes = model["nodes"]
     edges = model["edges"]
     by_id, children, parents = _build_maps(nodes, edges)
@@ -349,6 +350,7 @@ def build_flat_with_hubs(model, aspect_map):
         return int(hub_id) // 100
 
     def next_hub_id(hub_id: str, idx: int) -> str:
+        # example: 101 → 201, 301 → 401
         return f"{hub_bucket(hub_id)+1}0{idx+1}"
 
     def get_text(n):
@@ -363,103 +365,70 @@ def build_flat_with_hubs(model, aspect_map):
         return a or b
 
     def clean_psych(val):
-        v = _as_str(val).strip()
-        v = v.strip("[]\"' ")
+        v = _as_str(val).strip().strip("[]\"' ")
         return v
-
-    def fallback_description(is_leaf: bool, chosen_ending: Optional[str]):
-        if is_leaf and chosen_ending in ("E1","E2","E3"):
-            if chosen_ending == "E1":
-                return "Your choice aims for a successful resolution."
-            if chosen_ending == "E2":
-                return "Your choice stabilizes things, but recovery is incomplete."
-            if chosen_ending == "E3":
-                return "Your choice risks escalation of the situation."
-        if not is_leaf:
-            return "Choose how you want to proceed."
-        return "Continue."
 
     result: Dict[str, Any] = {}
 
-    # Root hub
-    root_orig = "scenario" if "scenario" in by_id else nodes[0]["id"]
+    ROOT_ORIG = "scenario" if "scenario" in by_id else nodes[0]["id"]
     ROOT_HUB_ID = "101"
 
     def build(hub_id: str, hub_origin_id: str):
         origin_node = by_id.get(hub_origin_id, {})
-        kids = children.get(hub_origin_id, [])[:3]
-        hub_option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(kids))]
+        child_ids = children.get(hub_origin_id, [])[:3]
+        if not child_ids:
+            child_ids = [f"{hub_origin_id}_child_{i}" for i in range(3)]
+        option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(child_ids))]
 
-        merged_text = merge_fields(get_text(origin_node), get_narr(origin_node)).strip()
-        if not merged_text:
-            merged_text = "Choose your next step."
-
+        # --- Create SCENARIO node ---
+        merged_text = merge_fields(get_text(origin_node), get_narr(origin_node)) or "Choose your next step."
         result[hub_id] = {
             "id": hub_id,
-            "type": "scenario" if hub_id == ROOT_HUB_ID else "option",
+            "type": "scenario",
             "position": "",
             "data_description": merged_text,
-            "options": hub_option_ids,
+            "options": option_ids,
             "psych_dimensions": clean_psych(aspect_map.get(hub_origin_id, "")),
         }
 
-        for i, child_orig_id in enumerate(kids):
+        # --- For each option ---
+        for i, child_orig_id in enumerate(child_ids):
+            opt_id = fmt_opt_id(hub_id, letters[i])
             child_node = by_id.get(child_orig_id, {})
-            this_opt_id = fmt_opt_id(hub_id, letters[i])
-
             grandkids = children.get(child_orig_id, [])
-            non_ending_grandkids = [
-                g for g in grandkids
-                if by_id.get(g, {}).get("type") != "ending"
-            ]
 
-            # Leaf -> ending OR branch -> next hub
+            # Determine next scenario or ending
+            non_ending_grandkids = [g for g in grandkids if by_id.get(g, {}).get("type") != "ending"]
+
             if not non_ending_grandkids:
-                chosen_ending = pick_ending_id()
-                child_merged = merge_fields(get_text(child_node), get_narr(child_node)).strip()
-                if not child_merged:
-                    child_merged = fallback_description(
-                        is_leaf=True,
-                        chosen_ending=chosen_ending
-                    )
-
-                result[this_opt_id] = {
-                    "id": this_opt_id,
-                    "type": "option",
-                    "position": "",
-                    "data_description": child_merged,
-                    "options": [chosen_ending],
-                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
-                }
-
+                next_target = pick_ending_id()
             else:
-                nxt_hub = next_hub_id(hub_id, i)
-                next_opt_ids = [
-                    fmt_opt_id(nxt_hub, letters[j])
-                    for j in range(min(3, len(non_ending_grandkids)))
-                ]
+                next_target = next_hub_id(hub_id, i)
+                # recursively build next scenario
+                build(next_target, child_orig_id)
 
-                child_merged = merge_fields(get_text(child_node), get_narr(child_node)).strip()
-                if not child_merged:
-                    child_merged = fallback_description(
-                        is_leaf=False,
-                        chosen_ending=None
-                    )
+            # --- Option node itself ---
+            merged_child_text = merge_fields(get_text(child_node), get_narr(child_node))
+            if not merged_child_text:
+                merged_child_text = (
+                    "Your decision guides the next phase." if non_ending_grandkids else
+                    "This choice concludes the scenario."
+                )
 
-                result[this_opt_id] = {
-                    "id": this_opt_id,
-                    "type": "option",
-                    "position": "",
-                    "data_description": child_merged,
-                    "options": next_opt_ids,
-                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
-                }
+            result[opt_id] = {
+                "id": opt_id,
+                "type": "option",
+                "position": "",
+                "data_description": merged_child_text,
+                "options": [],
+                "next": next_target,  # <-- ✅ clean and explicit
+                "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
+            }
 
-                build(nxt_hub, child_orig_id)
+    # --- Build from root ---
+    build(ROOT_HUB_ID, ROOT_ORIG)
 
-    build(ROOT_HUB_ID, root_orig)
-
-    # Endings
+    # --- Endings ---
     ending_map = {
         "E1": (
             "✅ Successful Resolution",
@@ -475,7 +444,7 @@ def build_flat_with_hubs(model, aspect_map):
         ),
     }
 
-    for e in ["E1", "E2", "E3"]:
+    for e in ENDING_IDS:
         title, desc = ending_map[e]
         result[e] = {
             "id": e,
@@ -486,7 +455,21 @@ def build_flat_with_hubs(model, aspect_map):
             "psych_dimensions": clean_psych(aspect_map.get(e, "")),
         }
 
+        # === Auto-fix for "open" options that lead nowhere ===
+    for node in list(result.values()):
+        if node["type"] == "option":
+            next_id = node.get("next", "")
+            has_targets = bool(node.get("options")) and any(
+                o in result for o in node.get("options", [])
+            )
+            if not next_id and not has_targets:
+                fallback = pick_ending_id()
+                node["next"] = fallback
+                print(f"[auto-fix] Option {node['id']} had no next; linking to {fallback}")
+
     return result
+    
+
 
 # =========================
 # IMAGE GENERATION CORE
@@ -569,8 +552,13 @@ def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
 
     try:
         model = genai.GenerativeModel(GEMINI_IMAGE_MODEL)
+        # response = model.generate_content(
+        #     [prompt],
+        #     generation_config={
+        #         # "response_mime_type": "image/png",
+        #         "image_dimensions": {"width": 1440, "height": 900}  # 16:10 HD aspect ratio
+        #     })
         response = model.generate_content(prompt)
-
         raw_bytes = _extract_first_image_bytes_from_gemini_response(response)
         if raw_bytes is None:
             # no valid image from model -> fallback
@@ -668,6 +656,7 @@ def generate():
 
         # 5. flatten to front-end hub map
         flat = build_flat_with_hubs(model, aspect_map)
+        
 
         # 6. handle download
         if download_flag:
