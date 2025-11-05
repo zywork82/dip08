@@ -19,7 +19,7 @@ import {
 
 import "reactflow/dist/style.css";
 import "../styles/SceneEditor.css";
-import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
+
 // 🚫 Gemini quota exhaustion guard
 let GEMINI_QUOTA_EXCEEDED = false;
 // 🚨 Global stop flag
@@ -147,6 +147,7 @@ const nodeTypesConfig = {
   const [promptText, setPromptText] = useState("");
 // ✅ Load scenarioId from navigation OR fallback to localStorage
 const storedScenarioId = localStorage.getItem("lastScenarioId");
+const passedScenarioId = location.state?.scenarioId;
 const [scenarioId, setScenarioId] = useState(passedScenarioId || storedScenarioId || null);
 
   const [scenarioTitle, setScenarioTitle] = useState("Untitled Scenario");
@@ -281,13 +282,21 @@ const handleReprompt = async (nodeId, prompt, count = 3) => {
 // ===============================
 const autoGenerateImagesForAll = async (nodesList) => {
   setLoadingOverlay(true);
+  stopGeneration = false; // reset before starting
+
   for (const node of nodesList) {
+    if (stopGeneration) {
+      console.log("🛑 Generation stopped mid-process.");
+      break;
+    }
+
     const hasImages = node.data.generatedImages?.length > 0;
     const failed = node.data.failedImage;
     if (!hasImages && !failed) {
       await handleReprompt(node.id, node.data.data_description);
     }
   }
+
   setLoadingOverlay(false);
 };
 
@@ -353,7 +362,7 @@ const autoGenerateImagesForAll = async (nodesList) => {
       navigate("/scenarioInterface", { state: { flowData: flowToPlayFrontend } });
     };
 
-    const profileImage = "https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A";
+
 
     return (
       <div className="scene-editor-container">
@@ -439,13 +448,40 @@ const autoGenerateImagesForAll = async (nodesList) => {
       </div>
 
       {loadingOverlay && (
-        <div className="loading-overlay">
-          <div className="loading-box">
-            <div className="spinner"></div>
-            <p>Auto-generating missing images...</p>
-          </div>
-        </div>
-      )}
+  <div className="loading-overlay">
+    <div className="loading-box">
+      <div className="spinner"></div>
+      <p>Auto-generating missing images...</p>
+
+      <button
+        disabled={!loadingOverlay}
+        style={{
+          marginTop: 10,
+          backgroundColor: loadingOverlay ? "#c62828" : "#aaa",
+          color: "white",
+          cursor: loadingOverlay ? "pointer" : "not-allowed",
+          border: "none",
+          padding: "8px 16px",
+          borderRadius: "8px",
+        }}
+        onClick={() => {
+          stopGeneration = true;
+          setLoadingOverlay(false);
+          console.warn("🛑 Generation manually stopped by user.");
+
+          // 🔥 Notify backend to stop accepting new generations
+          fetch("http://127.0.0.1:5000/stop_generation", { method: "POST" })
+            .then(() => console.log("🧠 Stop signal sent to backend"))
+            .catch((err) => console.warn("⚠️ Backend stop request failed:", err));
+        }}
+      >
+        🛑 Stop Generation
+      </button>
+    </div>
+  </div>
+)}
+
+      
     </div>
   );
 };

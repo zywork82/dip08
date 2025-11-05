@@ -182,6 +182,7 @@ const TraineeReportModal = ({ trainee, onClose }) => {
 // Main TraineeRecordsPage component
 const TraineeRecordsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [sort, setSort] = useState('latest'); 
   const [filters, setFilters] = useState({
     date: '',
     caseStudy: '',
@@ -201,6 +202,21 @@ const TraineeRecordsPage = () => {
 
     return matchesSearch && matchesDate && matchesCaseStudy && matchesStatus;
   });
+
+    const sortedTrainees = [...filteredTrainees].sort((a, b) => {
+    // Parse dates into timestamps; fallback to 0 if invalid
+    const dateA = new Date(a.date).getTime() || 0;
+    const dateB = new Date(b.date).getTime() || 0;
+
+    if (sort === 'latest') {
+      return dateB - dateA; // newest first
+    }
+    if (sort === 'earliest') {
+      return dateA - dateB; // oldest first
+    }
+    return 0;
+  });
+
 
   const resetFilters = () => {
     setFilters({ date: '', caseStudy: '', status: '' });
@@ -353,38 +369,10 @@ const TraineeRecordsPage = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <select
-              style={selectStyle}
-              value={filters.date}
-              onChange={(e) => setFilters({ ...filters, date: e.target.value })}
-            >
-              <option value="">Select Date</option>
-              <option value="04 Sep 2019">14 Feb 2019</option>
-              <option value="28 May 2019">28 May 2019</option>
-              <option value="23 Nov 2019">23 Nov 2019</option>
-            </select>
-            <select
-              style={selectStyle}
-              value={filters.caseStudy}
-              onChange={(e) => setFilters({ ...filters, caseStudy: e.target.value })}
-            >
-              <option value="">Case Study</option>
-              <option value="089 Kutch Green Apt. 448">Case A</option>
-              <option value="979 Immanuel Ferry Suite 526">Case B</option>
-              <option value="8587 Frida Ports">Case C</option>
-            </select>
-            <select
-              style={selectStyle}
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            >
-              <option value="">Completion Status</option>
-              <option value="Completed">Completed</option>
-              <option value="Processing">Processing</option>
-              <option value="Rejected">Rejected</option>
-              <option value="On Hold">On Hold</option>
-              <option value="In Transit">In Transit</option>
-            </select>
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="latest">Latest first</option>
+                <option value="earliest">Earliest first</option>
+              </select>
             <div style={resetStyle} onClick={resetFilters}>
               <FaRedo style={{ marginRight: '6px' }} />
               Reset Filter
