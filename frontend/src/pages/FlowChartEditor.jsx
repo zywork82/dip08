@@ -14,12 +14,12 @@ import dagre from "dagre";
 import EditorToolsSidebar from "../components/EditorToolsSidebar";
 import NodeWrapper from "../components/NodeWrapper";
 import "reactflow/dist/style.css";
-import "../styles/FlowChartEditor.css";
+
 import SharedHeader from "../components/SharedHeader";
 import NavigationBar from "../components/SlimNavBar";
 import { sampleNodes, sampleAiSuggestions, sampleEdges } from "../data/sampleAiFlow";
 import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
-
+import "../styles/FlowChartEditor.css";
 const profileImage =
   "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
 
@@ -34,19 +34,36 @@ const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 200;
 const nodeHeight = 150;
-
 const getLayoutedNodes = (nodes, edges) => {
-  dagreGraph.setGraph({ rankdir: "TB", ranksep: 150, nodesep: 100 });
-  nodes.forEach((n) => dagreGraph.setNode(n.id, { width: nodeWidth, height: nodeHeight }));
+  dagreGraph.setGraph({
+    rankdir: "TB",      // top → bottom
+    ranksep: 160,       // vertical distance between layers
+    nodesep: 160,       // horizontal spacing between siblings
+    marginx: 100,
+    marginy: 100,
+    align: "UL",        // consistent left alignment
+  });
+
+  nodes.forEach((n) =>
+    dagreGraph.setNode(n.id, { width: nodeWidth, height: nodeHeight })
+  );
   edges.forEach((e) => dagreGraph.setEdge(e.source, e.target));
   dagre.layout(dagreGraph);
+
   return nodes.map((n) => {
     const layoutNode = dagreGraph.node(n.id);
     return layoutNode
-      ? { ...n, position: { x: layoutNode.x - nodeWidth / 2, y: layoutNode.y - nodeHeight / 2 } }
+      ? {
+          ...n,
+          position: {
+            x: layoutNode.x - nodeWidth / 2,
+            y: layoutNode.y - nodeHeight / 2,
+          },
+        }
       : n;
   });
 };
+
 
 // === Helpers ===
 const generateEdgesFromNodes = (nodes) => {
@@ -83,10 +100,13 @@ const generateEdgesFromNodes = (nodes) => {
 const filterLetteredNodes = (nodes) => {
   return nodes.filter((n) => {
     const id = n.id?.toString() || "";
-    // 🧠 Keep start node, lettered nodes (A/B/C), and ending nodes (E1, E2, E3, etc.)
-    return id === "101" || /[ABC]$/.test(id) || /^E\d+$/i.test(id);
+    const isEnding = /^E\d+$/i.test(id);
+    const isScenario = n.type === "scenario";
+    const isOption = n.type === "option";
+    return isScenario || isOption || isEnding;
   });
 };
+
 
 
 // === Remove unconnected group nodes (like 202, 301) ===
@@ -384,12 +404,13 @@ setNodes(cleanedNodes);
   setNodes(layoutedNodes);
 
   // 🧭 Step 4: Fit view
-  if (reactFlowInstance) {
-    setTimeout(() => {
-      reactFlowInstance.fitView();
-      console.log("🎯 Auto layout fitView completed.");
-    }, 150);
-  }
+ if (reactFlowInstance) {
+  setTimeout(() => {
+    reactFlowInstance.fitView({ padding: 0.3, duration: 800 });
+    console.log("🎯 Auto layout fitView completed.");
+  }, 300);
+}
+
 };
 
 
@@ -399,6 +420,19 @@ setNodes(cleanedNodes);
 const saveFlowToBackend = useCallback(async () => {
   if (!scenarioTitle) return alert("Please enter a scenario title!");
   if (!nodes.length) return alert("No nodes to save!");
+
+// ⚠️ Validation: Detect unlinked option nodes
+const openOptions = nodes.filter(
+  (n) =>
+    n.type === "option" &&
+    (!n.data?.next || !edges.some((e) => e.source === n.id))
+);
+
+if (openOptions.length > 0) {
+  const ids = openOptions.map((n) => n.id).join(", ");
+  alert(`⚠️ ${openOptions.length} option node(s) are unlinked: ${ids}\nSaving anyway.`);
+  // ❌ don't return — continue saving after showing warning
+}
 
   const cleanedNodes = filterDisconnectedNodes(nodes, edges);
  const preferredStart =
@@ -884,7 +918,7 @@ const generateImages = useCallback(async () => {
               }}
             ></div>
           </div>
-          <small>This may take 30–60 seconds depending on the number of nodes.</small>
+          <small>This may take 2-4 minutes depending on the number of nodes.</small>
         </>
       ) : (
         <>

@@ -24,6 +24,8 @@ import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
 let GEMINI_QUOTA_EXCEEDED = false;
 // 🚨 Global stop flag
 let stopGeneration = false;
+let AUTO_GEN_RUNNING = false;
+
 
 
           // ===============================
@@ -32,9 +34,22 @@ let stopGeneration = false;
 const hasValidImage = (node) => {
   const url = node.data?.imageUrl || "";
   const b64 = node.data?.b64image || "";
-  // Ignore 1x1 placeholders or empty strings
+
+  // Nothing at all
   if (!url && !b64) return false;
-  if (url.includes("placehold") || url.length < 100) return false;
+
+  // Placeholder patterns or tiny inline base64
+  if (
+    url.includes("placehold") ||          // placeholder.co
+    url.includes("placeholder") ||        // any "placeholder" text
+    url.includes("dummyimage") ||         // dummy image service
+    url.startsWith("blob:") ||            // temporary blobs
+    (url.startsWith("data:image") && url.length < 300) || // tiny base64s
+    (b64 && b64.length < 300)             // too short to be real image
+  ) {
+    return false;
+  }
+
   return true;
 };
 
@@ -68,11 +83,13 @@ const nodeWidth = 200;
 const nodeHeight = 150;
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
+dagreGraph.setGraph({ rankdir: "TB", ranksep: 300, nodesep: 250 });
+
 
 // ===============================
 // Helpers
 // ===============================
-const standardizeNodeData = (node) => ({
+const standardizeNodeData = (node, handleReprompt) => ({
   ...node,
   data: {
     data_description:
@@ -84,8 +101,13 @@ const standardizeNodeData = (node) => ({
     generatedImages: node.data?.generatedImages || [],
     imageUrl: node.data?.imageUrl || "",
     loadingImages: false,
+    failedImage: node.data?.failedImage || false,
+
+    // ✅ Add retry callback (connected to SceneEditor’s function)
+    onRetry: (nodeId) => handleReprompt(nodeId, node.data?.data_description || ""),
   },
 });
+
 
 const getLayoutedNodes = (nodes, edges) => {
   dagreGraph.setGraph({ rankdir: "TB", ranksep: 250, nodesep: 300 });
@@ -196,6 +218,41 @@ const SceneEditor = () => {
 // ✅ Load scenarioId from navigation OR fallback to localStorage
 const storedScenarioId = localStorage.getItem("lastScenarioId");
 const [scenarioId, setScenarioId] = useState(passedScenarioId || storedScenarioId || null);
+useEffect(() => {
+  const fetchScenarioFromBackend = async () => {
+    try {
+      const idToLoad = passedScenarioId || scenarioId || localStorage.getItem("lastScenarioId");
+      if (!idToLoad) return;
+
+      console.log(`🌐 Fetching full scenario from backend: ${idToLoad}`);
+    const res = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${idToLoad}`);
+
+      if (!res.ok) throw new Error("Failed to fetch scenario from backend");
+
+      const data = await res.json();
+      if (!data.nodes) {
+        console.warn("⚠️ No nodes found in backend scenario:", data);
+        return;
+      }
+
+      // Convert backend → frontend format
+      const frontendFlow = convertBackendToFrontend(data);
+      const standardizedNodes = Object.values(frontendFlow.nodes).map((n) =>
+        standardizeNodeData(n, handleReprompt)
+      );
+
+      const layoutedNodes = getLayoutedNodes(standardizedNodes, data.edges || []);
+      setNodes(layoutedNodes);
+      setEdges(data.edges || generateEdgesFromNodes(layoutedNodes));
+
+      console.log("✅ Loaded scenario with images from backend");
+    } catch (err) {
+      console.error("❌ Failed to fetch scenario from backend:", err);
+    }
+  };
+
+  fetchScenarioFromBackend();
+}, [passedScenarioId]);
 
   const [scenarioTitle, setScenarioTitle] = useState("Untitled Scenario");
   const [loadingOverlay, setLoadingOverlay] = useState(false);
@@ -250,34 +307,90 @@ const [scenarioId, setScenarioId] = useState(passedScenarioId || storedScenarioI
     return () => clearTimeout(debounce);
   }, [promptText, selectedNode]);
 
+const handleAutoLayout = () => {
+  const newLayout = getLayoutedNodes(nodes, edges);
+  setNodes(newLayout);
+};
+
  // ===============================
 // ✅ Regenerate images for a node (with fail tracking)
 // ===============================
-const handleReprompt = async (nodeId, prompt, count = 3) => {
-  // Mark node as loading
+// ===============================
+// ✅ Regenerate & Sync images for a node (with backend update)
+// ===============================
+const handleReprompt = async (nodeId, prompt, count = 1) => {
+  const node = nodes.find((n) => n.id === nodeId);
+  if (node?.data.loadingImages) {
+    console.log(`⚠️ Skipping duplicate generation for node ${nodeId}`);
+    return;
+  }
+  setNodes((nds) =>
+  nds.map((n) =>
+    n.id === nodeId
+      ? { ...n, data: { ...n.data, loadingImages: true, failedImage: false } }
+      : n
+  )
+);
+
+  try {
+    // 🧠 Step 1: Ask backend to regenerate + update MongoDB
+    const res = await fetch("http://127.0.0.1:5000/scenarios/updateImage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+  nodeId,
+  description: `Training Scenario Visualization:
+"${prompt}"
+Create a realistic, cinematic-style image fitting a professional decision-making context. 
+Show human emotion subtly. Avoid text or labels.`,
+}),
+    });
+
+    if (!res.ok) throw new Error("Backend error during image regeneration");
+    const data = await res.json();
+
+    if (data.success) {
+// ✅ Handle multiple image variations from backend
+const imageUrls = (data.images || []).map(
+  (b64) => `data:image/png;base64,${b64}`
+);
+
+// If no images returned (fallback to single one)
+if (imageUrls.length === 0 && data.image_b64) {
+  imageUrls.push(`data:image/png;base64,${data.image_b64}`);
+}
+
+if (imageUrls.length > 0) {
   setNodes((nds) =>
     nds.map((n) =>
-      n.id === nodeId ? { ...n, data: { ...n.data, loadingImages: true } } : n
+      n.id === nodeId
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              imageUrl: imageUrls[0], // default to the first variation
+              generatedImages: [
+                ...(n.data.generatedImages || []),
+                ...imageUrls,
+              ].slice(-5), // ✅ keep only the latest 5
+              loadingImages: false,
+              failedImage: false,
+            },
+          }
+        : n
     )
   );
+  console.log(`✅ Synced ${imageUrls.length} regenerated images for node ${nodeId}`);
+} else {
+  console.warn(`⚠️ No new images returned for node ${nodeId}`);
+}
 
-  const variations = [];
-
-  for (let i = 0; i < count; i++) {
-    const data = await generateImagesFromBackend(
-      nodeId,
-      prompt + ` (variation ${i + 1})`
-    );
-
-    if (data.images?.length > 0) {
-      variations.push(...data.images);
+      console.log(`✅ Synced regenerated image for node ${nodeId}`);
     } else {
-      console.warn(`⚠️ Skipped empty image for node ${nodeId} (try ${i + 1})`);
+      throw new Error(data.error || "Failed to regenerate image");
     }
-  }
-
-  if (variations.length === 0) {
-    console.warn(`❌ No images generated for node ${nodeId}, marking failed.`);
+  } catch (err) {
+    console.error("❌ handleReprompt error:", err);
     setNodes((nds) =>
       nds.map((n) =>
         n.id === nodeId
@@ -287,34 +400,14 @@ const handleReprompt = async (nodeId, prompt, count = 3) => {
                 ...n.data,
                 loadingImages: false,
                 failedImage: true,
-                generatedImages: [],
-                imageUrl: "",
               },
             }
           : n
       )
     );
-    return;
   }
-
-  // Success: update with new images
-  setNodes((nds) =>
-    nds.map((n) =>
-      n.id === nodeId
-        ? {
-            ...n,
-            data: {
-              ...n.data,
-              generatedImages: variations,
-              imageUrl: variations[0] || "",
-              loadingImages: false,
-              failedImage: false,
-            },
-          }
-        : n
-    )
-  );
 };
+
 
   // Select preferred image
   const selectImageForNode = (nodeId, imgUrl) =>
@@ -326,17 +419,17 @@ const handleReprompt = async (nodeId, prompt, count = 3) => {
 
 
 // ✅ Sequential auto-generation (one node at a time)
-// ===============================
 const autoGenerateImagesForAll = async (nodesList) => {
+  if (AUTO_GEN_RUNNING) {
+    console.warn("🚫 Auto image generation already in progress. Skipping duplicate run.");
+    return;
+  }
+  AUTO_GEN_RUNNING = true;
   setLoadingOverlay(true);
-  stopGeneration = false; // reset before starting
+  stopGeneration = false;
 
   for (const node of nodesList) {
-    if (stopGeneration) {
-      console.log("🛑 Generation stopped mid-process.");
-      break;
-    }
-
+    if (stopGeneration) break;
     const hasImages = node.data.generatedImages?.length > 0;
     const failed = node.data.failedImage;
     if (!hasImages && !failed) {
@@ -344,8 +437,10 @@ const autoGenerateImagesForAll = async (nodesList) => {
     }
   }
 
+  AUTO_GEN_RUNNING = false;
   setLoadingOverlay(false);
 };
+
 
 
   // Initial load
@@ -360,7 +455,8 @@ const autoGenerateImagesForAll = async (nodesList) => {
         edges: [],
       };
 
-    const standardizedNodes = flowData.nodes.map(standardizeNodeData);
+    const standardizedNodes = flowData.nodes.map((n) => standardizeNodeData(n, handleReprompt));
+
     const layoutedNodes = getLayoutedNodes(
       standardizedNodes,
       flowData.edges || []
@@ -445,8 +541,8 @@ useEffect(() => {
   };
 }, [nodes]);
 
-  // ====================================
-// Save & Play
+ // ====================================
+// Save & Play (optimized payload)
 // ====================================
 const handleSaveAndPlay = async () => {
   const updatedEdges = generateEdgesFromNodes(nodes);
@@ -459,44 +555,77 @@ const handleSaveAndPlay = async () => {
   }
 
   // ✅ Prepare clean, full node data
-  const cleanNodes = nodes.map((n) => ({
-    ...n,
-    data: {
-      data_description: n.data.data_description || "Untitled",
-      scene: n.data.scene || "",
-      options: n.data.options || [],
-      next: n.data.next || null,
-      imageUrl: n.data.imageUrl || "",
-      b64image:
-        n.data.imageUrl?.startsWith("data:image/")
-          ? n.data.imageUrl.split(",")[1] // extract base64
-          : n.data.b64image || "",
-      generatedImages: n.data.generatedImages || [],
-    },
-  }));
+  const cleanNodes = nodes.map((n) => {
+    let imageUrl = n.data.imageUrl || "";
+    let b64image = "";
+
+    // 🧹 Extract and clean inline base64 URLs
+    if (imageUrl.startsWith("data:image/")) {
+      b64image = imageUrl.split(",")[1]; // extract raw base64
+      imageUrl = ""; // remove heavy inline base64 from the URL
+    } else {
+      b64image = n.data.b64image || "";
+    }
+
+    return {
+      ...n,
+      data: {
+        data_description: n.data.data_description || "Untitled",
+        scene: n.data.scene || "",
+        options: n.data.options || [],
+        next: n.data.next || null,
+        imageUrl,
+        b64image,
+        generatedImages: n.data.generatedImages || [],
+      },
+    };
+  });
+
+  
+// ✅ Detect only *new* base64 images (not ones already stored)
+const hasNewImages = cleanNodes.some(
+  (n) =>
+    n.data.imageUrl?.startsWith("data:image/") &&
+    (!n.data.b64image || n.data.b64image.length < 100)
+);
+
+  // 🪶 strip heavy base64 if no new images
+const payloadNodes = hasNewImages
+  ? cleanNodes
+  : cleanNodes.map((n) => ({
+      ...n,
+      data: { ...n.data, b64image: "" },
+    }));
 
   // ✅ Convert for backend (uses your helper correctly)
   const flowToSaveBackend = {
     nodes: convertFrontendToBackend(
-      Object.fromEntries(cleanNodes.map((n) => [n.id, n]))
+      Object.fromEntries(payloadNodes.map((n) => [n.id, n]))
     ),
     edges: updatedEdges,
   };
 
-  // 🧠 Debug log — make sure you see images here now
-  console.log("🛰️ Sending flowData to backend:", flowToSaveBackend.nodes);
+  // 🧠 Debug log
+  console.log(
+    hasNewImages
+      ? "🛰️ Sending flowData with new images to backend:"
+      : "🛰️ Sending flowData (no new images, base64 trimmed):",
+    flowToSaveBackend.nodes
+  );
 
   // ✅ Build request body
-const updatedScenario = {
-  id: /^[0-9a-fA-F]{24}$/.test(scenarioId) ? scenarioId : null,
-  title: scenarioTitle || "Untitled Scenario",
-  description: "",
-  nodes: Object.values(flowToSaveBackend.nodes), // ✅ Flatten nodes object into array
-  edges: flowToSaveBackend.edges || [],
-  lastEdited: new Date().toISOString(),
-};
+  const updatedScenario = {
+    id: /^[0-9a-fA-F]{24}$/.test(scenarioId) ? scenarioId : null,
+    title: scenarioTitle || "Untitled Scenario",
+    description: "",
+    nodes: Object.values(flowToSaveBackend.nodes), // Flatten nodes object into array
+    edges: flowToSaveBackend.edges || [],
+    lastEdited: new Date().toISOString(),
+  };
 
   try {
+    console.log("🌐 About to fetch:", JSON.stringify(updatedScenario, null, 2));
+
     const res = await fetch("http://127.0.0.1:5000/scenarios/saveFlow", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -511,13 +640,13 @@ const updatedScenario = {
     if (data.scenarioId) {
       setScenarioId(data.scenarioId);
       finalScenarioId = data.scenarioId;
-      localStorage.setItem("lastScenarioId", finalScenarioId); // ✅ persist ID
+      localStorage.setItem("lastScenarioId", finalScenarioId);
     }
 
     console.log("✅ Saved scenario successfully:", finalScenarioId);
 
-    // ✅ Navigate to ScenarioInterface
-    navigate("/scenarioInterface", {
+    // ✅ Navigate to SimulationInterface
+    navigate("/simulation", {
       state: {
         scenarioId: finalScenarioId,
         flowData: {
@@ -548,134 +677,132 @@ const updatedScenario = {
             userRole="Administrator"
           />
         </div>
+        <div className="floating-toolbar">
+  <button onClick={handleSaveAndPlay}>💾 Save & Play</button>
+{/* 
+  <button
+    onClick={() => selectedNode && handleReprompt(selectedNode.id, promptText)}
+    disabled={!selectedNode}
+  >
+    ✨ Regenerate Selected
+  </button> */}
+<button onClick={handleAutoLayout}>🧭 Auto Layout</button>
+
+  <button
+    onClick={() => {
+      const missing = nodes.filter((n) => !hasValidImage(n));
+      if (missing.length === 0) {
+        alert("✅ All nodes already have valid images!");
+        return;
+      }
+
+      console.log(`🖼️ Regenerating ${missing.length} missing/placeholder images...`);
+      autoGenerateImagesForAll(missing);
+    }}
+    disabled={loadingOverlay}
+  >
+    🔁 Regenerate All
+  </button>
+
+  <button
+    onClick={() => {
+      const lightweightFlow = getLightweightFlow(nodes, edges);
+      navigate("/editor", { state: { scenarioId, flowData: lightweightFlow } });
+    }}
+  >
+    🗺️ Back to Flow
+  </button>
+</div>
+
+
 
         <div className="scene-editor-content">
           <div className="action-button-container">
-            <button style={{ marginTop: 70 }} onClick={handleSaveAndPlay}>
-              💾 Save & Play Story
-            </button>
-
             {/* Sidebar */}
-            <div className="node-sidebar">
+           <div className="node-sidebar">
+  {selectedNode ? (
+    <>
+      <div className="sidebar-header">
+        <span className="nodeTitle">🧩 Node {selectedNode.id}</span>
+        <p className="sidebar-subtitle">
+          {selectedNode.type?.toUpperCase() || "SCENE"}
+        </p>
+      </div>
 
-<button
-  className="action-buttons"
-  onClick={() => {
-         // ✅ Step 1: Clean the flow so it’s serializable
-       try {
-  const lightweightFlow = getLightweightFlow(nodes, edges);
+      <div className="sidebar-scrollable">
+        {/* === Prompt Section === */}
+        <details open className="sidebar-section">
+          <summary>✏️ Prompt / Description</summary>
+          <textarea
+            value={promptText}
+            onChange={(e) => setPromptText(e.target.value)}
+            placeholder="Edit prompt text..."
+            rows={4}
+            className="sidebar-textarea"
+          />
+          <button
+            className="sidebar-generate-btn"
+            onClick={() => handleReprompt(selectedNode.id, promptText, 4)}
+            disabled={selectedNode.data.loadingImages}
+          >
+            {selectedNode.data.loadingImages
+              ? "⚙️ Generating..."
+              : "✨ Regenerate Images"}
+          </button>
+        </details>
 
-  if (scenarioId) {
-  localStorage.setItem(`flow_${scenarioId}`, JSON.stringify(lightweightFlow));
-  localStorage.setItem("lastScenarioId", scenarioId);
-}
-
-  navigate("/editor", {
-    state: {
-      scenarioId,
-      flowData: lightweightFlow, // ✅ pass it explicitly
-    },
-  });
-} catch (err) {
-  console.warn("⚠️ Storage quota exceeded — skipping image data:", err);
-  const minimalFlow = getLightweightFlow(nodes.map(n => ({ ...n, data: { data_description: n.data?.data_description || "" } })), edges);
-  localStorage.setItem("latestFlow", JSON.stringify(minimalFlow));
-  navigate("/editor", { state: { scenarioId } });
-}
-
-  }}
->
-  🔄 Switch to Flow Chart Editor
-</button>
-
-
-              {selectedNode ? (
-                <>
-                  <h3 className="sidebar-node-title">
-                    🧩 Node {selectedNode.id}
-                  </h3>
-
-                  <div className="sidebar-section">
-                    <label className="sidebar-label">
-                      Prompt / Description
-                    </label>
-                    <textarea
-                      value={promptText}
-                      onChange={(e) => setPromptText(e.target.value)}
-                      placeholder="Edit prompt text..."
-                      rows={4}
-                      className="sidebar-textarea"
-                    />
-                    <div className="sidebar-actions">
-                      <button
-                        className="sidebar-generate-btn"
-                        onClick={() =>
-                          handleReprompt(selectedNode.id, promptText, 4)
-                        }
-                        disabled={selectedNode.data.loadingImages}
-                      >
-                        {selectedNode.data.loadingImages
-                          ? "⚙️ Generating..."
-                          : "✨ Regenerate Images"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="sidebar-section">
-                    <label className="sidebar-label">
-                      Generated Variations
-                    </label>
-                    {selectedNode.data.generatedImages?.length > 0 ? (
-                      <div className="image-grid">
-                        {selectedNode.data.generatedImages.map((imgUrl, i) => (
-                          <div key={i} className="image-option">
-                            <img
-                              src={imgUrl}
-                              alt={`Option ${i}`}
-                              className={`image-thumb ${
-                                imgUrl === selectedNode.data.imageUrl
-                                  ? "selected"
-                                  : ""
-                              }`}
-                              onClick={() =>
-                                selectImageForNode(selectedNode.id, imgUrl)
-                              }
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p style={{ color: "#888", fontStyle: "italic" }}>
-                        No images generated yet. Click ✨ to generate.
-                      </p>
-                    )}
-                  </div>
-
-                  {selectedNode.data.imageUrl && (
-                    <div className="sidebar-section">
-                      <label className="sidebar-label">Selected Image</label>
-                      <img
-                        src={selectedNode.data.imageUrl}
-                        alt="Selected"
-                        className="selected-image-preview"
-                      />
-                    </div>
-                  )}
-
-                  <div className="sidebar-footer">
-                    {selectedNode.data.loadingImages ? (
-                      <span className="saving-status">⚙️ Generating...</span>
-                    ) : (
-                      <span className="saving-status">💾 Auto-saved</span>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div style={{ color: "#888", fontStyle: "italic" }}>
-                  Click a node to edit prompt and images
+        {/* === Variations Section === */}
+        <details open className="sidebar-section-variations">
+          <summary>🎨 Generated Variations</summary>
+          {selectedNode.data.generatedImages?.length > 0 ? (
+            <div className="image-carousel">
+              {selectedNode.data.generatedImages.map((imgUrl, i) => (
+                <div
+                  key={i}
+                  className={`image-thumb-wrapper ${
+                    imgUrl === selectedNode.data.imageUrl ? "selected" : ""
+                  }`}
+                  onClick={() => selectImageForNode(selectedNode.id, imgUrl)}
+                >
+                  <img src={imgUrl} alt={`Option ${i}`} className="image-thumb" />
                 </div>
-              )}
+              ))}
             </div>
+          ) : (
+            <p className="sidebar-empty-text">
+              No images generated yet. Click ✨ to generate.
+            </p>
+          )}
+        </details>
+
+        {/* === Selected Image Section === */}
+        {selectedNode.data.imageUrl && (
+          <details open className="sidebar-section">
+            <summary>🖼️ Selected Image</summary>
+            <img
+              src={selectedNode.data.imageUrl}
+              alt="Selected"
+              className="selected-image-preview"
+            />
+          </details>
+        )}
+      </div>
+
+      <div className="sidebar-footer">
+        {selectedNode.data.loadingImages ? (
+          <span>⚙️ Generating...</span>
+        ) : (
+          <span>💾 Auto-saved</span>
+        )}
+      </div>
+    </>
+  ) : (
+    <div className="sidebar-empty">
+      <p>Click a node to edit prompt and images</p>
+    </div>
+  )}
+</div>
+
           </div>
 
           <div style={{ flex: 1 }}>
@@ -685,6 +812,8 @@ const updatedScenario = {
                 edges={edges}
                 nodeTypes={nodeTypesConfig}
                 fitView
+
+  fitViewOptions={{ padding: 0.2, duration: 500 }}
                 onNodeClick={onNodeClick}
                 onNodesChange={onNodesChange}
                 nodesDraggable
