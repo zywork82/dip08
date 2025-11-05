@@ -17,6 +17,9 @@ import ReportInterface from './pages/ReportInterface.jsx';
 import {sampleNodes} from '../src/data/sampleAiFlow.js';
 import TrainerTeam from "./pages/TrainerTeam.jsx";
 
+import SimulationInterface from "./pages/SimulationInterface";
+
+
 
 const AppContent = () => {
   //Navigation Hook 
@@ -93,6 +96,7 @@ window.addEventListener('error', suppressResizeObserverError);
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/scene-editor" element={<SceneEditor />} />
       <Route path="/report" element={<ReportInterface />} />
+      <Route path="/simulation" element={<SimulationInterface />} />
       
 
       {/* --- Updated Scenario and Report Routes --- */}
@@ -174,6 +178,7 @@ function App() {
             <li><Link to="/admin">Admin Dashboard</Link></li>
             <li><Link to="/student">Student Page</Link></li>
             <li><Link to="/scenarioInterface">Scenario Interface</Link></li>
+            <li><Link to="/simulation">Simulation</Link></li>
             <li><Link to="/signup">Signup</Link></li>
         </ul>
       </nav>

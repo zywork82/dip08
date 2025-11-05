@@ -45,9 +45,9 @@
 }
 
 .scene-image-wrapper img {
-  width: 100%;
+  width: 1000px;
   object-fit: cover;
-  /* max-height: 520px; */
+  max-height: 560px;
 }
 
 
