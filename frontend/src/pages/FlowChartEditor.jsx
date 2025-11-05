@@ -13,11 +13,12 @@ import dagre from "dagre";
 import EditorToolsSidebar from "../components/EditorToolsSidebar";
 import NodeWrapper from "../components/NodeWrapper";
 import "reactflow/dist/style.css";
-import "../styles/FlowChartEditor.css";
+
 import SharedHeader from "../components/SharedHeader";
 import NavigationBar from "../components/SlimNavBar";
 import { sampleNodes, sampleAiSuggestions, sampleEdges } from "../data/sampleAiFlow";
-
+import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
+import "../styles/FlowChartEditor.css";
 const profileImage =
   "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
 
@@ -32,21 +33,38 @@ const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 200;
 const nodeHeight = 150;
-
 const getLayoutedNodes = (nodes, edges) => {
-  dagreGraph.setGraph({ rankdir: "TB", ranksep: 150, nodesep: 100 });
-  nodes.forEach((n) => dagreGraph.setNode(n.id, { width: nodeWidth, height: nodeHeight }));
+  dagreGraph.setGraph({
+    rankdir: "TB",      // top → bottom
+    ranksep: 160,       // vertical distance between layers
+    nodesep: 160,       // horizontal spacing between siblings
+    marginx: 100,
+    marginy: 100,
+    align: "UL",        // consistent left alignment
+  });
+
+  nodes.forEach((n) =>
+    dagreGraph.setNode(n.id, { width: nodeWidth, height: nodeHeight })
+  );
   edges.forEach((e) => dagreGraph.setEdge(e.source, e.target));
   dagre.layout(dagreGraph);
+
   return nodes.map((n) => {
     const layoutNode = dagreGraph.node(n.id);
     return layoutNode
-      ? { ...n, position: { x: layoutNode.x - nodeWidth / 2, y: layoutNode.y - nodeHeight / 2 } }
+      ? {
+          ...n,
+          position: {
+            x: layoutNode.x - nodeWidth / 2,
+            y: layoutNode.y - nodeHeight / 2,
+          },
+        }
       : n;
   });
 };
 
-// Generate edges from node relationships
+
+// === Helpers ===
 const generateEdgesFromNodes = (nodes) => {
   const edges = [];
   nodes.forEach((n) => {
@@ -79,8 +97,54 @@ const generateEdgesFromNodes = (nodes) => {
   // ✅ remove duplicate edges
   return Array.from(new Map(edges.map((e) => [e.id, e])).values());
 };
+const filterLetteredNodes = (nodes) => {
+  return nodes.filter((n) => {
+    const id = n.id?.toString() || "";
+    const isEnding = /^E\d+$/i.test(id);
+    const isScenario = n.type === "scenario";
+    const isOption = n.type === "option";
+    return isScenario || isOption || isEnding;
+  });
+};
 
-// Standardize node shape
+
+
+// === Remove unconnected group nodes (like 202, 301) ===
+const filterDisconnectedNodes = (nodes, edges) => {
+  if (!Array.isArray(nodes) || !Array.isArray(edges)) return nodes;
+
+  const filtered = nodes.filter((n) => {
+    const id = n.id?.toString() || "";
+    const isGroupNode = /^\d+$/.test(id);
+    const isEndingNode = /^E\d+$/i.test(id); // ✅ mark endings like E1, E2, E3
+    const hasOptions = Array.isArray(n.data?.options) && n.data.options.length > 0;
+    const hasConnections = edges.some((e) => e.source === id || e.target === id);
+
+    // 🧠 Keep ending nodes, group nodes that are connected, or have options
+    return isEndingNode || !isGroupNode || hasOptions || hasConnections;
+  });
+
+  const removed = nodes.length - filtered.length;
+  if (removed > 0) console.log(`🧹 Removed ${removed} disconnected node(s)`);
+
+  return filtered;
+};
+
+
+// === Duplicate detection ===
+const findDuplicateDescriptions = (nodes) => {
+  const map = {};
+  nodes.forEach((n) => {
+    const desc = n.data.data_description?.trim();
+    if (!desc) return;
+    map[desc] = map[desc] ? [...map[desc], n.id] : [n.id];
+  });
+  return Object.entries(map)
+    .filter(([_, ids]) => ids.length > 1)
+    .map(([desc, ids]) => ({ desc, ids }));
+};
+
+// === Standardize Node Data ===
 const standardizeNodeData = (node) => {
   const d = typeof node.data === "object" ? node.data : { data_description: node.data || "" };
   return {
@@ -267,41 +331,63 @@ const autoLayout = () => {
     },
     [reactFlowInstance]
   );
+// === Auto Layout (with cleanup of disconnected nodes) ===
+const autoLayout = () => {
+  saveHistorySnapshot();
 
-  // === Nodes with handlers ===
-  const nodesWithHandlers = nodes.map((n) => ({
-    ...n,
-    data: {
-      ...n.data,
-      onChange: (e) => handleNodeLabelChange(n.id, e),
-      onDelete: () => removeNode(n.id),
-    },
-  }));
+  console.log("🔍 Running autoLayout...");
+  // 🧹 Step 1: Remove disconnected group nodes
+let cleanedNodes = filterLetteredNodes(nodes);
+cleanedNodes = filterDisconnectedNodes(cleanedNodes, edges);
+setNodes(cleanedNodes);
 
-  // === Save flow to backend ===
-  const saveFlowToBackend = useCallback(async () => {
-    if (!scenarioTitle) return alert("Please enter a scenario title!");
-    if (!nodes.length) return alert("No nodes to save!");
-  if (nodes.some((n) => !n.data?.data_description?.trim())) {
-    alert("Some nodes have no descriptions. Please fill them before saving!");
-    return;
-  }
-    const nodesForBackend = nodes.map((n) => {
-      const children = edges.filter((e) => e.source === n.id).map((e) => e.target);
-      const data = {
-        data_description: n.data?.data_description || "",
-        options:
-          n.type === "scenario"
-            ? children.length
-              ? children
-              : n.data?.options || []
-            : [],
-        next: n.type === "option" ? n.data?.next || children[0] || null : null,
-        scene: n.data?.scene || "",
-        b64image: n.data?.b64image || "",
-      };
-      return { id: n.id, type: n.type, scenarioId, data, position: n.position };
-    });
+
+  console.log("🧹 Cleaned nodes count:", cleanedNodes.length);
+
+  // 🧩 Step 2: Recompute layout using Dagre
+  const layoutedNodes = getLayoutedNodes(cleanedNodes, edges);
+  console.log("📐 Layout complete:", layoutedNodes.length, "nodes");
+
+  // 🧱 Step 3: Update ReactFlow state
+  setNodes(layoutedNodes);
+
+  // 🧭 Step 4: Fit view
+ if (reactFlowInstance) {
+  setTimeout(() => {
+    reactFlowInstance.fitView({ padding: 0.3, duration: 800 });
+    console.log("🎯 Auto layout fitView completed.");
+  }, 300);
+}
+
+};
+
+
+
+
+  // === Save Flow to Backend ===
+const saveFlowToBackend = useCallback(async () => {
+  if (!scenarioTitle) return alert("Please enter a scenario title!");
+  if (!nodes.length) return alert("No nodes to save!");
+
+// ⚠️ Validation: Detect unlinked option nodes
+const openOptions = nodes.filter(
+  (n) =>
+    n.type === "option" &&
+    (!n.data?.next || !edges.some((e) => e.source === n.id))
+);
+
+if (openOptions.length > 0) {
+  const ids = openOptions.map((n) => n.id).join(", ");
+  alert(`⚠️ ${openOptions.length} option node(s) are unlinked: ${ids}\nSaving anyway.`);
+  // ❌ don't return — continue saving after showing warning
+}
+
+  const cleanedNodes = filterDisconnectedNodes(nodes, edges);
+ const preferredStart =
+  cleanedNodes.find((n) => n.id === "101")?.id ||
+  cleanedNodes.find((n) => n.id === "start")?.id ||
+  cleanedNodes[0]?.id ||
+  null;
 
     const payload = {
       id: scenarioId,
@@ -508,13 +594,42 @@ let progressInterval = setInterval(() => {
   <div className="loading-overlay">
     <div className="loading-box">
       <div className="spinner"></div>
-      <p className="loading-text">AI is generating node images...</p>
 
-      <div className="progress-bar">
-        <div className="progress" style={{ width: `${imageProgress}%` }}></div>
-      </div>
-
-      <small>Estimated time: about 5-10 minutes</small>
+      {isGenerating ? (
+        <>
+          <p>🎨 Generating AI images...</p>
+          <p>
+            {generationProgress.current} / {generationProgress.total} nodes completed
+          </p>
+          <div
+            style={{
+              width: "80%",
+              height: "10px",
+              background: "#333",
+              borderRadius: "5px",
+              marginTop: "10px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${
+                  (generationProgress.current / (generationProgress.total || 1)) * 100
+                }%`,
+                height: "100%",
+                background: "#00bfff",
+                transition: "width 0.5s ease",
+              }}
+            ></div>
+          </div>
+          <small>This may take 2-4 minutes depending on the number of nodes.</small>
+        </>
+      ) : (
+        <>
+          <p>💾 Saving your flow...</p>
+          <small>Please wait a moment.</small>
+        </>
+      )}
     </div>
   </div>
 )}

@@ -25,6 +25,22 @@
 .header {
   flex: 0 0 auto;
 }
+/* .shared-header {
+  position: fixed;
+  left: 12rem;
+  right:0;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background-color: #fff;
+  border-bottom: 1px solid #d3d0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 998;
+  box-sizing: border-box;
+} */
+
 
 .edit-container {
   display: flex; /* sidebar + editor in a row */
@@ -97,6 +113,8 @@
   min-width: 200px;
   position: relative;
   word-wrap: break-word;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 
@@ -222,7 +240,7 @@
   justify-content: center;
   align-items: center;
   background: rgba(255, 255, 255, 0.8);
-  z-index: 9999;
+  z-index: 9000;
 }
 
 .loading-box {
@@ -255,7 +273,7 @@
 .progress {
   height: 100%;
   background: #000;
-  transition: width 0.3s ease;
+  transition: width 10s ease;
 }
 
 @keyframes spin {

@@ -19,6 +19,8 @@ import TrainerTeam from "./pages/TrainerTeam.jsx";
 import StudentCaseStudies from "./pages/StudentCaseStudies.jsx";
 import StudentRecords from "./pages/StudentRecords.jsx";
 import StudentSettings from "./pages/StudentSetting.jsx";
+import SimulationInterface from "./pages/SimulationInterface";
+
 
 
 const AppContent = () => {
@@ -96,9 +98,6 @@ window.addEventListener('error', suppressResizeObserverError);
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/scene-editor" element={<SceneEditor />} />
       <Route path="/report" element={<ReportInterface />} />
-      <Route path="/student-case-studies" element={<StudentCaseStudies />} />
-      <Route path="/my-records" element={<StudentRecords />} />
-      <Route path="/student-settings" element={<StudentSettings />} />
       
 
       {/* --- Updated Scenario and Report Routes --- */}
@@ -180,6 +179,7 @@ function App() {
             <li><Link to="/admin">Admin Dashboard</Link></li>
             <li><Link to="/student">Student Page</Link></li>
             <li><Link to="/scenarioInterface">Scenario Interface</Link></li>
+            <li><Link to="/simulation">Simulation</Link></li>
             <li><Link to="/signup">Signup</Link></li>
         </ul>
       </nav>

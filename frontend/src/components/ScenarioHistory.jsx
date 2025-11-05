@@ -14,7 +14,7 @@ const ScenarioHistory = () => {
   useEffect(() => {
     const fetchScenarios = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:5000/scenarios/list");
+        const res = await fetch("http://127.0.0.1:5000/scenarios/");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
@@ -156,6 +156,7 @@ const ScenarioHistory = () => {
       ) : scenarios.length === 0 ? (
         <p className="empty">No scenarios found.</p>
       ) : (
+         <div className="scrollable-list">
         <ul className="history-list">
           {scenarios.map((s) => (
             <li key={s.id} className="history-item" onClick={(e) => e.stopPropagation()}>
@@ -225,7 +226,7 @@ const ScenarioHistory = () => {
               </div> */}
             </li>
           ))}
-        </ul>
+        </ul></div>
       )}
     </div>
   );

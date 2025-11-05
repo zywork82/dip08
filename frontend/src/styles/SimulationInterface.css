@@ -1,0 +1,158 @@
+/* .scene-editor-container {
+  display: flex;
+  flex-direction: row;
+  min-height: 100vh;
+  background: #e2e2e2;
+  color: white;
+} */
+
+.editor-container{
+  display: flex;
+  flex-direction: column; /* header on top */
+  height: 100%;
+  width: 100%;
+}
+
+.scenario-interface-layout {
+  display: flex;
+  height: 100%;
+  background-color: #b6b6db;
+  /* gap: 24px; */
+  /* padding: 24px 24px 64px; */
+}
+
+.stage {
+  flex: 1;
+  min-height: 520px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.scene-image-wrapper {
+  width: 100%;
+  height: 1500px;
+  min-height: 320px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #645b5b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 30px;
+}
+
+.scene-image-wrapper img {
+  width: 1000px;
+  object-fit: cover;
+  max-height: 560px;
+}
+
+
+.scene-placeholder {
+  color: #888;
+  padding: 24px;
+}
+
+.scene-text {
+width: 100%;
+  margin: 0 auto;
+  padding-left: 10px;
+  border-radius: 12px;
+  /* background: rgba(255, 255, 255, 0.04); */
+  line-height: 0.6;
+}
+
+/* .scene-text h3 {
+  margin: 0;
+  opacity: 0.8;
+  visibility: hidden;
+  position: relative;
+} */
+
+/* .scene-text p {
+  white-space: pre-wrap;
+  margin: 7px;
+  padding: 0px;
+} */
+
+.optionsWrapper {
+display: flex;    
+flex-direction: column;
+justify-content:start;
+align-items: center;
+background-color: #b6b6db;
+width: 140vh;
+max-height: 150px;
+border-radius: 12px;
+padding: 15px;
+height: 200px; 
+gap: 12px;
+}
+.action-buttons{
+  display: flex;
+  flex-direction: row;
+  width: 200px;
+  height: auto;
+  padding: 8px;
+}
+.options-grid {
+  display: grid;
+  gap: 120px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.option-end-card {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(0, 255, 127, 0.08);
+  border: 1px solid rgba(0, 255, 127, 0.15);
+}
+
+.option-end-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.right-rail {
+  width: 100vh;
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  position: sticky;
+  top: 24px;
+  align-self: flex-start;
+}
+
+.controls-card,
+.log-card {
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.controls-card .action-buttons,
+.log-card .action-buttons {
+  margin-top: 8px;
+}
+
+.run-log {
+  padding-left: 18px;
+}
+
+.run-log li {
+  margin-bottom: 6px;
+}
+
+.run-log code {
+  opacity: 0.75;
+}
+
+.no-choices {
+  color: #888;
+}
