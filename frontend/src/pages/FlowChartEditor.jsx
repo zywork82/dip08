@@ -17,8 +17,11 @@ import "reactflow/dist/style.css";
 import SharedHeader from "../components/SharedHeader";
 import NavigationBar from "../components/SlimNavBar";
 import { sampleNodes, sampleAiSuggestions, sampleEdges } from "../data/sampleAiFlow";
-import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
+import { sanitizeFlowForNavigation } from "../utils/flowConverter";
 import "../styles/FlowChartEditor.css";
+
+
+
 const profileImage =
   "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
 
@@ -168,12 +171,50 @@ const FlowChartEditor = () => {
   const [edges, setEdges] = useState([]);
   const [scenarioId, setScenarioId] = useState(null);
   const [scenarioTitle, setScenarioTitle] = useState("Untitled Scenario");
-
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const backendFlow = location.state?.flowData;
   const [loadingImages, setLoadingImages] = useState(false);
-const [imageProgress, setImageProgress] = useState(0);
+  const [imageProgress, setImageProgress] = useState(0);
+  const { scenarioId: navScenarioId, title: navTitle } = location.state || {};
+
+useEffect(() => {
+    const { scenarioId: navScenarioId, title: navTitle } = location.state || {};
+
+    if (!navScenarioId) return;
+
+    console.log("📥 Fetching scenario for ID:", navScenarioId);
+
+    // Clear previous scenario before fetching new one
+    setScenarioId(null);
+    setScenarioTitle("Loading...");
+    setNodes([]);
+    setEdges([]);
+
+    fetch(`http://127.0.0.1:5000/scenarios/getFlow/${navScenarioId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setScenarioId(data.id);
+        setScenarioTitle(data.title || "Untitled Scenario");
+        setNodes(data.nodes || []);
+        setEdges(data.edges || []);
+      })
+      .catch((err) => {
+        console.error("❌ Failed to fetch scenario:", err);
+        setScenarioTitle("Failed to load");
+      });
+  }, [location]); // 🔑 reruns every time location changes
+
+useEffect(() => {
+  if (backendFlow) {
+    console.log("🧭 Loading scenario:", backendFlow);
+    setScenarioId(backendFlow._id); // or backendFlow.id, depending on your data
+    setScenarioTitle(backendFlow.title || "Untitled Scenario");
+    // Load any other data or nodes here
+  }
+}, [backendFlow]);
 
 // === Log updates to localStorage ===
 // === Local change logger ===
@@ -286,10 +327,7 @@ const handleNodeLabelChange = useCallback(
     setEdges((eds) => eds.filter((e) => e.id !== edge.id));
   }, []);
 
-const autoLayout = () => {
-  setNodes((nds) => getLayoutedNodes(nds, edges));
-  if (reactFlowInstance) setTimeout(() => reactFlowInstance.fitView(), 150);
-};
+
 
 
   // === Drop handler ===
@@ -331,37 +369,81 @@ const autoLayout = () => {
     },
     [reactFlowInstance]
   );
-// === Auto Layout (with cleanup of disconnected nodes) ===
-const autoLayout = () => {
+
+  const saveHistorySnapshot = useCallback(() => {
+  const snapshot = {
+    nodes,
+    edges,
+    timestamp: new Date().toISOString(),
+  };
+  localStorage.setItem("flowHistory", JSON.stringify(snapshot));
+  console.log("💾 History snapshot saved");
+}, [nodes, edges]);
+
+  const autoLayout = useCallback(() => {
   saveHistorySnapshot();
 
   console.log("🔍 Running autoLayout...");
-  // 🧹 Step 1: Remove disconnected group nodes
-let cleanedNodes = filterLetteredNodes(nodes);
-cleanedNodes = filterDisconnectedNodes(cleanedNodes, edges);
-setNodes(cleanedNodes);
 
+  const layoutNodes = [...nodes];
+  const layoutEdges = [...edges];
 
-  console.log("🧹 Cleaned nodes count:", cleanedNodes.length);
+  // Build a map of which nodes are connected
+  const connectedNodeIds = new Set();
+  layoutEdges.forEach(edge => {
+    connectedNodeIds.add(edge.source);
+    connectedNodeIds.add(edge.target);
+  });
 
-  // 🧩 Step 2: Recompute layout using Dagre
-  const layoutedNodes = getLayoutedNodes(cleanedNodes, edges);
-  console.log("📐 Layout complete:", layoutedNodes.length, "nodes");
+  // Filter out disconnected nodes
+  const connectedNodes = layoutNodes.filter(node => 
+    connectedNodeIds.has(node.id) || node.id === '101'
+  );
 
-  // 🧱 Step 3: Update ReactFlow state
-  setNodes(layoutedNodes);
+  // Apply dagre layout
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 150, ranksep: 200 });
 
-  // 🧭 Step 4: Fit view
- if (reactFlowInstance) {
-  setTimeout(() => {
-    reactFlowInstance.fitView({ padding: 0.3, duration: 800 });
-    console.log("🎯 Auto layout fitView completed.");
-  }, 300);
-}
+  connectedNodes.forEach(node => {
+    dagreGraph.setNode(node.id, { width: 300, height: 150 });
+  });
 
-};
+  layoutEdges.forEach(edge => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
 
+  dagre.layout(dagreGraph);
 
+  const laidOutNodes = connectedNodes.map(node => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - 150,
+        y: nodeWithPosition.y - 75,
+      },
+    };
+  });
+
+  setNodes(laidOutNodes);
+  setEdges(layoutEdges);
+
+  console.log(`✅ Layout applied. Nodes: ${laidOutNodes.length}`);
+}, [nodes, edges, saveHistorySnapshot, setNodes, setEdges]);
+
+const nodesForBackend = nodes.map((n) => ({
+  id: n.id,
+  type: n.type,
+  data: {
+    data_description: n.data?.data_description || "",
+    options: n.data?.options || [],
+    next: n.data?.next || null,
+    scene: n.data?.scene || "",
+    b64image: n.data?.b64image || "",
+  },
+  position: n.position,
+}));
 
 
   // === Save Flow to Backend ===
@@ -506,6 +588,15 @@ let progressInterval = setInterval(() => {
   }, 800);
   }
 };
+  // === Nodes with handlers ===
+  const nodesWithHandlers = nodes.map((n) => ({
+  ...n,
+  data: {
+    ...n.data,
+    onChange: (e) => handleNodeLabelChange(n.id, e),
+    onDelete: () => removeNode(n.id),
+  },
+}));
 
   // === Initial Load ===
   useEffect(() => {

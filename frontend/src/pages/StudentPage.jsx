@@ -132,12 +132,22 @@ const StudentPage = () => {
                   <i className="icon-grid-view active"></i>
                 </div>
               </div>
-              <div className="scenario-grid">
-                {filteredScenarios.map(scenario => (
-                  <CaseStudyCard key={scenario.id} {...scenario} />
-                ))}
-              </div>
+             <div className="scenario-grid">
+              {loadingCaseStudies && <p>Loading scenarios...</p>}
+              {caseStudiesError && <p>Error: {caseStudiesError}</p>}
+              {!loadingCaseStudies && !caseStudiesError && filteredScenarios.map(scenario => (
+                <div key={scenario._id} className="activity-item-card">
+                  <CaseStudyCard
+                    title={scenario.title}
+                    lastEdited={scenario.lastEdited}
+                    status={scenario.status}
+                    image={scenario.image}
+                    scenarioId={scenario._id} // <-- pass only ID
+                  />
+                </div>
+              ))}
             </div>
+              </div>
             </div>
             <div className="right-column"><aside className="tips-aside">
           <h3 className="tips-heading">Tips On Strategic Thinking</h3>

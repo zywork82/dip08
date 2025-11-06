@@ -10,8 +10,10 @@ from openai import OpenAI
 import google.generativeai as genai
 from PIL import Image
 from scenarios import scenarios_bp as scenarios_router
+from signup import signup_router
 from login import login_bp
-
+from users import users_bp
+from admins import admin_bp
 # =========================
 # Load environment
 # =========================
@@ -61,9 +63,11 @@ PSYCH_SEED = os.getenv("PSYCH_SEED")
 # =========================
 app = Flask(__name__)
 CORS(app) 
-
 app.register_blueprint(scenarios_router)
+app.register_blueprint(signup_router)
 app.register_blueprint(login_bp)
+app.register_blueprint(users_bp)
+app.register_blueprint(admin_bp)
 
 
 # =========================
@@ -324,11 +328,10 @@ def apply_content(model, content_map):
         n["narrative"] = _as_str(c.get("narrative", n.get("narrative", "")))
     return model
 
+# =========================
+# Flatten for frontend
+# =========================
 def build_flat_with_hubs(model, aspect_map):
-    """
-    Flattens hierarchical AI skeleton into a clean branching structure:
-    SCENARIO (101) -> OPTION (101A/B/C) -> SCENARIO (201/202/203) -> ...
-    """
     nodes = model["nodes"]
     edges = model["edges"]
     by_id, children, parents = _build_maps(nodes, edges)
@@ -350,7 +353,6 @@ def build_flat_with_hubs(model, aspect_map):
         return int(hub_id) // 100
 
     def next_hub_id(hub_id: str, idx: int) -> str:
-        # example: 101 → 201, 301 → 401
         return f"{hub_bucket(hub_id)+1}0{idx+1}"
 
     def get_text(n):
@@ -365,70 +367,103 @@ def build_flat_with_hubs(model, aspect_map):
         return a or b
 
     def clean_psych(val):
-        v = _as_str(val).strip().strip("[]\"' ")
+        v = _as_str(val).strip()
+        v = v.strip("[]\"' ")
         return v
+
+    def fallback_description(is_leaf: bool, chosen_ending: Optional[str]):
+        if is_leaf and chosen_ending in ("E1","E2","E3"):
+            if chosen_ending == "E1":
+                return "Your choice aims for a successful resolution."
+            if chosen_ending == "E2":
+                return "Your choice stabilizes things, but recovery is incomplete."
+            if chosen_ending == "E3":
+                return "Your choice risks escalation of the situation."
+        if not is_leaf:
+            return "Choose how you want to proceed."
+        return "Continue."
 
     result: Dict[str, Any] = {}
 
-    ROOT_ORIG = "scenario" if "scenario" in by_id else nodes[0]["id"]
+    # Root hub
+    root_orig = "scenario" if "scenario" in by_id else nodes[0]["id"]
     ROOT_HUB_ID = "101"
 
     def build(hub_id: str, hub_origin_id: str):
         origin_node = by_id.get(hub_origin_id, {})
-        child_ids = children.get(hub_origin_id, [])[:3]
-        if not child_ids:
-            child_ids = [f"{hub_origin_id}_child_{i}" for i in range(3)]
-        option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(child_ids))]
+        kids = children.get(hub_origin_id, [])[:3]
+        hub_option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(kids))]
 
-        # --- Create SCENARIO node ---
-        merged_text = merge_fields(get_text(origin_node), get_narr(origin_node)) or "Choose your next step."
+        merged_text = merge_fields(get_text(origin_node), get_narr(origin_node)).strip()
+        if not merged_text:
+            merged_text = "Choose your next step."
+
         result[hub_id] = {
             "id": hub_id,
-            "type": "scenario",
+            "type": "scenario" if hub_id == ROOT_HUB_ID else "option",
             "position": "",
             "data_description": merged_text,
-            "options": option_ids,
+            "options": hub_option_ids,
             "psych_dimensions": clean_psych(aspect_map.get(hub_origin_id, "")),
         }
 
-        # --- For each option ---
-        for i, child_orig_id in enumerate(child_ids):
-            opt_id = fmt_opt_id(hub_id, letters[i])
+        for i, child_orig_id in enumerate(kids):
             child_node = by_id.get(child_orig_id, {})
+            this_opt_id = fmt_opt_id(hub_id, letters[i])
+
             grandkids = children.get(child_orig_id, [])
+            non_ending_grandkids = [
+                g for g in grandkids
+                if by_id.get(g, {}).get("type") != "ending"
+            ]
 
-            # Determine next scenario or ending
-            non_ending_grandkids = [g for g in grandkids if by_id.get(g, {}).get("type") != "ending"]
-
+            # Leaf -> ending OR branch -> next hub
             if not non_ending_grandkids:
-                next_target = pick_ending_id()
+                chosen_ending = pick_ending_id()
+                child_merged = merge_fields(get_text(child_node), get_narr(child_node)).strip()
+                if not child_merged:
+                    child_merged = fallback_description(
+                        is_leaf=True,
+                        chosen_ending=chosen_ending
+                    )
+
+                result[this_opt_id] = {
+                    "id": this_opt_id,
+                    "type": "option",
+                    "position": "",
+                    "data_description": child_merged,
+                    "options": [chosen_ending],
+                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
+                }
+
             else:
-                next_target = next_hub_id(hub_id, i)
-                # recursively build next scenario
-                build(next_target, child_orig_id)
+                nxt_hub = next_hub_id(hub_id, i)
+                next_opt_ids = [
+                    fmt_opt_id(nxt_hub, letters[j])
+                    for j in range(min(3, len(non_ending_grandkids)))
+                ]
 
-            # --- Option node itself ---
-            merged_child_text = merge_fields(get_text(child_node), get_narr(child_node))
-            if not merged_child_text:
-                merged_child_text = (
-                    "Your decision guides the next phase." if non_ending_grandkids else
-                    "This choice concludes the scenario."
-                )
+                child_merged = merge_fields(get_text(child_node), get_narr(child_node)).strip()
+                if not child_merged:
+                    child_merged = fallback_description(
+                        is_leaf=False,
+                        chosen_ending=None
+                    )
 
-            result[opt_id] = {
-                "id": opt_id,
-                "type": "option",
-                "position": "",
-                "data_description": merged_child_text,
-                "options": [],
-                "next": next_target,  # <-- ✅ clean and explicit
-                "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
-            }
+                result[this_opt_id] = {
+                    "id": this_opt_id,
+                    "type": "option",
+                    "position": "",
+                    "data_description": child_merged,
+                    "options": next_opt_ids,
+                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
+                }
 
-    # --- Build from root ---
-    build(ROOT_HUB_ID, ROOT_ORIG)
+                build(nxt_hub, child_orig_id)
 
-    # --- Endings ---
+    build(ROOT_HUB_ID, root_orig)
+
+    # Endings
     ending_map = {
         "E1": (
             "✅ Successful Resolution",
@@ -444,7 +479,7 @@ def build_flat_with_hubs(model, aspect_map):
         ),
     }
 
-    for e in ENDING_IDS:
+    for e in ["E1", "E2", "E3"]:
         title, desc = ending_map[e]
         result[e] = {
             "id": e,
@@ -455,21 +490,7 @@ def build_flat_with_hubs(model, aspect_map):
             "psych_dimensions": clean_psych(aspect_map.get(e, "")),
         }
 
-        # === Auto-fix for "open" options that lead nowhere ===
-    for node in list(result.values()):
-        if node["type"] == "option":
-            next_id = node.get("next", "")
-            has_targets = bool(node.get("options")) and any(
-                o in result for o in node.get("options", [])
-            )
-            if not next_id and not has_targets:
-                fallback = pick_ending_id()
-                node["next"] = fallback
-                print(f"[auto-fix] Option {node['id']} had no next; linking to {fallback}")
-
     return result
-    
-
 
 # =========================
 # IMAGE GENERATION CORE
@@ -552,13 +573,8 @@ def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
 
     try:
         model = genai.GenerativeModel(GEMINI_IMAGE_MODEL)
-        # response = model.generate_content(
-        #     [prompt],
-        #     generation_config={
-        #         # "response_mime_type": "image/png",
-        #         "image_dimensions": {"width": 1440, "height": 900}  # 16:10 HD aspect ratio
-        #     })
         response = model.generate_content(prompt)
+
         raw_bytes = _extract_first_image_bytes_from_gemini_response(response)
         if raw_bytes is None:
             # no valid image from model -> fallback
@@ -582,7 +598,6 @@ def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
 
         print(f"[image-gen] Saved {file_path}")
         return True
-    
 
     except Exception as e:
         # on any decode failure -> fallback
@@ -605,16 +620,6 @@ def _file_to_b64(path: Path) -> str:
 @app.get("/health")
 def health():
     return {"ok": True}
-# backend/app.py
-STOP_GENERATION = False
-
-@app.route('/stop_generation', methods=['POST'])
-def stop_generation():
-    global STOP_GENERATION
-    STOP_GENERATION = True
-    return jsonify({"stopped": True})
-
-
 
 @app.post("/generate")
 def generate():
@@ -656,7 +661,6 @@ def generate():
 
         # 5. flatten to front-end hub map
         flat = build_flat_with_hubs(model, aspect_map)
-        
 
         # 6. handle download
         if download_flag:
@@ -675,7 +679,6 @@ def generate():
 
 @app.post("/generate_images")
 def generate_images_route():
-    global STOP_GENERATION
     """
     Body:
     {
@@ -724,11 +727,6 @@ def generate_images_route():
     results = []
 
     for node in nodes:
-         # 🛑 Stop generation mid-way if flag set
-        if STOP_GENERATION:
-            print("[image-gen] 🛑 Generation stopped by frontend request.")
-            break
-
         nid = _as_str(node.get("id", "")).strip()
         desc = _as_str(node.get("data_description", "")).strip()
         if not nid or not desc:
@@ -758,9 +756,6 @@ def generate_images_route():
             "data_description": desc,
             "image_b64": img_b64
         })
-   # ✅ Reset the flag automatically so next run works normally
-        STOP_GENERATION = False
-
 
     return jsonify({"images": results})
 
@@ -779,63 +774,7 @@ def clear_tmp():
                 print("[WARN] couldn't delete", f, e)
         return jsonify({"deleted": count})
     return jsonify({"deleted": 0})
-#added /suggestions 
-@app.post("/suggestions")
-def suggestions():
-    """
-    Generate 3 short AI branching ideas for scenario design.
-    Body:
-    {
-      "context": "Current scenario title or description"
-    }
-    """
-    body = request.get_json(silent=True) or {}
-    context = (body.get("context") or "").strip()
-
-    if not OPENAI_API_KEY:
-        return jsonify({"error": "OpenAI API key missing"}), 500
-    if not context:
-        return jsonify({"error": "Please provide 'context'"}), 400
-
-    client = OpenAI(api_key=OPENAI_API_KEY)
-
-    prompt = f"""
-    You are a scenario design assistant. Suggest 3 concise, realistic
-    branching decision points for a training simulation based on this context:
-
-    "{context}"
-
-    Return JSON only in this format:
-    [
-      {{ "nodeType": "option", "label": "..." }},
-      {{ "nodeType": "option", "label": "..." }},
-      {{ "nodeType": "option", "label": "..." }}
-    ]
-    """
-
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": "You are a helpful scenario AI assistant."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.8,
-    )
-
-    raw = response.choices[0].message.content or ""
-    json_text = _extract_json_block(raw)
-    try:
-        suggestions = json.loads(json_text)
-    except Exception:
-        suggestions = []
-
-    return jsonify({"suggestions": suggestions})
-
 
 if __name__ == "__main__":
     # You can switch to "0.0.0.0" if you want LAN access
-    print("🚀 Backend server starting...")
-    from datetime import datetime
-    print(f"✅ Flask backend running properly at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("🌐 Visit: http://127.0.0.1:5000/")
     app.run(host="127.0.0.1", port=5000, debug=True)

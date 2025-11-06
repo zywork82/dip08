@@ -94,7 +94,7 @@ useEffect(() => {
               }`}
               onClick={() => setActiveTab("accounts")}
             >
-              Accounts
+              
             </span>
           </h2>
 

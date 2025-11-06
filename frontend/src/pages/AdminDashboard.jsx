@@ -169,11 +169,13 @@ setCaseStudies(sortedScenarios);
                   {caseStudies.map(scenario => (
                     <div key={scenario._id} className="activity-item-card">
                       <CaseStudyCard
-                        title={scenario.title || "Untitled"}
-                        lastEdited={scenario.lastEdited || "N/A"}
-                        status={scenario.status || "Edit"}
-                        image={scenario.image || "https://placehold.co/400x200/525252/FFF?text=No+Image"}
+                        title={scenario.title}
+                        lastEdited={scenario.lastEdited}
+                        status={scenario.status}
+                        image={scenario.image}
+                        scenarioId={scenario._id} // ✅ pass the full object here
                       />
+
                     </div>
                   ))}
                 </div>
