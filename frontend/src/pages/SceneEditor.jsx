@@ -151,6 +151,31 @@ const standardizeNodeData = (node, handleReprompt) => ({
       return { images: [] };
     }
   };
+  // ===============================
+// 🧩 Helper: Auto-generate edges between nodes
+// ===============================
+const generateEdgesFromNodes = (nodes) => {
+  const edges = [];
+
+  nodes.forEach((node) => {
+    const options = node.data?.options || [];
+    options.forEach((opt, idx) => {
+      if (opt.next) {
+        edges.push({
+          id: `${node.id}-opt${idx}->${opt.next}`,
+          source: node.id,
+          target: opt.next,
+          label: opt.label || `Option ${idx + 1}`,
+          animated: true,
+          style: { stroke: "#555", strokeWidth: 2 },
+        });
+      }
+    });
+  });
+
+  return edges;
+};
+
 
   const SceneEditor = () => {
     const location = useLocation();

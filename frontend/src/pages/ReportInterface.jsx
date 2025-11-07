@@ -35,25 +35,24 @@ ChartJS.register(
   Legend
 );
 
-<<<<<<< HEAD
 const ReportInterface = async ({ data, onRestart }) => {
   //Data formatting remains the same
   const labels = data.map((entry, index) => `Choice ${index + 1}`);
   const times = data.map(entry => entry.timeTaken);
 
-  await fetch("http://localhost:8000/api/analytics/playthrough", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    username: "user123",
-    scenario_id: "scenario1",
-    choices: data.map(d => ({
-      node_id: d.nodeId,
-      selected_option: d.choice,
-      time_taken: d.timeTaken,
-    }))
-  }),
-});
+//   await fetch("http://localhost:8000/api/analytics/playthrough", {
+//   method: "POST",
+//   headers: { "Content-Type": "application/json" },
+//   body: JSON.stringify({
+//     username: "user123",
+//     scenario_id: "scenario1",
+//     choices: data.map(d => ({
+//       node_id: d.nodeId,
+//       selected_option: d.choice,
+//       time_taken: d.timeTaken,
+//     }))
+//   }),
+// });
 
 
 // --- (Analysis Function 1: Time Analysis) ---
@@ -61,7 +60,6 @@ const prepareLineChartData = (data) => {
   const labels = data.map((entry, index) => `Choice ${index + 1}`);
   const times = data.map(entry => entry.timeTaken);
 
->>>>>>> saveYA
   const chartData = {
     labels,
     datasets: [
@@ -159,6 +157,7 @@ const getScoreDescriptions = (scores) => {
     thinking: (scores.thinking_disposition || 0) > 0 ? 'Analytical' : (scores.thinking_disposition || 0) < 0 ? 'Intuitive' : 'Neutral',
   };
 };
+  
 
 // --- The Report Component ---
 const ReportInterface = ({ data, onRestart }) => {
@@ -333,5 +332,5 @@ const ReportInterface = ({ data, onRestart }) => {
     </div>
   );
 };
-
+}
 export default ReportInterface;
