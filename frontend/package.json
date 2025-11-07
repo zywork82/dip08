@@ -52,6 +52,10 @@
     ]
   },
   "devDependencies": {
+    "@babel/core": "^7.28.5",
+    "@babel/preset-env": "^7.28.5",
+    "@babel/preset-react": "^7.28.5",
+    "babel-loader": "^10.0.0",
     "electron": "^37.3.1"
   }
 }
