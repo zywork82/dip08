@@ -163,19 +163,53 @@ const standardizeNodeData = (node) => {
 
 // === Main Component ===
 const FlowChartEditor = () => {
-  const reactFlowWrapper = useRef(null);
-  const [reactFlowInstance, setReactFlowInstance] = useState(null);
-  const [nodes, setNodes] = useState([]);
-  const [edges, setEdges] = useState([]);
+const reactFlowWrapper = useRef(null);
+const [reactFlowInstance, setReactFlowInstance] = useState(null);
+const [nodes, setNodes] = useState([]);
+const [edges, setEdges] = useState([]);
 const [isSaving, setIsSaving] = useState(false);
 const [isGenerating, setIsGenerating] = useState(false);
 const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
-
-  const [traceMode, setTraceMode] = useState(true);
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
+const [scenarioId, setScenarioId] = useState(null);
+const [scenarioTitle, setScenarioTitle] = useState("Untitled Scenario");
+const [traceMode, setTraceMode] = useState(true);
+const [selectedNodeId, setSelectedNodeId] = useState(null);
 const [debugOpen, setDebugOpen] = useState(false);
+const navigate = useNavigate();
+const location = useLocation();
+const backendFlow = location.state?.flowData;
+const passedFlow = location.state?.flowData || null;
+// const initialScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario";
+// const initialScenarioId =
+//   location.state?.scenarioId || localStorage.getItem("lastScenarioId") || null;
 
+useEffect(() => {
+    const { scenarioId: navScenarioId, title: navTitle } = location.state || {};
 
+    if (!navScenarioId) return;
+
+    console.log("📥 Fetching scenario for ID:", navScenarioId);
+
+    // Clear previous scenario before fetching new one
+    setScenarioId(null);
+    setScenarioTitle("Loading...");
+    setNodes([]);
+    setEdges([]);
+
+    fetch(`http://127.0.0.1:5000/scenarios/getFlow/${navScenarioId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setScenarioId(data.id);
+        setScenarioTitle(data.title || "Untitled Scenario");
+        setNodes(data.nodes || []);
+        setEdges(data.edges || []);
+      })
+      .catch((err) => {
+        console.error("❌ Failed to fetch scenario:", err);
+        setScenarioTitle("Failed to load");
+      });
+  }, [location]); // 🔑 reruns every time location changes
+  
   // === Undo/Redo history ===
   const [history, setHistory] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
@@ -237,16 +271,7 @@ const [debugOpen, setDebugOpen] = useState(false);
     return () => window.removeEventListener("keydown", handleKey);
   }, [undo, redo]);
 
-  const navigate = useNavigate();
-const location = useLocation();
 
-const backendFlow = location.state?.flowData;
-const initialScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario";
-const initialScenarioId =
-  location.state?.scenarioId || localStorage.getItem("lastScenarioId") || null;
-const [scenarioId, setScenarioId] = useState(initialScenarioId);
-const [scenarioTitle, setScenarioTitle] = useState(initialScenarioTitle);
-const passedFlow = location.state?.flowData || null;
 
   // === Duplicate check ===
   useEffect(() => {

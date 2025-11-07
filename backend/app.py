@@ -2,7 +2,6 @@ import os, json, textwrap, time, re, random, base64
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from io import BytesIO
-
 from flask_cors import CORS 
 from flask import Flask, request, jsonify, make_response
 from dotenv import load_dotenv
@@ -10,8 +9,10 @@ from openai import OpenAI
 import google.generativeai as genai
 from PIL import Image
 from scenarios import scenarios_bp as scenarios_router
+from signup import signup_router
 from login import login_bp
-
+from users import users_bp
+from admins import admin_bp
 # =========================
 # Load environment
 # =========================
@@ -63,7 +64,11 @@ app = Flask(__name__)
 CORS(app) 
 
 app.register_blueprint(scenarios_router)
+app.register_blueprint(signup_router)
 app.register_blueprint(login_bp)
+app.register_blueprint(users_bp)
+app.register_blueprint(admin_bp)
+
 
 
 # =========================
@@ -779,6 +784,7 @@ def clear_tmp():
                 print("[WARN] couldn't delete", f, e)
         return jsonify({"deleted": count})
     return jsonify({"deleted": 0})
+
 #added /suggestions 
 @app.post("/suggestions")
 def suggestions():
@@ -786,7 +792,7 @@ def suggestions():
     Generate 3 short AI branching ideas for scenario design.
     Body:
     {
-      "context": "Current scenario title or description"
+      "context": "Current scenario description"
     }
     """
     body = request.get_json(silent=True) or {}

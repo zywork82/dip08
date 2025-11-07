@@ -120,11 +120,9 @@ setCaseStudiesData(sortedData);
                 alt={cs.title}
                 className="card-image"
               />
-              <div className="card-content">
-                <h3 className="card-title">{cs.title || "Untitled"}</h3>
-                <p className="card-date">
-                  Last edited on {cs.lastEdited || "Unknown"}
-                </p>
+             <div className="card-content">
+                <h3 className="card-title">{cs.title}</h3>
+                <p className="card-date">Last edited on {cs.lastEdited}</p>
                 <div className="card-footer">
                   {cs.status === 'Edit' || cs.status === 'In-Progress' ? (
                     <button
