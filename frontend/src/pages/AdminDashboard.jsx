@@ -25,7 +25,7 @@ const AdminDashboard = () => {
   const [caseStudiesError, setCaseStudiesError] = useState(null);
 
   const getInitials = (name) => {
-    if (!name) return "U";
+    if (!name) return "NA";
     const parts = name.trim().split(" ");
     if (parts.length === 1) return parts[0][0].toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -169,10 +169,11 @@ setCaseStudies(sortedScenarios);
                   {caseStudies.map(scenario => (
                     <div key={scenario._id} className="activity-item-card">
                       <CaseStudyCard
-                        title={scenario.title || "Untitled"}
-                        lastEdited={scenario.lastEdited || "N/A"}
-                        status={scenario.status || "Edit"}
-                        image={scenario.image || "https://placehold.co/400x200/525252/FFF?text=No+Image"}
+                        title={scenario.title}
+                        lastEdited={scenario.lastEdited}
+                        status={scenario.status}
+                        image={scenario.image}
+                        scenarioId={scenario._id} // ✅ pass the full object here
                       />
                     </div>
                   ))}

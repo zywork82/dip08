@@ -5,17 +5,16 @@ import { FaHome, FaFolder, FaUsers, FaLaptop, FaCog, FaSignOutAlt, FaChalkboardT
 import '../styles/Sidebar.css';
 import { useNavigate } from 'react-router-dom';
 
-const SharedSidebar = () => {
+const StudentSidebar = () => {
   const location = useLocation();
    const navigate = useNavigate(); 
 
   const navItems = [
-    { name: 'Dashboard', path: '/admin', icon: <FaHome /> },
-    { name: 'Case Studies', path: '/case-studies', icon: <FaFolder /> },
-    { name: 'Trainer Team', path: '/trainer-team', icon: <FaUsers /> },
-    { name: 'Trainee Records', path: '/trainee-records', icon: <FaChalkboardTeacher /> },
+    { name: 'Dashboard', path: '/student', icon: <FaHome /> },
+    { name: 'Case Studies', path: '/student-case-studies', icon: <FaFolder /> },
+    { name: 'My Records', path: '/my-records', icon: <FaChalkboardTeacher /> },
     { name: 'Tutorial', path: '/tutorial', icon: <FaLaptop /> },
-    { name: 'Settings', path: '/settings', icon: <FaCog /> }
+    { name: 'Settings', path: '/student-settings', icon: <FaCog /> }
   ];
 
   return (
@@ -25,7 +24,7 @@ const SharedSidebar = () => {
         <div className="w-12 h-12">
           <img src={logo} alt="Deciwise Logo" className="logo-icon" />
         </div>
-  
+
       </div>
       <nav className="nav-menu">
         {navItems.map((item) => (
@@ -38,11 +37,11 @@ const SharedSidebar = () => {
             <span className="font-semibold">{item.name}</span>
           </Link>
         ))}
-       </nav>
+      </nav>
       <div className="profile-section">
         <div className="profile-info">
-          <span className="profile-name">Andy</span>
-          <span className="profile-role">Administrator</span>
+          <span className="profile-name">Helen Wong</span>
+          <span className="profile-role">Student</span>
         </div>
         <button
           className="logout-button"
@@ -60,4 +59,4 @@ const SharedSidebar = () => {
   );
 };
 
-export default SharedSidebar;
+export default StudentSidebar;

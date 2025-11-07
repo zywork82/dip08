@@ -7,9 +7,7 @@ import axios from 'axios';
 
 const getInitials = (name) => {
   if (!name) return 'A';
-  const parts = name.trim().split(' ');
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase(); // e.g. "Prof Andy" → "PA"
+  return name.trim()[0].toUpperCase();
 };
 
 const TrainerCard = ({ trainer }) => (
@@ -42,7 +40,7 @@ const TrainerTeam = () => {
     const fetchAdmins = async () => {
       try {
         const token = localStorage.getItem('token'); // JWT token
-        const res = await axios.get('http://localhost:8000/admins/users', {
+        const res = await axios.get('http://localhost:5000/admins/users', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const adminsWithImages = res.data.map((user) => ({

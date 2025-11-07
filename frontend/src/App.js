@@ -16,7 +16,10 @@ import ScenarioInterface from "./pages/ScenarioInterface";
 import ReportInterface from './pages/ReportInterface.jsx';
 import {sampleNodes} from '../src/data/sampleAiFlow.js';
 import TrainerTeam from "./pages/TrainerTeam.jsx";
-
+import StudentCaseStudies from "./pages/StudentCaseStudies.jsx";
+import StudentRecords from "./pages/StudentRecords.jsx";
+import StudentSettings from "./pages/StudentSetting.jsx";
+import { Navigate } from "react-router-dom";
 import SimulationInterface from "./pages/SimulationInterface";
 
 
@@ -97,6 +100,11 @@ window.addEventListener('error', suppressResizeObserverError);
       <Route path="/scene-editor" element={<SceneEditor />} />
       <Route path="/report" element={<ReportInterface />} />
       <Route path="/simulation" element={<SimulationInterface />} />
+      <Route path="/flowchart" element={<Navigate to="/editor" replace />} />
+      <Route path="/student-case-studies" element={<StudentCaseStudies />} />
+      <Route path="/my-records" element={<StudentRecords />} />
+      <Route path="/student-settings" element={<StudentSettings />} />
+      <Route path="/simulation" element={<SimulationInterface />} />  
       
 
       {/* --- Updated Scenario and Report Routes --- */}
