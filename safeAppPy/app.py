@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from io import BytesIO
 
-from flask_cors import CORS
+from flask_cors import CORS 
 from flask import Flask, request, jsonify, make_response
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -69,6 +69,7 @@ app.register_blueprint(login_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(admin_bp)
 
+
 # =========================
 # Small helpers
 # =========================
@@ -80,6 +81,7 @@ def _as_str(x) -> str:
 def _extract_json_block(text: str) -> str:
     if not text: return ""
     s = text.strip()
+
     # strip ``` fences if present
     if s.startswith("```"):
         lines = s.splitlines()
@@ -98,132 +100,101 @@ def _extract_json_block(text: str) -> str:
     return m.group(0) if m else ""
 
 # =========================
-# Graph construction (with tier control)
+# Graph construction
 # =========================
-def build_full_skeleton(story: str, tier_level: int = 4) -> Dict[str, Any]:
+def build_full_skeleton(story: str) -> Dict[str, Any]:
     """
-    Build branching skeleton of scenario -> D1/D2/D3 -> further tiers -> endings.
-
-    tier_level:
-      1 => scenario -> D1/D2/D3 -> endings
-      2 => + D1_A / D1_B / D1_C
-      3 => + D1_A_1 / ...
-      4 => + D1_A_1_a / ... (full depth, default)
+    Build branching skeleton of scenario -> D1/D2/D3 -> subbranches -> endings.
     """
     nodes: List[Dict[str, Any]] = []
     edges: List[Dict[str, Any]] = []
-
-    # Clamp tier_level between 1 and 4
-    tier_level = max(1, min(4, int(tier_level)))
 
     # Root scenario node
     nodes.append({
         "id": "scenario",
         "type": "scenario",
-        "text": f"Introduction:\n{story.strip()}",
-        "narrative": "",
-        "data_explanation": "This sets the stage for the following decisions and outcomes."
+        "text": f"SCENARIO:\n{story}",
+        "narrative": ""
     })
 
-    # Tier 1: First layer decisions
+    # First layer decisions
     decisions = ["D1", "D2", "D3"]
     for d in decisions:
         nodes.append({
             "id": d,
             "type": "option",
             "text": f"{d}: decision",
-            "narrative": "",
-            "data_explanation": ""
+            "narrative": ""
         })
         edges.append({"from": "scenario", "to": d})
-    current_leaves = decisions[:]
 
-    # We'll progressively deepen from these leaves
     letters = ["A", "B", "C"]
     nums = ["1", "2", "3"]
     subletters = ["a", "b", "c"]
 
-    leaf_nodes: List[str] = []
+    # Second layer (D1_A, D1_B, ...)
+    option_nodes = []
+    for d in decisions:
+        for L in letters:
+            oid = f"{d}_{L}"
+            nodes.append({
+                "id": oid,
+                "type": "option",
+                "text": f"{oid}: option",
+                "narrative": ""
+            })
+            edges.append({"from": d, "to": oid})
+            option_nodes.append(oid)
 
-    # Tier 2: D1_A, D1_B, ...
-    if tier_level >= 2:
-        option_nodes = []
-        for d in current_leaves:
-            for L in letters:
-                oid = f"{d}_{L}"
-                nodes.append({
-                    "id": oid,
-                    "type": "option",
-                    "text": f"{oid}: option",
-                    "narrative": "",
-                    "data_explanation": ""
-                })
-                edges.append({"from": d, "to": oid})
-                option_nodes.append(oid)
-        current_leaves = option_nodes[:]
-        if tier_level == 2:
-            leaf_nodes = current_leaves[:]
+    # Third layer (D1_A_1, etc.)
+    suboption_nodes = []
+    for oid in option_nodes:
+        for n in nums:
+            sid = f"{oid}_{n}"
+            nodes.append({
+                "id": sid,
+                "type": "option",
+                "text": f"{sid}: sub-option",
+                "narrative": ""
+            })
+            edges.append({"from": oid, "to": sid})
+            suboption_nodes.append(sid)
 
-    # Tier 3: D1_A_1, ...
-    if tier_level >= 3:
-        suboption_nodes = []
-        for oid in current_leaves:
-            for n in nums:
-                sid = f"{oid}_{n}"
-                nodes.append({
-                    "id": sid,
-                    "type": "option",
-                    "text": f"{sid}: sub-option",
-                    "narrative": "",
-                    "data_explanation": ""
-                })
-                edges.append({"from": oid, "to": sid})
-                suboption_nodes.append(sid)
-        current_leaves = suboption_nodes[:]
-        if tier_level == 3:
-            leaf_nodes = current_leaves[:]
-
-    # Tier 4: D1_A_1_a, ...
-    if tier_level >= 4:
-        deep_leaf_nodes = []
-        for sid in current_leaves:
-            for sl in subletters:
-                lid = f"{sid}_{sl}"
-                nodes.append({
-                    "id": lid,
-                    "type": "option",
-                    "text": f"{lid}: sub-sub",
-                    "narrative": "",
-                    "data_explanation": ""
-                })
-                edges.append({"from": sid, "to": lid})
-                deep_leaf_nodes.append(lid)
-        leaf_nodes = deep_leaf_nodes[:]
+    # Fourth layer (D1_A_1_a, etc.)
+    leaf_nodes = []
+    for sid in suboption_nodes:
+        for sl in subletters:
+            lid = f"{sid}_{sl}"
+            nodes.append({
+                "id": lid,
+                "type": "option",
+                "text": f"{lid}: sub-sub",
+                "narrative": ""
+            })
+            edges.append({"from": sid, "to": lid})
+            leaf_nodes.append(lid)
 
     # Endings
     nodes.append({
         "id": "E1",
         "type": "ending",
         "text": "E1: Successful Resolution",
-        "narrative": "Crisis resolved positively. Trust rebuilt and objectives achieved.",
-        "data_explanation": ""
+        "narrative": "Crisis resolved positively. Trust rebuilt and objectives achieved."
     })
     nodes.append({
         "id": "E2",
         "type": "ending",
         "text": "E2: Partial Recovery",
-        "narrative": "Partial success achieved. Some issues remain unresolved or reputational impact persists.",
-        "data_explanation": ""
+        "narrative": "Partial success achieved. Some issues remain unresolved or reputational impact persists."
     })
     nodes.append({
         "id": "E3",
         "type": "ending",
         "text": "E3: Escalation",
-        "narrative": "Situation worsens or spreads. Further action and accountability required.",
-        "data_explanation": ""
+        "narrative": "Situation worsens or spreads. Further action and accountability required."
     })
 
-    # Connect deepest tier nodes to endings
+    # Connect leaves round-robin to endings
     for i, lid in enumerate(leaf_nodes):
         edges.append({"from": lid, "to": f"E{(i % 3) + 1}"})
 
@@ -285,23 +256,20 @@ def fill_content_for_nodes(story, node_ids, aspect_map):
         per_aspect = {nid: aspect_map.get(nid, "") for nid in batch_ids}
 
         sys_msg = (
-            "You are generating branching decision options for an interactive training scenario.\n"
-            "- 'text' = an imperative or action-based sentence describing what the learner chooses to do.\n"
-            "  (e.g., 'Hold an emergency meeting with all members' or 'Issue a public apology through social media.')\n"
-            "- 'narrative' = a short continuation describing what happens immediately after that choice.\n"
-            "  (e.g., 'Members express relief, though tensions remain over unresolved details.')\n"
-            "- Always write in imperative / action form, not first or third person (no 'I', 'you', or 'The president...').\n"
-            "- Avoid modal or predictive phrasing like 'This may...' or 'This could...'. Focus on what actually happens next.\n"
-            "- Keep both fields clear and natural (about 100–200 characters each, max 250).\n"
-            "- Tailor the content closely to THIS specific scenario.\n"
-            "- Return ONLY valid JSON in the shape provided.\n"
+            "You generate branching decision options for a scenario-based training simulation.\n"
+            "- 'text' = short clickable choice.\n"
+            "- 'narrative' = short stakes / consequence.\n"
+            "- Each field <=120 chars.\n"
+            "- Tailor wording to THIS scenario.\n"
+            "- Return ONLY valid JSON.\n"
+            "- Do NOT explicitly mention psychological bias/aspect names in the output.\n"
         )
 
         usr = textwrap.dedent(f"""
         SCENARIO / BACKGROUND:
         {story}
 
-        Internal design hints (do NOT reveal in answers):
+        Internal psych design hints (do NOT reveal in answers):
         {json.dumps(per_aspect, indent=2)}
 
         Node IDs to fill:
@@ -310,17 +278,16 @@ def fill_content_for_nodes(story, node_ids, aspect_map):
         Return JSON ONLY in this shape:
         {{
           "NODE_ID": {{
-            "text": "Action choice (imperative form)",
-            "narrative": "Short descriptive continuation"
+            "text": "Decision / option wording",
+            "narrative": "Short consequence / risk / reflection"
           }},
           ...
         }}
 
         Rules:
-        - Write the 'text' field like a clear action the user might choose.
-        - Start with a verb (e.g., 'Hold', 'Issue', 'Suspend', 'Invite').
-        - 'narrative' continues the scene in a neutral, descriptive tone.
-        - Do NOT use first-person or third-person narration.
+        - 'text' should read like something the learner might choose.
+        - 'narrative' should highlight stakes/impact.
+        - <=120 chars each.
         """)
 
         cc = client.chat.completions.create(
@@ -340,8 +307,8 @@ def fill_content_for_nodes(story, node_ids, aspect_map):
         for k in batch_ids:
             v = data.get(k, {})
             out_local[k] = {
-                "text": _as_str(v.get("text", ""))[:250],
-                "narrative": _as_str(v.get("narrative", ""))[:250],
+                "text": _as_str(v.get("text", ""))[:120],
+                "narrative": _as_str(v.get("narrative", ""))[:120],
             }
         return out_local
 
@@ -359,7 +326,6 @@ def apply_content(model, content_map):
             continue
         n["text"] = _as_str(c.get("text", n.get("text", "")))
         n["narrative"] = _as_str(c.get("narrative", n.get("narrative", "")))
-        # data_explanation stays separate
     return model
 
 # =========================
@@ -395,9 +361,6 @@ def build_flat_with_hubs(model, aspect_map):
     def get_narr(n):
         return _as_str(n.get("narrative", "")).strip()
 
-    def get_expl_field(n):
-        return _as_str(n.get("data_explanation", "")).strip()
-
     def merge_fields(a, b):
         if a and b:
             return f"{a}\n\n{b}"
@@ -408,7 +371,7 @@ def build_flat_with_hubs(model, aspect_map):
         v = v.strip("[]\"' ")
         return v
 
-    def fallback_explanation(is_leaf: bool, chosen_ending: Optional[str]):
+    def fallback_description(is_leaf: bool, chosen_ending: Optional[str]):
         if is_leaf and chosen_ending in ("E1","E2","E3"):
             if chosen_ending == "E1":
                 return "Your choice aims for a successful resolution."
@@ -417,33 +380,8 @@ def build_flat_with_hubs(model, aspect_map):
             if chosen_ending == "E3":
                 return "Your choice risks escalation of the situation."
         if not is_leaf:
-            return "Reflect on the implications of this decision before you proceed."
-        return "This choice moves the scenario forward."
-
-    def build_desc_and_expl(origin_node, is_leaf: bool, chosen_ending: Optional[str]):
-        """
-        Build a richer data_description and a clear data_explanation.
-
-        - data_description: combine 'text' + 'narrative' (so it reads like 1–2 sentences).
-        - data_explanation: use explicit data_explanation if present, else a generic reflection.
-        """
-        txt = get_text(origin_node)
-        narr = get_narr(origin_node)
-        expl_field = get_expl_field(origin_node)
-
-        # Make description longer by merging text + narrative
-        desc = merge_fields(txt, narr).strip()
-
-        if not desc:
-            desc = "Choose your next step." if not is_leaf else "Continue."
-
-        # Explanation: prefer data_explanation; otherwise fall back to generic
-        if expl_field:
-            expl = expl_field
-        else:
-            expl = fallback_explanation(is_leaf, chosen_ending)
-
-        return desc, expl
+            return "Choose how you want to proceed."
+        return "Continue."
 
     result: Dict[str, Any] = {}
 
@@ -456,14 +394,15 @@ def build_flat_with_hubs(model, aspect_map):
         kids = children.get(hub_origin_id, [])[:3]
         hub_option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(kids))]
 
-        desc, expl = build_desc_and_expl(origin_node, is_leaf=False, chosen_ending=None)
+        merged_text = merge_fields(get_text(origin_node), get_narr(origin_node)).strip()
+        if not merged_text:
+            merged_text = "Choose your next step."
 
         result[hub_id] = {
             "id": hub_id,
             "type": "scenario" if hub_id == ROOT_HUB_ID else "option",
             "position": "",
-            "data_description": desc,
-            "data_explanation": expl,
+            "data_description": merged_text,
             "options": hub_option_ids,
             "psych_dimensions": clean_psych(aspect_map.get(hub_origin_id, "")),
         }
@@ -481,18 +420,18 @@ def build_flat_with_hubs(model, aspect_map):
             # Leaf -> ending OR branch -> next hub
             if not non_ending_grandkids:
                 chosen_ending = pick_ending_id()
-                desc_child, expl_child = build_desc_and_expl(
-                    child_node,
-                    is_leaf=True,
-                    chosen_ending=chosen_ending
-                )
+                child_merged = merge_fields(get_text(child_node), get_narr(child_node)).strip()
+                if not child_merged:
+                    child_merged = fallback_description(
+                        is_leaf=True,
+                        chosen_ending=chosen_ending
+                    )
 
                 result[this_opt_id] = {
                     "id": this_opt_id,
                     "type": "option",
                     "position": "",
-                    "data_description": desc_child,
-                    "data_explanation": expl_child,
+                    "data_description": child_merged,
                     "options": [chosen_ending],
                     "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
                 }
@@ -504,18 +443,18 @@ def build_flat_with_hubs(model, aspect_map):
                     for j in range(min(3, len(non_ending_grandkids)))
                 ]
 
-                desc_child, expl_child = build_desc_and_expl(
-                    child_node,
-                    is_leaf=False,
-                    chosen_ending=None
-                )
+                child_merged = merge_fields(get_text(child_node), get_narr(child_node)).strip()
+                if not child_merged:
+                    child_merged = fallback_description(
+                        is_leaf=False,
+                        chosen_ending=None
+                    )
 
                 result[this_opt_id] = {
                     "id": this_opt_id,
                     "type": "option",
                     "position": "",
-                    "data_description": desc_child,
-                    "data_explanation": expl_child,
+                    "data_description": child_merged,
                     "options": next_opt_ids,
                     "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
                 }
@@ -532,7 +471,7 @@ def build_flat_with_hubs(model, aspect_map):
         ),
         "E2": (
             "⚖️ Partial Recovery",
-            "Some improvement is achieved, but challenges or reputational impacts remain."
+            "Some improvement achieved, but challenges or reputational impacts remain."
         ),
         "E3": (
             "⚠️ Escalation",
@@ -541,24 +480,22 @@ def build_flat_with_hubs(model, aspect_map):
     }
 
     for e in ["E1", "E2", "E3"]:
-        title, expl = ending_map[e]
+        title, desc = ending_map[e]
         result[e] = {
             "id": e,
             "type": "ending",
             "position": "",
-            "data_description": title,
-            "data_explanation": expl,
+            "data_description": f"{title}\n\n{desc}",
             "options": [],
             "psych_dimensions": clean_psych(aspect_map.get(e, "")),
         }
 
-    # Sort keys so output is stable and easier to read
-    ordered = {k: result[k] for k in sorted(result.keys(), key=str)}
-    return ordered
+    return result
 
 # =========================
 # IMAGE GENERATION CORE
 # =========================
+
 def _fallback_png_real_bytes() -> bytes:
     """
     Make a valid transparent 1x1 PNG so we always return *some* image.
@@ -568,9 +505,24 @@ def _fallback_png_real_bytes() -> bytes:
     img.save(buff, format="PNG")
     return buff.getvalue()
 
+def _looks_like_base64(b: bytes) -> bool:
+    """
+    Heuristic: if it's all base64-ish chars, assume it's base64 text.
+    Otherwise assume it's already raw bytes.
+    """
+    try:
+        txt = b.decode("ascii")
+    except UnicodeDecodeError:
+        return False
+    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=\r\n"
+    return all((ch in allowed) for ch in txt.strip())
+
 def _extract_first_image_bytes_from_gemini_response(response) -> Optional[bytes]:
     """
     Extract the first inline image payload from Gemini response.
+    Handles both:
+    - already-raw PNG/JPEG bytes
+    - base64 text blob that needs decoding
     """
     if not hasattr(response, "candidates") or not response.candidates:
         return None
@@ -582,20 +534,36 @@ def _extract_first_image_bytes_from_gemini_response(response) -> Optional[bytes]
     for p in cand.content.parts:
         if hasattr(p, "inline_data") and p.inline_data:
             blob = p.inline_data.data
+            # blob can be str or bytes
             if isinstance(blob, str):
+                # str => assume it's base64 text
                 try:
                     return base64.b64decode(blob)
                 except Exception:
                     return None
             elif isinstance(blob, bytes):
-                return blob
+                if _looks_like_base64(blob):
+                    try:
+                        return base64.b64decode(blob)
+                    except Exception:
+                        return None
+                else:
+                    # already looks like real binary
+                    return blob
     return None
 
 def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
     """
-    Generate a PNG with Gemini for `prompt` and save to file_path.
+    1. Ask Gemini to generate an image for `prompt`.
+    2. Pull inline image data.
+    3. Normalize to PNG.
+    4. Save to file_path.
+    Returns:
+      True  = model gave a real image
+      False = we fell back to 1x1 transparent PNG
     """
     if not GEMINI_API_KEY:
+        # no key -> fallback
         png_bytes = _fallback_png_real_bytes()
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "wb") as f:
@@ -609,6 +577,7 @@ def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
 
         raw_bytes = _extract_first_image_bytes_from_gemini_response(response)
         if raw_bytes is None:
+            # no valid image from model -> fallback
             png_bytes = _fallback_png_real_bytes()
             file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "wb") as f:
@@ -616,6 +585,7 @@ def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
             print(f"[image-gen] Saved fallback (no inline image) {file_path}")
             return False
 
+        # attempt to open + re-save as PNG to normalize
         img = Image.open(BytesIO(raw_bytes))
         img.load()
         buff = BytesIO()
@@ -630,6 +600,7 @@ def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
         return True
 
     except Exception as e:
+        # on any decode failure -> fallback
         print(f"[image-gen] Error generating image: {e}")
         png_bytes = _fallback_png_real_bytes()
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -653,10 +624,10 @@ def health():
 @app.post("/generate")
 def generate():
     """
+    Build the branching scenario JSON and return it (or let you download it).
     Body:
     {
-      "story": "...",         // required
-      "tier_level": 4,        // optional: 1,2,3,4 (default 4)
+      "story": "...",        // required
       "download": false,
       "filename": "flow.json",
       "psych_seed": 42
@@ -668,8 +639,6 @@ def generate():
         return jsonify({"error": "Provide a 'story' >=10 chars"}), 400
 
     seed = body.get("psych_seed", PSYCH_SEED)
-    tier_level = body.get("tier_level", 4)
-
     download_flag = (
         bool(body.get("download")) or
         str(request.args.get("download", "")).lower() in {"1","true"}
@@ -677,26 +646,23 @@ def generate():
     filename = body.get("filename") or f"flow_{int(time.time())}.json"
 
     try:
-        # 1. build raw skeleton with chosen depth
-        model = build_full_skeleton(story, tier_level=tier_level)
+        # 1. build raw skeleton
+        model = build_full_skeleton(story)
 
         # 2. assign psych aspects
         aspect_map = assign_aspects_unique_per_sibling(model, PSYCH_ASPECTS, seed)
 
-        # 3. generate text/narrative for non-ending nodes except the root 'scenario'
-        non_ending_ids = [
-            n["id"] for n in model["nodes"]
-            if n.get("type") != "ending" and n["id"] != "scenario"
-        ]
+        # 3. generate text/narrative for non-ending nodes
+        non_ending_ids = [n["id"] for n in model["nodes"] if n.get("type") != "ending"]
         node_content_map = fill_content_for_nodes(story, non_ending_ids, aspect_map)
 
         # 4. merge AI output into nodes
         model = apply_content(model, node_content_map)
 
-        # 5. flatten to frontend format
+        # 5. flatten to front-end hub map
         flat = build_flat_with_hubs(model, aspect_map)
 
-        # 6. handle download vs JSON
+        # 6. handle download
         if download_flag:
             payload = json.dumps(flat, indent=2, ensure_ascii=False)
             resp = make_response(payload)
@@ -718,7 +684,35 @@ def generate_images_route():
     {
       "tmp": true,
       "nodes": [
-        { "id": "101", "data_description": "..." },
+        {
+          "id": "101",
+          "data_description": "Investigate the claims thoroughly. What evidence will you gather to support your findings?"
+        },
+        {
+          "id": "101A",
+          "data_description": "Hold a meeting with club members. How will you ensure everyone feels heard and valued?"
+        }
+      ]
+    }
+
+    Behavior:
+    - For each node:
+        1. prompt Gemini using ONLY data_description
+        2. write PNG to tmp/<id>.png
+        3. read file and base64-encode it
+    - If tmp == false:
+        delete the file after encoding
+    - If tmp == true:
+        leave the file on disk (for inspection)
+
+    Response:
+    {
+      "images": [
+        {
+          "id": "101",
+          "data_description": "...",
+          "image_b64": "...."
+        },
         ...
       ]
     }
@@ -740,12 +734,15 @@ def generate_images_route():
 
         print(f"[image-gen] generating for {nid}")
 
+        # 1. generate PNG file in tmp/<nid>.png
         TMP_DIR.mkdir(parents=True, exist_ok=True)
         out_path = TMP_DIR / f"{nid}.png"
-        _generate_single_image_file(desc, out_path)
+        _generate_single_image_file(desc, out_path)  # we don't actually need the True/False here for API
 
+        # 2. read file as base64
         img_b64 = _file_to_b64(out_path)
 
+        # 3. delete file if user doesn't want to keep it
         if not keep_tmp_files:
             try:
                 out_path.unlink()
@@ -753,6 +750,7 @@ def generate_images_route():
             except Exception as e:
                 print(f"[image-gen] WARN could not delete {out_path}: {e}")
 
+        # 4. add to response
         results.append({
             "id": nid,
             "data_description": desc,
@@ -777,61 +775,6 @@ def clear_tmp():
         return jsonify({"deleted": count})
     return jsonify({"deleted": 0})
 
-@app.post("/suggestions")
-def suggestions():
-    """
-    Generate 3 short AI branching ideas for scenario design.
-    Body:
-    {
-      "context": "Current scenario title or description"
-    }
-    """
-    body = request.get_json(silent=True) or {}
-    context = (body.get("context") or "").strip()
-
-    if not OPENAI_API_KEY:
-        return jsonify({"error": "OpenAI API key missing"}), 500
-    if not context:
-        return jsonify({"error": "Please provide 'context'"}), 400
-
-    client = OpenAI(api_key=OPENAI_API_KEY)
-
-    prompt = f"""
-    You are a scenario design assistant. Suggest 3 concise, realistic
-    branching decision points for a training simulation based on this context:
-
-    "{context}"
-
-    Return JSON only in this format:
-    [
-      {{ "nodeType": "option", "label": "..." }},
-      {{ "nodeType": "option", "label": "..." }},
-      {{ "nodeType": "option", "label": "..." }}
-    ]
-    """
-
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": "You are a helpful scenario AI assistant."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.8,
-    )
-
-    raw = response.choices[0].message.content or ""
-    json_text = _extract_json_block(raw)
-    try:
-        suggestions = json.loads(json_text)
-    except Exception:
-        suggestions = []
-
-    return jsonify({"suggestions": suggestions})
-
 if __name__ == "__main__":
     # You can switch to "0.0.0.0" if you want LAN access
-    print("🚀 Backend server starting...")
-    from datetime import datetime
-    print(f"✅ Flask backend running properly at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("🌐 Visit: http://127.0.0.1:5000/")
     app.run(host="127.0.0.1", port=5000, debug=True)
