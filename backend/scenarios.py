@@ -166,7 +166,7 @@ def save_flow():
 # =========================================================
 @scenarios_bp.route("/updateImage", methods=["POST"])
 def update_image():
-    from app import TMP_DIR, _generate_single_image_file, _file_to_b64
+    from backend.app import TMP_DIR, _generate_single_image_file, _file_to_b64
 
     try:
         data = request.get_json(silent=True) or {}
