@@ -6,7 +6,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-y:scroll;
+  overflow-y: auto;
+  overflow-y: scroll;
 }
 
 code {
@@ -28,7 +29,9 @@ code {
   width: 250px;
   display: flex;
   flex-direction: column;
+  top: 500px;
 }
+
 
 .nav-handle {
   font-size: 12px;
@@ -60,7 +63,3 @@ code {
   background-color: #e9e9e9;
 }
 
-/* Add a margin to the main content to prevent overlap */
-.main-content-wrapper {
-  padding-top: 10px; /* Adjust as needed */
-}

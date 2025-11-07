@@ -1,28 +1,63 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import { FaHome, FaFolder, FaUsers, FaLaptop, FaCog, FaSignOutAlt, FaChalkboardTeacher } from 'react-icons/fa';
 import '../styles/Sidebar.css';
+import { useNavigate } from 'react-router-dom';
 
+const SharedSidebar = () => {
+  const location = useLocation();
+   const navigate = useNavigate(); 
 
-const SharedSidebar = () => (
-  <aside className="sidebar">
-    <div className="logo-container">
-      <div className="w-12 h-12">
-        <img src={logo} alt="Strategic Thinking Logo" className="logo-icon" />
+  const navItems = [
+    { name: 'Dashboard', path: '/admin', icon: <FaHome /> },
+    { name: 'Case Studies', path: '/case-studies', icon: <FaFolder /> },
+    { name: 'Trainer Team', path: '/trainer-team', icon: <FaUsers /> },
+    { name: 'Trainee Records', path: '/trainee-records', icon: <FaChalkboardTeacher /> },
+    { name: 'Tutorial', path: '/tutorial', icon: <FaLaptop /> },
+    { name: 'Settings', path: '/settings', icon: <FaCog /> }
+  ];
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-top">
+      <div className="logo-container">
+        <div className="w-12 h-12">
+          <img src={logo} alt="Deciwise Logo" className="logo-icon" />
+        </div>
+  
       </div>
-      <span className="logo-text">strategic thinking</span>
-    </div>
-    <nav className="nav-menu">
-      {['Home', 'Case Studies', 'My Records', 'Tutorial', 'Settings', 'Logout'].map((item) => (
-        <a key={item} href="#" className="nav-item">
-          <svg xmlns="http://www.w3.org/2000/svg" className="nav-item-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-          <span className="font-semibold">{item}</span>
-        </a>
-      ))}
-    </nav>
-  </aside>
-);
+      <nav className="nav-menu">
+        {navItems.map((item) => (
+          <Link
+            key={item.name}
+            to={item.path}
+            className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+          >
+            <div className="nav-item-icon">{item.icon}</div>
+            <span className="font-semibold">{item.name}</span>
+          </Link>
+        ))}
+      </nav>
+      <div className="profile-section">
+        <div className="profile-info">
+          <span className="profile-name">Andy</span>
+          <span className="profile-role">Administrator</span>
+        </div>
+        <button
+          className="logout-button"
+          onClick={() => {
+            // Optional: clear any auth/session storage here
+            // localStorage.removeItem('authToken'); // if you store a token
+            navigate('/'); // redirect to login page
+          }}
+        >
+          <FaSignOutAlt />
+        </button>
+      </div>
+      </div> 
+    </aside>
+  );
+};
 
 export default SharedSidebar;

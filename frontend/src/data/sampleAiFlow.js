@@ -30,8 +30,50 @@ export const sampleNodes = {
     data: 'A viral post is spreading about your organization. What do you do first?',
     scene: 'The president ow ow',
     options: ['101_A', '101_B'],
-    b64image: 'imagesample'
+    b64image: 'imagesample' 
+  }, 
+
+  '201': {
+    id: '201',
+    type: 'scenario',
+    position: { x: 300, y: 50 },
+    data: 'Some people in school approached you to ask you questions. What would you do?',
+    scene: 'whatever 1',
+    options: ['201_A', '201_B'],
+    b64image: 'imagesample' 
+  }, 
+
+  '301': {
+    id: '301',
+    type: 'ending',
+    position: { x: 300, y: 50 },
+    data: '301 happened 301 this',
+    scene: 'whatever 3',
+    options: ['301_A', '301_B'],
+    b64image: 'imagesample3' 
+  }, 
+
+  '302': {
+    id: '302',
+    type: 'scenario',
+    position: { x: 300, y: 50 },
+    data: '302 happened 302 this',
+    scene: 'whatever 3',
+    options: ['302_A', '302_B'],
+    b64image: 'imagesample3'
   },
+
+  '401': {
+    id: '401', 
+    type:'ending',
+    position: { x: 300, y: 50 },
+    data: 'As time passes, more people grew aware of the dire situation.', 
+    scene: 'whatever 4',
+    options: [],
+    b64image: 'imagesample4'
+  },
+
+  //OPTIONS
   '101_A': {
     id: '101_A',
     type: 'option',

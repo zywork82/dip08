@@ -8,7 +8,6 @@ const AuthLayout = ({ children }) => {
         {children}
       </div>
       <div className="auth-illustration">
-        {/* Use the imported image as the src */}
         <img src={authIllustration} alt="Strategic Thinking Illustration" />
       </div>
     </div>

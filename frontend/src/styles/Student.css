@@ -3,7 +3,7 @@
   background-color: #f9fafb;
   min-height: 100vh;
   padding: 2rem;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: #1f2937;
   gap: 2rem;
 }
@@ -25,14 +25,51 @@
   width: 20rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  padding-left: 25px;
 }
 
 
 
+/* --- Tutorial Section --- */
+.tutorial-section {
+  background-color: #e5e7eb;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+  background-image: url('https://placehold.co/800x200/B5B5E1/4C4C7D?text=Begin+Your+Tutorial');
+}
+
+.tutorial-heading {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.tutorial-text {
+  color: #4b5563;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.tutorial-link {
+  position: absolute;
+  right: 2rem;
+  bottom: 2rem;
+  color: #6b46c1;
+  font-weight: bold;
+  text-decoration: none;
+}
 
 /* --- Case Studies Section --- */
 .case-studies-section {
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
 }
@@ -48,20 +85,6 @@
   font-size: 1.5rem;
   font-weight: bold;
   color: #1f2937;
-}
-
-.create-scenario-btn {
-  padding: 0.5rem 1rem;
-  background-color: #6b46c1;
-  color: #fff;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  transition-property: background-color;
-  transition-duration: 0.15s;
-}
-
-.create-scenario-btn:hover {
-  background-color: #553c9a;
 }
 
 .tabs {
@@ -169,38 +192,26 @@
   background-color: #10b981;
   color: #fff;
 }
-
-/* --- Tips Section --- */
-.tips-heading {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #1f2937;
-}
-
-.tips-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
 .tip-card {
   background-color: #fff;
   border-radius: 0.75rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+              0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   padding: 1rem;
   display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+  flex-direction: column; /* stack vertically */
+  align-items: center; /* center image and text */
+  gap: 0.75rem;
   border: 1px solid #e5e7eb;
 }
 
+/* make image bigger */
 .tip-image-container {
-  width: 4rem;
-  height: 4rem;
-  border-radius: 0.5rem;
+  width: 100%; /* full width of card */
+  height: 8rem; /* bigger height */
+  border-radius: 0.75rem;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 .tip-image-container img {
@@ -209,24 +220,29 @@
   object-fit: cover;
 }
 
+/* center text */
 .tip-info {
-  flex: 1;
+  text-align: center;
 }
 
 .tip-title {
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #1f2937;
 }
 
 .tip-link {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: #6b46c1;
   text-decoration: none;
   margin-top: 0.25rem;
-  display: block;
+  display: inline-block;
+  text-align: right;
+  padding-bottom: 5px;
 }
 
-.tip-link:hover {
-  text-decoration: underline;
+.tips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem; /* increased spacing between boxes */
 }

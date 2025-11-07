@@ -35,6 +35,26 @@ ChartJS.register(
   Legend
 );
 
+const ReportInterface = async ({ data, onRestart }) => {
+  //Data formatting remains the same
+  const labels = data.map((entry, index) => `Choice ${index + 1}`);
+  const times = data.map(entry => entry.timeTaken);
+
+  await fetch("http://localhost:8000/api/analytics/playthrough", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    username: "user123",
+    scenario_id: "scenario1",
+    choices: data.map(d => ({
+      node_id: d.nodeId,
+      selected_option: d.choice,
+      time_taken: d.timeTaken,
+    }))
+  }),
+});
+
+  //Chart data configuration remains largely the same
 // --- (Analysis Function 1: Time Analysis) ---
 const prepareLineChartData = (data) => {
   const labels = data.map((entry, index) => `Choice ${index + 1}`);

@@ -1,0 +1,288 @@
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+  
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f3f4f6;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+  }
+  
+  .flow-chart-editor-container {
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
+    width: 100%;
+  }
+
+.editor-container {
+  display: flex;
+  flex-direction: column; /* header on top */
+  height: 100%;
+  width: 100%;
+}
+
+.header {
+  flex: 0 0 auto;
+}
+/* .shared-header {
+  position: fixed;
+  left: 12rem;
+  right:0;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background-color: #fff;
+  border-bottom: 1px solid #d3d0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 998;
+  box-sizing: border-box;
+} */
+
+
+.edit-container {
+  display: flex; /* sidebar + editor in a row */
+  flex: 1;       /* fill remaining space */
+  height: 100%;
+   min-height: 0;   
+}
+
+.tools-sidebar {
+  flex: 0 0 221px; /* fixed width sidebar */
+  display: flex;
+  flex-direction: column;
+  background-color: #f9fafb;
+}
+
+.main-editor-area {
+  flex: 1; /* take remaining width */
+  background-color: #f9fafb;
+  position: relative;
+  height: 100%; 
+   min-height: 0;   
+}
+
+  .flowchart-node {
+    position: absolute;
+    min-width: 150px;
+    min-height: 50px;
+    background-color: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    padding: 0.8rem;
+    text-align: center;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: box-shadow 0.2s;
+    white-space: normal;       /* allow wrapping */
+  word-wrap: break-word;     /* break long words */
+  overflow-wrap: break-word; /* modern standard */
+
+  }
+  
+  .flowchart-node:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .flowchart-node.scenario{
+    background-color: #d1fae5;
+    border-color: #10b981;
+  }
+  
+  .flowchart-node.options {
+    background-color: #e0e7ff;
+    border-color: #6366f1;
+  }
+  .flowchart-node.ending {
+    background-color: #fee2e2;
+  border: 2px solid #ef4444;
+  }
+  .flowchart-node.endScenario {
+    background-color: #fee2e2;
+  border: 2px solid #ef4444;
+  }
+
+  .node {
+  padding: 10px;
+  border-radius: 5px;
+  min-width: 200px;
+  position: relative;
+  word-wrap: break-word;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+
+ 
+  .node-item:hover {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+  }
+.node-scenario {
+  background-color: #d1fae5;
+  border: 2px solid #10b981;
+}
+
+.node-option {
+  background-color: #e0e7ff;
+  border: 2px solid #6366f1;
+}
+
+
+
+.node-ending {
+  background-color: #fee2e2;
+  border: 2px solid #ef4444;
+}
+
+.node-delete-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgb(252, 25, 25);
+  color: white;
+  border: none;
+  border-radius: 100%;
+  width: 2px;
+  height: 2px;
+  cursor: pointer;
+  padding: 7px;
+}
+
+  
+  .node-connector {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background-color: #4b5563;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid #fff;
+    transition: transform 0.2s ease;
+  }
+  
+  .node-connector:hover {
+    transform: scale(1.5);
+    background-color: #1f2937;
+  }
+  
+  .node-connector.in {
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .node-connector.out {
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .connection-line {
+    stroke: #4b5563;
+    stroke-width: 2;
+    fill: none;
+  }
+
+.button-container{
+  position: absolute;
+  right: 1%;
+ top: 70px; 
+  display: flex; 
+  gap: 10px;
+}
+.action-buttons{
+  height: 40px;
+  width: 80px;
+  padding: 10px;
+  background-color: #1b007e;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px;
+}
+.action-buttons.loading {
+  position: relative;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.action-buttons.loading::after {
+  content: "";
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 2px solid white;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  animation: spin 0.8s linear infinite;
+}
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 9000;
+}
+
+.loading-box {
+  background: #fff;
+  padding: 24px 32px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 4px solid #ddd;
+  border-top: 4px solid #000;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  animation: spin 1s linear infinite;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #eee;
+  border-radius: 4px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.progress {
+  height: 100%;
+  background: #000;
+  transition: width 10s ease;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-msg{
+  color: red;
+  margin-bottom: 10px;
+}

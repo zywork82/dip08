@@ -1,67 +1,120 @@
-// src/ScenarioInterface.jsx
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import "../styles/Global.css";
+import "../styles/ScenarioInterface.css";
+import OptionNode from "../components/OptionNode.jsx";
 
-import React, { useState, useEffect } from 'react';
-import '../styles/Global.css'; // Make sure paths are correct
-import '../styles/ScenarioInterface.css';
-import OptionNode from '../components/OptionNode.jsx';
-import { sampleNodes} from '../data/sampleAiFlow.js'; // We need this for the lookups
+const ScenarioInterface = ({ onOptionSelect, isFinished, onGoToReport }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
 
+  // Get flow data
+  const flowDataFromState = location.state?.flowData;
+  const flowDataFromStorage = JSON.parse(localStorage.getItem("latestFlow") || "null");
+  const flowData = flowDataFromState || flowDataFromStorage;
 
-const ScenarioInterface = ({ scenario, onOptionSelect, isFinished, onGoToReport }) => {
-  // 2. Your existing timer logic is correct
+  // Determine start node
+  const startNodeId = flowData?.startNodeId || flowData?.nodes?.[0]?.id || null;
+  const [currentNodeId, setCurrentNodeId] = useState(startNodeId);
   const [startTime, setStartTime] = useState(Date.now());
 
   useEffect(() => {
     setStartTime(Date.now());
-  }, [scenario.id]);
+  }, [currentNodeId]);
 
-  if (!scenario) {
-    return <div>Loading scenario...</div>;
+  if (!flowData || !flowData.nodes || flowData.nodes.length === 0) {
+    return (
+      <div>
+        ⚠️ No scenario data found. Go back to{" "}
+        <button onClick={() => navigate("/scene-editor")}>Editor</button>
+      </div>
+    );
   }
 
+  const currentNode = flowData.nodes.find((n) => n.id === currentNodeId);
+  if (!currentNode) return <div>⚠️ Node not found!</div>;
+
+  // Access node fields safely
+  const { data_description, options = [], next, imageUrl, scene } = currentNode.data;
+
+  const handleOptionClick = (optionId) => {
+    const nextNode = flowData.nodes.find((n) => n.id === optionId);
+    if (!nextNode) return console.warn(`⚠️ Could not find node with ID '${optionId}'`);
+
+    const timeTaken = (Date.now() - startTime) / 1000;
+    if (onOptionSelect) onOptionSelect(nextNode, timeTaken);
+
+    setCurrentNodeId(optionId);
+  };
+
+  const handleNext = () => {
+    if (next) setCurrentNodeId(next);
+  };
+
+  const handleRestart = () => setCurrentNodeId(startNodeId);
+
   return (
-    <div className="scenario-container">
-      {/* This is your existing JSX structure */}
-      <div className="main-section">
-        {/* You can add images or other content here later */}
-      </div>
+    <div className="playthrough-container">
+      <div className="node-visual-container">
+        {imageUrl && (
+          <img className="node-visual" src={imageUrl} alt="Node Visual" />
+        )}
 
-      <section className="promptBox">
-        {/* Made this more robust to handle different data shapes */}
-        <p>{scenario.data.label || scenario.data}</p>
+        {scene && <p>{scene}</p>}
 
-        <div className="optionsWrapper">
-          {/* --- 3. UPDATED LOGIC --- */}
-          {/* If the playthrough is finished, show the report button */}
-          {isFinished ? (
-            <div className="report-navigation">
-              <p>You have reached the end of the playthrough.</p>
-              <button onClick={onGoToReport} className="restart-button">
-                View Your Report
+        {/* --- END OF SCENARIO --- */}
+        {options.length === 0 && !next ? (
+          <div className="promptBox">
+            <div className="end-scenario-container">
+              <span className="end-scenario-heading">✅ End of scenario</span>
+              <button className="end-scenario-buttons" onClick={handleRestart}>
+                Restart
+              </button>
+              <button
+                className="end-scenario-buttons"
+                onClick={() => navigate("/scene-editor")}
+              >
+                Back to Editor
               </button>
             </div>
-          ) : (
-            /* Otherwise, show the available options using your existing map logic */
-            scenario.options.map(optionId => {
-              const optionData = sampleNodes[optionId];
-              if (!optionData) return null;
+          </div>
+        ) : (
+          /* --- NORMAL SCENARIO BLOCK --- */
+          <section className="promptBox">
+            <p>{data_description}</p>
 
-              const handleSelect = () => {
-                const timeTaken = (Date.now() - startTime) / 1000;
-                onOptionSelect(optionData, timeTaken);
-              };
+            <div className="optionsWrapper">
+              {isFinished ? (
+                <div className="report-navigation">
+                  <p>You have reached the end of the playthrough.</p>
+                  <button onClick={onGoToReport} className="restart-button">
+                    View Your Report
+                  </button>
+                </div>
+              ) : (
+                options.map((optionId) => {
+                  const optionNode = flowData.nodes.find((n) => n.id === optionId);
+                  if (!optionNode) return null;
 
-              return (
-                <OptionNode
-                  key={optionData.id}
-                  option={optionData.data}
-                  onClick={handleSelect}
-                />
-              );
-            })
-          )}
-        </div>
-      </section>
+                  return (
+                    <OptionNode
+                      key={optionNode.id}
+                      option={optionNode.data.data_description} // <-- only string
+                      onClick={() => handleOptionClick(optionNode.id)}
+                    />
+                  );
+                })
+              )}
+            </div>
+
+            {next && options.length === 0 && (
+              <button onClick={handleNext} className="next-button">
+                Next
+              </button>
+            )}
+          </section>
+        )}
+      </div>
     </div>
   );
 };

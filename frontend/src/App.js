@@ -1,22 +1,26 @@
-import React, { useState, useRef } from 'react';
-import { HashRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
-
-// --- Components ---
-
-// --- Other page components (assuming paths) ---
-import LoginPage from './pages/LoginPage';
-import ScenarioFlowEditor from './pages/ScenarioFlowEditor';
-import ScenarioPrompt from './pages/ScenarioPrompt';
-import AdminDashboard from './pages/AdminDashboard';
-import StudentPage from './pages/StudentPage';
-import SignupPage from './pages/SignupPage';
-
-import ScenarioInterface from './pages/ScenarioInterface.jsx';
+// App.jsx
+import React, { useState, useRef, useEffect } from "react";
+import { HashRouter, Routes, Route, Link, useNavigate } from "react-router-dom";
+import LoginPage from "./pages/LoginPage";
+import FlowChartEditor from "./pages/FlowChartEditor";
+import SceneEditor from "./pages/SceneEditor.jsx";
+import ScenarioPrompt from "./pages/ScenarioPrompt";
+import StudentPage from "./pages/StudentPage";
+import AdminDashboard from "./pages/AdminDashboard";
+import CaseStudiesPage from "./pages/CaseStudiesPage";
+import TraineeRecords from "./pages/TraineeRecordsPage";
+import Settings from "./pages/SettingsPage";
+import SignupPage from "./pages/SignupPage";
+import "./App.css";
+import ScenarioInterface from "./pages/ScenarioInterface";
 import ReportInterface from './pages/ReportInterface.jsx';
-
-// --- Data ---
-// Renamed 'sampleNodes' to 'nodes' for clarity and to match your data file
-import { sampleNodes as nodes } from './data/sampleAiFlow';
+import {sampleNodes} from '../src/data/sampleAiFlow.js';
+import TrainerTeam from "./pages/TrainerTeam.jsx";
+import StudentCaseStudies from "./pages/StudentCaseStudies.jsx";
+import StudentRecords from "./pages/StudentRecords.jsx";
+import StudentSettings from "./pages/StudentSetting.jsx";
+import SimulationInterface from "./pages/SimulationInterface";
+import { Navigate } from "react-router-dom";
 
 // This component holds the main app logic to work with the router
 const AppContent = () => {
@@ -46,6 +50,7 @@ const AppContent = () => {
   // Check if the current scenario is the end of the playthrough
   const isFinished = !currentScenario.options || currentScenario.options.length === 0;
 
+  
   // --- Handler Functions ---
   const handleOptionSelect = (selectedOption, timeTaken) => {
     
@@ -70,7 +75,19 @@ const AppContent = () => {
     }
     // If it's finished, we just stay on the current ID, and 'isFinished' will become true
   };
-  
+const suppressResizeObserverError = (error) => {
+  // Check if the error message contains the specific text
+  if (error.message && error.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+    // Return immediately, preventing the error from being logged
+    return;
+  }
+  // For all other errors, log them as normal
+  console.error(error);
+};
+
+// Apply the suppression function globally in the browser's window context
+// This will only work in development (non-production) environments.
+window.addEventListener('error', suppressResizeObserverError);
   const handleRestart = () => {
     setAnalyticsData([]);
     setCurrentScenarioId(startScenario.id || '101');
@@ -81,18 +98,29 @@ const AppContent = () => {
   const goToReport = () => {
     navigate('/report');
   };
+  
 
   return (
     <Routes>
       {/* Your other routes */}
       <Route path="/" element={<LoginPage />} />
-      <Route path="/editor" element={<ScenarioFlowEditor />} />
+      <Route path="/case-studies" element={<CaseStudiesPage />} />
+      <Route path="/trainer-team" element={<TrainerTeam />} />
+      <Route path="/trainee-records" element={<TraineeRecords />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="/editor" element={<FlowChartEditor />} />
       <Route path="/scenario" element={<ScenarioPrompt />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/student" element={<StudentPage />} />
       <Route path="/signup" element={<SignupPage />} />
-
-      {/* This route now handles the entire playthrough */}
+      <Route path="/scene-editor" element={<SceneEditor />} />
+      <Route path="/report" element={<ReportInterface />} />
+      <Route path="/flowchart" element={<Navigate to="/editor" replace />} />
+      <Route path="/student-case-studies" element={<StudentCaseStudies />} />
+      <Route path="/my-records" element={<StudentRecords />} />
+      <Route path="/student-settings" element={<StudentSettings />} />
+      <Route path="/simulation" element={<SimulationInterface />} />  
+      {/* --- Updated Scenario and Report Routes --- */}
       <Route 
         path="/scenarioInterface" 
         element={
@@ -135,10 +163,22 @@ function App() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
+  }, [isDragging, offset]);
+ useEffect(() => {
+  fetch("http://127.0.0.1:5000/health")
+    .then((res) => {
+      if (res.ok) console.log("✅ Backend connected successfully!");
+      else console.warn("⚠️ Backend responded, but not OK:", res.status);
+    })
+    .catch(() => console.error("❌ Backend not reachable."));
+}, []);
+
+
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
+  
 
   return (
     <HashRouter>
@@ -148,9 +188,11 @@ function App() {
             <li><Link to="/">Login</Link></li>
             <li><Link to="/editor">Editor</Link></li>
             <li><Link to="/scenario">Scenario</Link></li>
+            <li><Link to="/scene-editor">SceneEditor</Link></li>
             <li><Link to="/admin">Admin Dashboard</Link></li>
             <li><Link to="/student">Student Page</Link></li>
             <li><Link to="/scenarioInterface">Scenario Interface</Link></li>
+            <li><Link to="/simulation">Simulation</Link></li>
             <li><Link to="/signup">Signup</Link></li>
         </ul>
       </nav>
