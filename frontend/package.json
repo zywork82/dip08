@@ -12,6 +12,7 @@
     "axios": "^1.12.2",
     "chart.js": "^4.5.0",
     "dagre": "^0.8.5",
+    "framer-motion": "^12.23.24",
     "jspdf": "^3.0.2",
     "jspdf-autotable": "^5.0.2",
     "react": "^19.1.1",
@@ -52,10 +53,6 @@
     ]
   },
   "devDependencies": {
-    "@babel/core": "^7.28.5",
-    "@babel/preset-env": "^7.28.5",
-    "@babel/preset-react": "^7.28.5",
-    "babel-loader": "^10.0.0",
     "electron": "^37.3.1"
   }
 }

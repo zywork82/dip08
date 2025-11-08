@@ -108,6 +108,34 @@ const standardizeNodeData = (node, handleReprompt) => ({
   },
 });
 
+  // ===============================
+// 🧠 Helper: Auto-generate edges from nodes
+// ===============================
+const generateEdgesFromNodes = (nodes) => {
+  const edges = [];
+  nodes.forEach((node) => {
+    if (node.data?.options?.length > 0) {
+      node.data.options.forEach((opt, index) => {
+        if (opt?.next) {
+          edges.push({
+            id: `e-${node.id}-${opt.next}-${index}`,
+            source: node.id,
+            target: opt.next,
+            type: "smoothstep",
+          });
+        }
+      });
+    } else if (node.data?.next) {
+      edges.push({
+        id: `e-${node.id}-${node.data.next}`,
+        source: node.id,
+        target: node.data.next,
+        type: "smoothstep",
+      });
+    }
+  });
+  return edges;
+};
 
   const getLayoutedNodes = (nodes, edges) => {
     dagreGraph.setGraph({ rankdir: "TB", ranksep: 250, nodesep: 300 });
