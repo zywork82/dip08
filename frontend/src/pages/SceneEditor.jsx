@@ -325,80 +325,73 @@ const handleAutoLayout = () => {
  // ===============================
 // ✅ Regenerate images for a node (with fail tracking)
 // ===============================
-// ===============================
-// ✅ Regenerate & Sync images for a node (with backend update)
-// ===============================
 const handleReprompt = async (nodeId, prompt, count = 1) => {
   const node = nodes.find((n) => n.id === nodeId);
   if (node?.data.loadingImages) {
     console.log(`⚠️ Skipping duplicate generation for node ${nodeId}`);
     return;
   }
+
+  // Set loading state
   setNodes((nds) =>
-  nds.map((n) =>
-    n.id === nodeId
-      ? { ...n, data: { ...n.data, loadingImages: true, failedImage: false } }
-      : n
-  )
-);
+    nds.map((n) =>
+      n.id === nodeId
+        ? { ...n, data: { ...n.data, loadingImages: true, failedImage: false } }
+        : n
+    )
+  );
 
   try {
-    // 🧠 Step 1: Ask backend to regenerate + update MongoDB
     const res = await fetch("http://127.0.0.1:5000/scenarios/updateImage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-  nodeId,
-  description: `Training Scenario Visualization:
+        nodeId,
+        description: `Training Scenario Visualization:
 "${prompt}"
 Create a realistic, cinematic-style image fitting a professional decision-making context. 
 Show human emotion subtly. Avoid text or labels.`,
-}),
+      }),
     });
 
-    if (!res.ok) throw new Error("Backend error during image regeneration");
     const data = await res.json();
 
-    if (data.success) {
-// ✅ Handle multiple image variations from backend
-const imageUrls = (data.images || []).map(
-  (b64) => `data:image/png;base64,${b64}`
-);
-
-// If no images returned (fallback to single one)
-if (imageUrls.length === 0 && data.image_b64) {
-  imageUrls.push(`data:image/png;base64,${data.image_b64}`);
-}
-
-if (imageUrls.length > 0) {
-  setNodes((nds) =>
-    nds.map((n) =>
-      n.id === nodeId
-        ? {
-            ...n,
-            data: {
-              ...n.data,
-              imageUrl: imageUrls[0], // default to the first variation
-              generatedImages: [
-                ...(n.data.generatedImages || []),
-                ...imageUrls,
-              ].slice(-5), // ✅ keep only the latest 5
-              loadingImages: false,
-              failedImage: false,
-            },
-          }
-        : n
-    )
-  );
-  console.log(`✅ Synced ${imageUrls.length} regenerated images for node ${nodeId}`);
-} else {
-  console.warn(`⚠️ No new images returned for node ${nodeId}`);
-}
-
-      console.log(`✅ Synced regenerated image for node ${nodeId}`);
-    } else {
-      throw new Error(data.error || "Failed to regenerate image");
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Backend error during image regeneration");
     }
+
+    // ✅ Convert backend base64 strings → proper URLs
+    const imageUrls = (data.images || [])
+      .map((b64) => (b64 ? `data:image/png;base64,${b64}` : null))
+      .filter(Boolean);
+
+    if (imageUrls.length === 0) {
+      console.warn(`⚠️ No images returned for node ${nodeId}`);
+      throw new Error("No images returned from backend");
+    }
+
+    // ✅ Update node data with new images
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === nodeId
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                imageUrl: imageUrls[0],
+                generatedImages: [
+                  ...(n.data.generatedImages || []),
+                  ...imageUrls,
+                ].slice(-5),
+                loadingImages: false,
+                failedImage: false,
+              },
+            }
+          : n
+      )
+    );
+
+    console.log(`✅ Updated ${imageUrls.length} regenerated images for node ${nodeId}`);
   } catch (err) {
     console.error("❌ handleReprompt error:", err);
     setNodes((nds) =>
@@ -417,6 +410,7 @@ if (imageUrls.length > 0) {
     );
   }
 };
+
 
 
   // Select preferred image
@@ -560,10 +554,25 @@ const handleSaveAndPlay = async () => {
   setEdges(updatedEdges);
 
   // Check missing descriptions
-  if (nodes.some((n) => !n.data?.data_description)) {
-    alert("Some nodes have no descriptions. Please fill them before saving!");
-    return;
-  }
+  const missing = nodes.filter((n) => !n.data?.data_description?.trim());
+if (missing.length > 0) {
+  console.warn("⚠️ Nodes missing descriptions:", missing.map((n) => n.id));
+  // (optional) Auto-fill placeholders
+  setNodes((nds) =>
+    nds.map((n) =>
+      !n.data?.data_description?.trim()
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              data_description: "(Auto-filled placeholder)",
+            },
+          }
+        : n
+    )
+  );
+}
+
 
   // ✅ Prepare clean, full node data
   const cleanNodes = nodes.map((n) => {

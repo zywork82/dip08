@@ -10,7 +10,13 @@ from openai import OpenAI
 import google.generativeai as genai
 from PIL import Image
 from scenarios import scenarios_bp as scenarios_router
+from signup import signup_router
 
+from login import login_bp
+
+from users import users_bp
+
+from admins import admin_bp
 # =========================
 # Load environment
 # =========================
@@ -59,10 +65,18 @@ PSYCH_SEED = os.getenv("PSYCH_SEED")
 # Flask app
 # =========================
 app = Flask(__name__)
-
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 app.register_blueprint(scenarios_router)
 
-CORS(app) 
+app.register_blueprint(signup_router)
+
+app.register_blueprint(login_bp)
+
+app.register_blueprint(users_bp)
+
+app.register_blueprint(admin_bp)
+
+
 
 # =========================
 # Small helpers
@@ -361,6 +375,13 @@ def apply_content(model, content_map):
 # Flatten for frontend
 # =========================
 def build_flat_with_hubs(model, aspect_map):
+    """
+    OLD-STYLE flatten:
+    - Hubs (101, 201, 202, 203, 301, ...) are ALWAYS type 'scenario'
+    - Each hub has 3 options (A/B/C) with ids like 101A/101B/101C
+    - Each option has: options=[], and a single 'next' that points to either
+      the next hub (201/202/203, ...) or an ending (E1/E2/E3).
+    """
     nodes = model["nodes"]
     edges = model["edges"]
     by_id, children, parents = _build_maps(nodes, edges)
@@ -379,177 +400,111 @@ def build_flat_with_hubs(model, aspect_map):
         return f"{hub_id}_{letter}" if USE_UNDERSCORE else f"{hub_id}{letter}"
 
     def hub_bucket(hub_id: str) -> int:
+        # 101 -> 1, 201 -> 2, ...
         return int(hub_id) // 100
 
     def next_hub_id(hub_id: str, idx: int) -> str:
-        return f"{hub_bucket(hub_id)+1}0{idx+1}"
+        # 101 -> (201/202/203) depending on idx
+        return f"{hub_bucket(hub_id) + 1}0{idx + 1}"
 
-    def get_text(n):
-        return _as_str(n.get("text", "")).strip()
+    def _s(x): return _as_str(x).strip()
 
-    def get_narr(n):
-        return _as_str(n.get("narrative", "")).strip()
+    def merged_desc(n):
+        # text + narrative joined, just like before
+        t = _s(n.get("text", ""))
+        r = _s(n.get("narrative", ""))
+        return f"{t}\n\n{r}" if t and r else (t or r or "Choose your next step.")
 
-    def get_expl_field(n):
-        return _as_str(n.get("data_explanation", "")).strip()
+    def expl_field(n, default_msg="Reflect on the implications of this decision."):
+        e = _s(n.get("data_explanation", ""))
+        return e or default_msg
 
-    def merge_fields(a, b):
-        if a and b:
-            return f"{a}\n\n{b}"
-        return a or b
+    def clean_psych(v):
+        return _as_str(v).strip().strip("[]\"' ")
 
-    def clean_psych(val):
-        v = _as_str(val).strip()
-        v = v.strip("[]\"' ")
-        return v
+    result = {}
 
-    def fallback_explanation(is_leaf: bool, chosen_ending: Optional[str]):
-        if is_leaf and chosen_ending in ("E1","E2","E3"):
-            if chosen_ending == "E1":
-                return "Your choice aims for a successful resolution."
-            if chosen_ending == "E2":
-                return "Your choice stabilizes things, but recovery is incomplete."
-            if chosen_ending == "E3":
-                return "Your choice risks escalation of the situation."
-        if not is_leaf:
-            return "Reflect on the implications of this decision before you proceed."
-        return "This choice moves the scenario forward."
-
-    def build_desc_and_expl(origin_node, is_leaf: bool, chosen_ending: Optional[str]):
-        """
-        Build a richer data_description and a clear data_explanation.
-
-        - data_description: combine 'text' + 'narrative' (so it reads like 1–2 sentences).
-        - data_explanation: use explicit data_explanation if present, else a generic reflection.
-        """
-        txt = get_text(origin_node)
-        narr = get_narr(origin_node)
-        expl_field = get_expl_field(origin_node)
-
-        # Make description longer by merging text + narrative
-        desc = merge_fields(txt, narr).strip()
-
-        if not desc:
-            desc = "Choose your next step." if not is_leaf else "Continue."
-
-        # Explanation: prefer data_explanation; otherwise fall back to generic
-        if expl_field:
-            expl = expl_field
-        else:
-            expl = fallback_explanation(is_leaf, chosen_ending)
-
-        return desc, expl
-
-    result: Dict[str, Any] = {}
-
-    # Root hub
-    root_orig = "scenario" if "scenario" in by_id else nodes[0]["id"]
+    ROOT_ORIG = "scenario" if "scenario" in by_id else nodes[0]["id"]
     ROOT_HUB_ID = "101"
 
-    def build(hub_id: str, hub_origin_id: str):
-        origin_node = by_id.get(hub_origin_id, {})
-        kids = children.get(hub_origin_id, [])[:3]
-        hub_option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(kids))]
+    def build(hub_id: str, origin_id: str):
+        origin = by_id.get(origin_id, {})
+        kid_ids = children.get(origin_id, [])[:3]  # up to 3
+        option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(kid_ids))]
 
-        desc, expl = build_desc_and_expl(origin_node, is_leaf=False, chosen_ending=None)
-
+        # --- Hub (ALWAYS a SCENARIO) ---
         result[hub_id] = {
             "id": hub_id,
-            "type": "scenario" if hub_id == ROOT_HUB_ID else "option",
+            "type": "scenario",
             "position": "",
-            "data_description": desc,
-            "data_explanation": expl,
-            "options": hub_option_ids,
-            "psych_dimensions": clean_psych(aspect_map.get(hub_origin_id, "")),
+            "data_description": merged_desc(origin),
+            "data_explanation": expl_field(origin, "Reflect on this decision before proceeding."),
+            "options": option_ids,            # scenario → its options
+            "psych_dimensions": clean_psych(aspect_map.get(origin_id, "")),
         }
 
-        for i, child_orig_id in enumerate(kids):
-            child_node = by_id.get(child_orig_id, {})
-            this_opt_id = fmt_opt_id(hub_id, letters[i])
-
+        # --- Options off this hub ---
+        for i, child_orig_id in enumerate(kid_ids):
+            child = by_id.get(child_orig_id, {})
             grandkids = children.get(child_orig_id, [])
-            non_ending_grandkids = [
-                g for g in grandkids
-                if by_id.get(g, {}).get("type") != "ending"
-            ]
+            non_ending_grandkids = [g for g in grandkids if by_id.get(g, {}).get("type") != "ending"]
 
-            # Leaf -> ending OR branch -> next hub
+            opt_id = option_ids[i]
+
             if not non_ending_grandkids:
-                chosen_ending = pick_ending_id()
-                desc_child, expl_child = build_desc_and_expl(
-                    child_node,
-                    is_leaf=True,
-                    chosen_ending=chosen_ending
-                )
-
-                result[this_opt_id] = {
-                    "id": this_opt_id,
+                # leaf → ending
+                eid = pick_ending_id()
+                result[opt_id] = {
+                    "id": opt_id,
                     "type": "option",
                     "position": "",
-                    "data_description": desc_child,
-                    "data_explanation": expl_child,
-                    "options": [chosen_ending],
+                    "data_description": merged_desc(child) or "This choice concludes the scenario.",
+                    "data_explanation": "Your decision leads to this outcome.",
+                    "options": [],                # IMPORTANT: options empty
+                    "next": eid,                  # IMPORTANT: single next pointer
                     "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
                 }
-
             else:
-                nxt_hub = next_hub_id(hub_id, i)
-                next_opt_ids = [
-                    fmt_opt_id(nxt_hub, letters[j])
-                    for j in range(min(3, len(non_ending_grandkids)))
-                ]
+                # 🧩 branch → unique next hub (201A, 202B, 203C ...)
+                base_next = next_hub_id(hub_id, i)   # e.g. 201 / 202 / 203
+                nxt_hub = f"{base_next}{letters[i]}" # e.g. 201A / 202B / 203C
 
-                desc_child, expl_child = build_desc_and_expl(
-                    child_node,
-                    is_leaf=False,
-                    chosen_ending=None
-                )
-
-                result[this_opt_id] = {
-                    "id": this_opt_id,
+                result[opt_id] = {
+                    "id": opt_id,
                     "type": "option",
                     "position": "",
-                    "data_description": desc_child,
-                    "data_explanation": expl_child,
-                    "options": next_opt_ids,
+                    "data_description": merged_desc(child) or "Proceed to the next phase.",
+                    "data_explanation": "Consider the implications before proceeding.",
+                    "options": [],
+                    "next": nxt_hub,  # ✅ now unique per branch
                     "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
                 }
 
+                # recursively create that next hub (independent branch)
                 build(nxt_hub, child_orig_id)
 
-    build(ROOT_HUB_ID, root_orig)
+    # Build from the root hub
+    build(ROOT_HUB_ID, ROOT_ORIG)
 
-    # Endings
+    # --- Endings (unchanged) ---
     ending_map = {
-        "E1": (
-            "✅ Successful Resolution",
-            "The crisis is fully resolved, and relationships or goals are restored."
-        ),
-        "E2": (
-            "⚖️ Partial Recovery",
-            "Some improvement is achieved, but challenges or reputational impacts remain."
-        ),
-        "E3": (
-            "⚠️ Escalation",
-            "The situation worsens and requires further intervention or external involvement."
-        ),
+        "E1": ("✅ Successful Resolution", "The crisis is fully resolved, and relationships or goals are restored."),
+        "E2": ("⚖️ Partial Recovery", "Some improvement achieved, but challenges or reputational impacts remain."),
+        "E3": ("⚠️ Escalation", "The situation worsens and requires further intervention or external involvement."),
     }
-
-    for e in ["E1", "E2", "E3"]:
-        title, expl = ending_map[e]
+    for e, (title, desc) in ending_map.items():
         result[e] = {
             "id": e,
             "type": "ending",
             "position": "",
             "data_description": title,
-            "data_explanation": expl,
+            "data_explanation": desc,
             "options": [],
             "psych_dimensions": clean_psych(aspect_map.get(e, "")),
         }
 
-    # Sort keys so output is stable and easier to read
-    ordered = {k: result[k] for k in sorted(result.keys(), key=str)}
-    return ordered
+    return result
+
 
 # =========================
 # IMAGE GENERATION CORE
@@ -649,50 +604,55 @@ def health():
 @app.post("/generate")
 def generate():
     """
+    Build the branching scenario JSON and return it.
     Body:
     {
       "story": "...",         // required
-      "tier_level": 4,        // optional: 1,2,3,4 (default 4)
+      "tier_level": 4,        // optional
       "download": false,
       "filename": "flow.json",
       "psych_seed": 42
     }
     """
     body = request.get_json(silent=True) or {}
+
     story = (body.get("story") or "").strip()
     if len(story) < 10:
         return jsonify({"error": "Provide a 'story' >=10 chars"}), 400
 
-    seed = body.get("psych_seed", PSYCH_SEED)
+    print("\n=== 🧠 NEW GENERATION REQUEST ===")
+    print("Story input:", story[:200], "..." if len(story) > 200 else "")
     tier_level = body.get("tier_level", 4)
-
+    seed = body.get("psych_seed", PSYCH_SEED)
     download_flag = (
         bool(body.get("download")) or
-        str(request.args.get("download", "")).lower() in {"1","true"}
+        str(request.args.get("download", "")).lower() in {"1", "true"}
     )
     filename = body.get("filename") or f"flow_{int(time.time())}.json"
 
     try:
-        # 1. build raw skeleton with chosen depth
+        # 1. Build raw skeleton
         model = build_full_skeleton(story, tier_level=tier_level)
 
-        # 2. assign psych aspects
+        # 2. Assign psych aspects
         aspect_map = assign_aspects_unique_per_sibling(model, PSYCH_ASPECTS, seed)
 
-        # 3. generate text/narrative for non-ending nodes except the root 'scenario'
-        non_ending_ids = [
-            n["id"] for n in model["nodes"]
-            if n.get("type") != "ending" and n["id"] != "scenario"
-        ]
+        # 3. Generate text/narrative
+        non_ending_ids = [n["id"] for n in model["nodes"] if n["id"] != "scenario"]
+        # non_ending_ids = [
+        #     n["id"] for n in model["nodes"]
+        #     if n.get("type") != "ending" and n["id"] != "scenario" ]
         node_content_map = fill_content_for_nodes(story, non_ending_ids, aspect_map)
 
-        # 4. merge AI output into nodes
+        # 4. Merge AI output into nodes
         model = apply_content(model, node_content_map)
 
-        # 5. flatten to frontend format
+        # 5. Flatten for frontend
         flat = build_flat_with_hubs(model, aspect_map)
+        # ✅ Identify and include the root starting node for frontend focus
+        flat["startNodeId"] = "101"
 
-        # 6. handle download vs JSON
+        # 6. Handle download
         if download_flag:
             payload = json.dumps(flat, indent=2, ensure_ascii=False)
             resp = make_response(payload)
@@ -706,6 +666,7 @@ def generate():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
 
 @app.post("/generate_images")
 def generate_images_route():
