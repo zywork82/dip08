@@ -78,6 +78,9 @@ const SimulationInterface = () => {
   const [currentNodeId, setCurrentNodeId] = useState(null);
   const [historyStack, setHistoryStack] = useState([]); // stack of previous scene nodeIds
   const [choicesLog, setChoicesLog] = useState([]); // {at, from, optionId, to}
+  const [sceneStartTime, setSceneStartTime] = useState(null);
+  const [isAdmin] = useState(true); // ← replace with real auth check later
+const [panelMinimized, setPanelMinimized] = useState(false);
 
   const profileImage = "https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A";
 
@@ -104,6 +107,7 @@ const SimulationInterface = () => {
     const normalized = { ...loaded, nodes, edges };
     setFlowData(normalized);
     setCurrentNodeId(resolveStartNodeId(normalized));
+    
 
     // Persist a minimal play session marker (useful for recovery)
     try {
@@ -136,50 +140,53 @@ const SimulationInterface = () => {
   }, [edges]);
 
   const currentNode = currentNodeId ? nodeMap[currentNodeId] : null;
+  useEffect(() => {
+    if (currentNodeId) {
+      setSceneStartTime(Date.now());
+    }
+  }, [currentNodeId]);
 
   // When user picks one of the option nodes from a scenario, auto-advance to that option's "next" scene.
  const goViaOption = (scenarioNodeId, optionNodeId) => {
   const optionNode = nodeMap[String(optionNodeId)];
+  const now = Date.now();
+  const timeTaken = sceneStartTime ? (now - sceneStartTime) / 1000 : 0; // seconds
 
   // ✅ Find the next scene by checking edges from this option node
   const toEdges = outgoingBySource[String(optionNodeId)] || [];
   let nextSceneId = null;
 
   if (toEdges.length > 0) {
-    // follow the first outgoing connection (usually one)
-    nextSceneId = String(toEdges[0].target);
+    nextSceneId = String(toEdges[0].target); // usually one
   } else if (optionNode?.data?.next) {
-    // fallback to stored .data.next
     nextSceneId = String(optionNode.data.next);
   } else {
-    // 🚨 If no explicit next, maybe there's a scenario that lists this option
     const candidate = Object.values(nodeMap).find(
       (n) =>
         n.type === "scenario" &&
         Array.isArray(n.data?.options) &&
         n.data.options.includes(optionNodeId)
     );
-    if (candidate) {
-      nextSceneId = String(candidate.id);
-    }
+    if (candidate) nextSceneId = String(candidate.id);
   }
 
-  // Log choice
+  // 🧾 Log the choice, including timeTaken
   setChoicesLog((log) => [
     ...log,
     {
-      at: Date.now(),
+      at: now,
       from: String(scenarioNodeId),
       optionId: String(optionNodeId),
       to: nextSceneId || "(none)",
+      timeTaken,
     },
   ]);
 
-  // Push to history and go forward
+  // Push to history and move forward
   setHistoryStack((h) => [...h, String(scenarioNodeId)]);
 
   if (nextSceneId) {
-    console.log(`➡️ Moving to next scene: ${nextSceneId}`);
+    console.log(`➡️ Moving to next scene: ${nextSceneId} (⏱️ ${timeTaken.toFixed(2)}s)`);
     setCurrentNodeId(nextSceneId);
   } else {
     console.warn(`⚠️ Option ${optionNodeId} has no linked next scene.`);
@@ -316,7 +323,7 @@ const SimulationInterface = () => {
                       <button
                         className="action-buttons"
                         onClick={() =>
-                          navigate("/scenario-report", {
+                          navigate("/report", {
                             state: { scenarioId, choicesLog, flowData },
                           })
                         }
@@ -332,59 +339,96 @@ const SimulationInterface = () => {
               </div></div>
           
 
-          {/* Right panel: navigation + log */}
-          <div
-            className="right-rail"
-           
-          >
-            <div
-              className="controls-card"
-              
-            >
-              <div >
-                <button className="action-buttons" onClick={() => navigate("/scene-editor", { state: { scenarioId, flowData } })}>
-                  ✏️ Edit Images
-                </button>
-                <button className="action-buttons" onClick={() => navigate("/editor", { state: { scenarioId, flowData } })}>
-                  🧭 Edit Flow
-                </button>
-              </div>
-              <div >
-                <button className="action-buttons" disabled={atStart} onClick={goBack}>
-                  ⬅️ Back
-                </button>
-                <button className="action-buttons" onClick={restart}>
-                  🔄 Restart
-                </button>
-              </div>
-            </div>
+          {/* 🧭 Floating Admin Panel */}
+  {/* const isAdmin = localStorage.getItem("userRole") === "Administrator"; */}
 
-            <div
-              className="log-card"
-             
-            >
-              <h4 >Run Log</h4>
-              {choicesLog.length === 0 ? (
-                <div >No choices yet.</div>
-              ) : (
-                <ol >
-                  {choicesLog.map((c, i) => (
-                    <li key={i}>
-                      <code >{new Date(c.at).toLocaleTimeString()}</code> — Scene{" "}
-                      <strong>{c.from}</strong> → Option <strong>{c.optionId}</strong>
-                      {c.to ? (
-                        <>
-                          {" "}
-                          → Scene <strong>{c.to}</strong>
-                        </>
-                      ) : (
-                        " (no next set)"
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}</div>
-            </div>
+{isAdmin && (
+  <div
+    className={`admin-panel ${panelMinimized ? "minimized" : ""}`}
+    style={{
+      position: "fixed",
+      top: "1rem",
+      right: "1rem",
+      background: "rgba(255,255,255,0.95)",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+      borderRadius: "12px",
+      padding: "1rem",
+      width: panelMinimized ? "200px" : "340px",
+      maxHeight: panelMinimized ? "60px" : "80vh",
+      overflowY: "auto",
+      transition: "all 0.3s ease",
+      zIndex: 9999,
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "0.5rem",
+      }}
+    >
+      <h4 style={{ margin: 0 }}>🧭 Admin Panel</h4>
+      <button
+        onClick={() => setPanelMinimized(!panelMinimized)}
+        style={{
+          border: "none",
+          background: "transparent",
+          fontSize: "1.2rem",
+          cursor: "pointer",
+        }}
+        title={panelMinimized ? "Expand" : "Minimize"}
+      >
+        {panelMinimized ? "🔽" : "🔼"}
+      </button>
+    </div>
+
+    {!panelMinimized && (
+      <>
+        {/* Navigation Buttons */}
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+          <button className="action-buttons" onClick={() => navigate("/scene-editor", { state: { scenarioId, flowData } })}>
+            ✏️ Edit Images
+          </button>
+          <button className="action-buttons" onClick={() => navigate("/editor", { state: { scenarioId, flowData } })}>
+            🧭 Edit Flow
+          </button>
+          <button className="action-buttons" disabled={atStart} onClick={goBack}>
+            ⬅️ Back
+          </button>
+          <button className="action-buttons" onClick={restart}>
+            🔄 Restart
+          </button>
+        </div>
+
+        {/* Run Log */}
+        <div>
+          <h5 style={{ marginTop: "0.5rem" }}>Run Log</h5>
+          {choicesLog.length === 0 ? (
+            <div>No choices yet.</div>
+          ) : (
+            <ol style={{ paddingLeft: "1.2rem", fontSize: "0.9rem" }}>
+              {choicesLog.map((c, i) => (
+                <li key={i}>
+                  <code>{new Date(c.at).toLocaleTimeString()}</code> — Scene{" "}
+                  <strong>{c.from}</strong> → Option <strong>{c.optionId}</strong>
+                  {c.to ? (
+                    <>
+                      {" "}→ Scene <strong>{c.to}</strong> ({c.timeTaken?.toFixed(1)}s)
+                    </>
+                  ) : (
+                    " (no next)"
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </>
+    )}
+  </div>
+)}
+
           </div>
         </div>
       </div>

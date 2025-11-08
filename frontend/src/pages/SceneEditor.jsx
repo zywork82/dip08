@@ -16,6 +16,7 @@ import {
   convertFrontendToBackend,
   convertBackendToFrontend,
 } from "../utils/flowConverter";
+import localforage from "localforage";
 
 import "reactflow/dist/style.css";
 import "../styles/SceneEditor.css";
@@ -285,24 +286,25 @@ useEffect(() => {
   useEffect(() => {
     if (!selectedNode) return;
 
-    const debounce = setTimeout(() => {
-      try {
-        const localFlow = JSON.parse(localStorage.getItem("latestFlow") || "{}");
-        const lightweightNode = {
-          id: selectedNode.id,
-          data: {
-            data_description: promptText,
-            options: selectedNode.data?.options || [],
-            next: selectedNode.data?.next || null,
-          },
-        };
-        localFlow[selectedNode.id] = lightweightNode;
-        localStorage.setItem("latestFlow", JSON.stringify(localFlow));
-        console.log("✅ Auto-saved lightweight node", selectedNode.id);
-      } catch (e) {
-        console.warn("⚠️ Skipped auto-save — storage quota exceeded.", e);
-      }
-    }, 1500);
+    const debounce = setTimeout(async () => {
+  try {
+    const localFlow = (await localforage.getItem("latestFlow")) || {};
+    const lightweightNode = {
+      id: selectedNode.id,
+      data: {
+        data_description: promptText,
+        options: selectedNode.data?.options || [],
+        next: selectedNode.data?.next || null,
+      },
+    };
+    localFlow[selectedNode.id] = lightweightNode;
+    await localforage.setItem("latestFlow", localFlow);
+    console.log("✅ Auto-saved lightweight node", selectedNode.id);
+  } catch (e) {
+    console.warn("⚠️ Skipped auto-save — storage quota exceeded or blocked.", e);
+  }
+}, 1500);
+
 
     return () => clearTimeout(debounce);
   }, [promptText, selectedNode]);
@@ -445,17 +447,21 @@ const autoGenerateImagesForAll = async (nodesList) => {
 
   // Initial load
   useEffect(() => {
+  (async () => {
     let flowData =
-      passedFlow || JSON.parse(localStorage.getItem("latestFlow"));
+      passedFlow || (await localforage.getItem("latestFlow"));
     if (!flowData) return;
 
-    if (!flowData.nodes)
+    if (!flowData.nodes) {
       flowData = {
         nodes: Object.values(convertBackendToFrontend(flowData)),
         edges: [],
       };
+    }
 
-    const standardizedNodes = flowData.nodes.map((n) => standardizeNodeData(n, handleReprompt));
+    const standardizedNodes = flowData.nodes.map((n) =>
+      standardizeNodeData(n, handleReprompt)
+    );
 
     const layoutedNodes = getLayoutedNodes(
       standardizedNodes,
@@ -466,38 +472,34 @@ const autoGenerateImagesForAll = async (nodesList) => {
 
     setNodes(layoutedNodes);
     setEdges(edgesGenerated);
-// 🧠 Diagnostic check for image completeness
-const totalNodes = layoutedNodes.length;
-const nodesWithImages = layoutedNodes.filter(hasValidImage).length;
-const missingImages = layoutedNodes.filter((n) => !hasValidImage(n));
 
-console.log(
-  `🧩 Image status check → ${nodesWithImages}/${totalNodes} nodes have valid images.`
-);
+    // 🧠 Diagnostic check for image completeness
+    const totalNodes = layoutedNodes.length;
+    const nodesWithImages = layoutedNodes.filter(hasValidImage).length;
+    const missingImages = layoutedNodes.filter((n) => !hasValidImage(n));
 
-if (missingImages.length > 0) {
-  // ✅ Only auto-generate if *no b64image stored either*
-  const trulyMissing = missingImages.filter(
-    (n) => !n.data?.b64image || n.data.b64image.length < 100
-  );
+    console.log(`🧩 Image status check → ${nodesWithImages}/${totalNodes} nodes have valid images.`);
 
-  if (trulyMissing.length > 0) {
-    console.warn(
-      `🖼️ Auto-generating ${trulyMissing.length} *new* missing images...`
-    );
-    setLoadingOverlay(true);
-    autoGenerateImagesForAll(trulyMissing).finally(() =>
-      setLoadingOverlay(false)
-    );
-  } else {
-    console.log("✅ All nodes have stored base64 images. Skipping regeneration.");
-  }
-} else {
-  console.log("✅ All nodes already have valid images. Skipping generation.");
-}
+    if (missingImages.length > 0) {
+      const trulyMissing = missingImages.filter(
+        (n) => !n.data?.b64image || n.data.b64image.length < 100
+      );
 
+      if (trulyMissing.length > 0) {
+        console.warn(`🖼️ Auto-generating ${trulyMissing.length} *new* missing images...`);
+        setLoadingOverlay(true);
+        autoGenerateImagesForAll(trulyMissing).finally(() =>
+          setLoadingOverlay(false)
+        );
+      } else {
+        console.log("✅ All nodes have stored base64 images. Skipping regeneration.");
+      }
+    } else {
+      console.log("✅ All nodes already have valid images. Skipping generation.");
+    }
+  })();
+}, [passedFlow]);
 
-  }, [passedFlow]);
 // ===============================
 // ✅ Periodic check for missing images (safe + single interval)
 // ===============================
