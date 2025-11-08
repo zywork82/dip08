@@ -11,11 +11,12 @@
   flex-direction: column; /* header on top */
   height: 100%;
   width: 100%;
+  overflow-y: hidden;
 }
 
 .scenario-interface-layout {
   display: flex;
-  height: 100%;
+   height: calc(100vh - 50px);
   background-color: #b6b6db;
   /* gap: 24px; */
   /* padding: 24px 24px 64px; */
@@ -24,17 +25,17 @@
 .stage {
   flex: 1;
   min-height: 520px;
+  height: 100vh;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  
 }
 
 .scene-image-wrapper {
   width: 100%;
-  height: 1500px;
+ height: calc(100vh - 50px);
   min-height: 320px;
-  border-radius: 16px;
   overflow: hidden;
   background: #645b5b;
   display: flex;
@@ -63,6 +64,9 @@ width: 100%;
   border-radius: 12px;
   /* background: rgba(255, 255, 255, 0.04); */
   line-height: 0.6;
+  font-size: 1.2rem;
+  line-height: normal;
+  font-weight: 700;
 }
 
 /* .scene-text h3 {
@@ -85,18 +89,21 @@ justify-content:start;
 align-items: center;
 background-color: #b6b6db;
 width: 140vh;
-max-height: 150px;
+max-height: 400px;
+height: 250px;
 border-radius: 12px;
 padding: 15px;
-height: 200px; 
 gap: 12px;
+margin-bottom: 80px;
 }
 .action-buttons{
   display: flex;
   flex-direction: row;
-  width: 200px;
+  width: 400px;
   height: auto;
-  padding: 8px;
+font-size: 1rem;
+  line-height: normal;
+  padding: 16px;
 }
 .options-grid {
   display: grid;
@@ -118,17 +125,27 @@ gap: 12px;
   gap: 8px;
   flex-wrap: wrap;
 }
+.admin-panel button.action-buttons {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+}
+.admin-panel.minimized {
+  cursor: pointer;
+  user-select: none;
+}
 
 .right-rail {
-  width: 100vh;
   display: flex;
   flex-direction: row;
   gap: 16px;
   position: sticky;
-  top: 24px;
   align-self: flex-start;
 }
-
+.controls-card{
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
 .controls-card,
 .log-card {
   padding: 16px;
@@ -139,6 +156,8 @@ gap: 12px;
 .controls-card .action-buttons,
 .log-card .action-buttons {
   margin-top: 8px;
+
+
 }
 
 .run-log {

@@ -5,6 +5,7 @@ import "../styles/ScenarioPrompt.css";
 import NavigationBar from "../components/SlimNavBar";
 import SharedHeader from "../components/SharedHeader";
 import ScenarioHistory from "../components/ScenarioHistory";
+import localforage from "localforage";
 
 const profileImage = "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
 
@@ -49,41 +50,36 @@ const ScenarioPrompt = () => {
     },
   }));
 
+  // Build all possible edges
   const edges = [];
-
-  // connect scenario → option
   nodes.forEach((node) => {
-    if (node.type === "scenario" && Array.isArray(node.data.options)) {
-      node.data.options.forEach((optId) => {
-        if (nodes.find((x) => x.id === optId)) {
+    if (Array.isArray(node.data.options)) {
+      node.data.options.forEach((targetId) => {
+        if (nodes.find((x) => x.id === targetId)) {
           edges.push({
-            id: `e-${node.id}-${optId}`,
+            id: `e-${node.id}-${targetId}`,
             source: node.id,
-            target: optId,
+            target: targetId,
             type: "smoothstep",
             animated: true,
           });
         }
       });
     }
-  });
 
-  // connect option → next
-  nodes.forEach((node) => {
-    if (node.type === "option" && node.data.next) {
-      if (nodes.find((x) => x.id === node.data.next)) {
-        edges.push({
-          id: `e-${node.id}-${node.data.next}`,
-          source: node.id,
-          target: node.data.next,
-          type: "smoothstep",
-          animated: true,
-        });
-      }
+    // fallback direct next pointer
+    if (node.data.next && nodes.find((x) => x.id === node.data.next)) {
+      edges.push({
+        id: `e-${node.id}-${node.data.next}`,
+        source: node.id,
+        target: node.data.next,
+        type: "smoothstep",
+        animated: true,
+      });
     }
   });
 
-  // remove duplicates
+  // Remove duplicates
   const uniqueEdges = Array.from(new Map(edges.map((e) => [e.id, e])).values());
   return { nodes, edges: uniqueEdges };
 };
@@ -133,16 +129,22 @@ const ScenarioPrompt = () => {
       }
 
       // === Generate Flow from AI ===
-      const genRes = await fetch("http://127.0.0.1:5000/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ story: description, psych_seed: 42 }),
-      });
+// === Generate Flow from AI ===
+const genRes = await fetch("http://127.0.0.1:5000/generate", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ story: description, psych_seed: 42 }),
+});
 
-      const genData = await genRes.json();
-      if (!genRes.ok) throw new Error(genData.error || "AI generation failed");
+const genData = await genRes.json();
+console.log("🧪 Raw backend response:", genData);
 
-      const flowData = transformFlowData(genData);
+if (!genRes.ok) throw new Error(genData.error || "AI generation failed");
+
+// ✅ Declare flowData before using it
+const flowData = transformFlowData(genData);
+console.log("🧪 Transformed flowData:", flowData);
+
 
       const newScenario = {
         id: scenarioId,
@@ -156,17 +158,24 @@ const ScenarioPrompt = () => {
       };
 
       // Save to localStorage for ScenarioHistory
-      const existing = JSON.parse(localStorage.getItem("scenarios") || "[]");
-      const existingIndex = existing.findIndex((s) => s.id === scenarioId);
-      if (existingIndex >= 0) existing[existingIndex] = newScenario;
-      else existing.push(newScenario);
-      localStorage.setItem("scenarios", JSON.stringify(existing));
-      localStorage.setItem("lastScenarioTitle", finalTitle);
-      localStorage.setItem("lastScenarioId", scenarioId);
+     // Save small metadata in localStorage (lightweight)
+const existing = JSON.parse(localStorage.getItem("scenarios") || "[]");
+const existingIndex = existing.findIndex((s) => s.id === scenarioId);
+if (existingIndex >= 0) existing[existingIndex] = newScenario;
+else existing.push(newScenario);
+localStorage.setItem("scenarios", JSON.stringify(existing));
+localStorage.setItem("lastScenarioTitle", finalTitle);
+localStorage.setItem("lastScenarioId", scenarioId);
 
-      navigate("/editor", {
-        state: { flowData, scenarioTitle: newScenario.title, scenarioId },
-      });
+// 🧠 Save large flow data safely in IndexedDB
+await localforage.setItem("latestFlow", flowData);
+console.log("✅ Flow data cached in IndexedDB");
+
+// Navigate to editor
+navigate("/editor", {
+  state: { flowData, scenarioTitle: newScenario.title, scenarioId },
+});
+
     } catch (err) {
       console.error("Error generating scenario:", err);
       setError("Error: " + err.message);
