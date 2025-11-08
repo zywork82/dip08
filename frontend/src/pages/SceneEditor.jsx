@@ -216,9 +216,17 @@ const SceneEditor = () => {
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [promptText, setPromptText] = useState("");
-// ✅ Load scenarioId from navigation OR fallback to localStorage
-const storedScenarioId = localStorage.getItem("lastScenarioId");
-const [scenarioId, setScenarioId] = useState(passedScenarioId || storedScenarioId || null);
+const [scenarioId, setScenarioId] = useState(passedScenarioId || null);
+
+useEffect(() => {
+  (async () => {
+    const storedScenarioId = await localforage.getItem("lastScenarioId");
+    if (!scenarioId && storedScenarioId) {
+      setScenarioId(storedScenarioId);
+    }
+  })();
+}, []);
+
 useEffect(() => {
   const fetchScenarioFromBackend = async () => {
     try {
@@ -547,6 +555,7 @@ useEffect(() => {
 // Save & Play (optimized payload)
 // ====================================
 const handleSaveAndPlay = async () => {
+  let finalScenarioId = scenarioId;
   const updatedEdges = generateEdgesFromNodes(nodes);
   setEdges(updatedEdges);
 
@@ -638,12 +647,17 @@ const payloadNodes = hasNewImages
     if (!data.success) throw new Error(data.error || "Save failed");
 
     // ✅ Update scenarioId if new
-    let finalScenarioId = scenarioId;
     if (data.scenarioId) {
-      setScenarioId(data.scenarioId);
-      finalScenarioId = data.scenarioId;
-      localStorage.setItem("lastScenarioId", finalScenarioId);
-    }
+  setScenarioId(data.scenarioId);
+  finalScenarioId = data.scenarioId;
+  try {
+    await localforage.setItem("lastScenarioId", finalScenarioId);
+  } catch (err) {
+    console.warn("⚠️ Failed to save lastScenarioId to IndexedDB, falling back to localStorage:", err);
+    localStorage.setItem("lastScenarioId", finalScenarioId);
+  }
+}
+
 
     console.log("✅ Saved scenario successfully:", finalScenarioId);
 

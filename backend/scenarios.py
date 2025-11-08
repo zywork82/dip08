@@ -332,3 +332,29 @@ def get_flow(scenario_id):
     except Exception as e:
         print("Error in get_flow:", e)
         return jsonify({"error": str(e)}), 500
+
+@scenarios_bp.route("/delete/<scenario_id>", methods=["DELETE"])
+def delete_scenario(scenario_id):
+    try:
+        from bson import ObjectId
+
+        if not ObjectId.is_valid(scenario_id):
+            return jsonify({"success": False, "error": "Invalid scenario ID"}), 400
+
+        scenario_oid = ObjectId(scenario_id)
+
+        # 🗑 delete the scenario itself
+        deleted_scenario = db.scenarios.delete_one({"_id": scenario_oid})
+
+        # 🗑 delete all nodes linked to it
+        deleted_nodes = db.scenarioNodes.delete_many({"scenarioId": scenario_oid})
+
+        return jsonify({
+            "success": True,
+            "scenarioDeleted": deleted_scenario.deleted_count,
+            "nodesDeleted": deleted_nodes.deleted_count,
+            "scenarioId": scenario_id
+        }), 200
+    except Exception as e:
+        print("❌ Error deleting scenario:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
