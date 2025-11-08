@@ -29,8 +29,7 @@ export const sampleNodes = {
     id: '101',
     type: 'scenario',
     position: { x: 300, y: 50 },
-    data: 'A viral post is spreading. What do you do first?',
-    // ADDED: This connects the scenario to its options
+    data: 'A viral post is spreading about your organization. What do you do first?',
     scene: 'The president ow ow',
     options: ['101_A', '101_B'],
     b64image: 'imagesample' 
