@@ -19,7 +19,7 @@ const LoginPage = () => {
     e.preventDefault();
 
     try {
-    const response = await axios.post("http://localhost:5000/login/login", {
+    const response = await axios.post("http://127.0.0.1:5000/login/login", {
       email,
       password,
       role,
@@ -55,7 +55,7 @@ const LoginPage = () => {
       navigate("/settings"); // fallback
     }
   } catch (err) {
-    console.error("Login failed:", err);
+    console.error("Login failed:", err.message);
     toast.error(err.response?.data?.detail || "Login failed");
   }
 };

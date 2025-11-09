@@ -21,7 +21,7 @@ import localforage from "localforage";
 import SharedHeader from "../components/SharedHeader";
 import NavigationBar from "../components/SlimNavBar";
 import { sampleNodes, sampleAiSuggestions, sampleEdges } from "../data/sampleAiFlow";
-import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
+// import { sanitizeFlowForNavigation } from "../utils/flowSanitiser";
 import "../styles/FlowChartEditor.css";
 const profileImage =
   "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
@@ -65,6 +65,41 @@ const getLayoutedNodes = (nodes, edges) => {
 };
 
 
+// === Sanitize flow before saving or navigating ===
+const sanitizeFlowForNavigation = (flow) => {
+  if (!flow) return null;
+
+  const safeNodes = (flow.nodes || []).map((n) => ({
+    id: n.id,
+    type: n.type,
+    position: n.position,
+    data: {
+      data_description: n.data?.data_description || "",
+      options: Array.isArray(n.data?.options) ? n.data.options : [],
+      next: n.data?.next || null,
+      scene: n.data?.scene || "",
+      b64image: n.data?.b64image || "",
+      generatedImages: Array.isArray(n.data?.generatedImages)
+        ? n.data.generatedImages
+        : [],
+      imageUrl: n.data?.imageUrl || "",
+    },
+  }));
+
+  const safeEdges = (flow.edges || []).map((e) => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    type: e.type || "smoothstep",
+    animated: !!e.animated,
+  }));
+
+  return {
+    ...flow,
+    nodes: safeNodes,
+    edges: safeEdges,
+  };
+};
 
 // === Helpers ===
 const generateEdgesFromNodes = (nodes) => {
