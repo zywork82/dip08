@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
+  // Line
   CategoryScale,
   LinearScale,
   PointElement,
@@ -23,6 +24,8 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  RadialLinearScale,
+  Filler,
   RadialLinearScale,
   Filler,
   Title,
