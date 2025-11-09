@@ -9,6 +9,7 @@ import SharedHeader from '../components/SharedHeader';
 import TutorialBanner from '../components/TutorialBanner';
 import axios from 'axios';
 import StudentSidebar from '../components/StudentSidebar.jsx';
+import StudentCaseStudyCard from '../components/StudentCasestudycard.jsx';
 
 const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=HW';
 const tips = [
@@ -146,12 +147,12 @@ const StudentPage = () => {
               {caseStudiesError && <p>Error: {caseStudiesError}</p>}
               {!loadingCaseStudies && !caseStudiesError && filteredScenarios.map(scenario => (
                 <div key={scenario._id} className="activity-item-card">
-                  <CaseStudyCard
+                  <StudentCaseStudyCard
                     title={scenario.title}
                     lastEdited={scenario.lastEdited}
                     status={scenario.status}
                     image={scenario.image}
-                    scenarioId={scenario._id} // <-- pass only ID
+                    scenarioId={scenario._id || scenario.id} // fallback
                   />
                 </div>
               ))}

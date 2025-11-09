@@ -143,46 +143,7 @@ const ReportInterface = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { scenarioId, choicesLog = [], flowData } = location.state || {};
-
-  useEffect(() => {
-  const autoSaveReport = async () => {
-    const totalScore = radarScores.reduce((a, b) => a + b, 0) / radarScores.length;
-
-    await saveReportToDB({
-      user_id: "test_user",             // 🔁 Replace with actual user ID
-      scenario_id: scenarioId || "unknown_scenario",
-      score: totalScore.toFixed(2),
-      choices: data.map((entry) => ({
-        choice: entry.choice,
-        timeTaken: entry.timeTaken,
-        scores: entry.scores,
-      })),
-      time_taken: avgTime,
-    });
-  };
-
-  if (data.length) {
-    autoSaveReport(); // save automatically when report page loads
-  }
-}, []); // empty dependency array → runs once on mount
-
-  // 🩹 Safety: if user comes here with no data
-  if (!choicesLog.length) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
-        <h2>No simulation data found</h2>
-        <p>Play through a scenario before viewing the report.</p>
-        <button
-          onClick={() =>
-            navigate("/simulation", { state: { scenarioId, flowData } })
-          }
-        >
-          ← Back to Simulation
-        </button>
-      </div>
-    );
-  }
-
+  const [hasSaved, setHasSaved] = React.useState(false);
   // Generate synthetic display data for the report
   const data = choicesLog.map((c, i) => ({
     choice:
@@ -202,6 +163,52 @@ const ReportInterface = () => {
     prepareLineChartData(data);
   const { descriptions, avgTime, labels: radarLabels, scores: radarScores } =
     calculateProfileData(data);
+
+
+  // Auto-save once
+useEffect(() => {
+   console.log("Auto-save effect running, data:", data);
+  if (!hasSaved && data.length) {
+    console.log("Saving report to DB...");
+    const autoSaveReport = async () => {
+      const totalScore = radarScores.reduce((a, b) => a + b, 0) / radarScores.length;
+
+      await saveReportToDB({
+        user_id: "test_user",
+        scenario_id: scenarioId || "unknown_scenario",
+        score: totalScore.toFixed(2),
+        choices: data.map((entry) => ({
+          choice: entry.choice,
+          timeTaken: entry.timeTaken,
+          scores: entry.scores,
+        })),
+        time_taken: avgTime,
+      });
+
+      setHasSaved(true);
+    };
+
+    autoSaveReport();
+  }
+}, [hasSaved, data, radarScores, avgTime, scenarioId]);
+
+  // 🩹 Safety: if user comes here with no data
+  if (!choicesLog.length) {
+    return (
+      <div style={{ padding: "2rem", textAlign: "center" }}>
+        <h2>No simulation data found</h2>
+        <p>Play through a scenario before viewing the report.</p>
+        <button
+          onClick={() =>
+            navigate("/simulation", { state: { scenarioId, flowData } })
+          }
+        >
+          ← Back to Simulation
+        </button>
+      </div>
+    );
+  }
+
 
   // PDF generation
   const generatePDFReport = async () => {
