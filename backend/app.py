@@ -376,12 +376,11 @@ def apply_content(model, content_map):
 # =========================
 def build_flat_with_hubs(model, aspect_map):
     """
-    OLD-STYLE flatten:
-    - Hubs (101, 201, 202, 203, 301, ...) are ALWAYS type 'scenario'
-    - Each hub has 3 options (A/B/C) with ids like 101A/101B/101C
-    - Each option has: options=[], and a single 'next' that points to either
-      the next hub (201/202/203, ...) or an ending (E1/E2/E3).
+    PROTOTYPE VERSION (2-tier)
+    - 101 (root) → 101A/101B/101C → 201/202/203
+    - 201/202/203 each → 3 options (A/B/C) → endings (E1/E2/E3)
     """
+
     nodes = model["nodes"]
     edges = model["edges"]
     by_id, children, parents = _build_maps(nodes, edges)
@@ -400,17 +399,17 @@ def build_flat_with_hubs(model, aspect_map):
         return f"{hub_id}_{letter}" if USE_UNDERSCORE else f"{hub_id}{letter}"
 
     def hub_bucket(hub_id: str) -> int:
-        # 101 -> 1, 201 -> 2, ...
-        return int(hub_id) // 100
+        # Safely extract numeric part
+        num_part = "".join(ch for ch in str(hub_id) if ch.isdigit())
+        return int(num_part) // 100 if num_part else 0
 
     def next_hub_id(hub_id: str, idx: int) -> str:
-        # 101 -> (201/202/203) depending on idx
+        # 101 -> 201/202/203 depending on index
         return f"{hub_bucket(hub_id) + 1}0{idx + 1}"
 
     def _s(x): return _as_str(x).strip()
 
     def merged_desc(n):
-        # text + narrative joined, just like before
         t = _s(n.get("text", ""))
         r = _s(n.get("narrative", ""))
         return f"{t}\n\n{r}" if t and r else (t or r or "Choose your next step.")
@@ -427,66 +426,65 @@ def build_flat_with_hubs(model, aspect_map):
     ROOT_ORIG = "scenario" if "scenario" in by_id else nodes[0]["id"]
     ROOT_HUB_ID = "101"
 
-    def build(hub_id: str, origin_id: str):
+    # =========================================================
+    # 🧩 Recursive builder
+    # =========================================================
+    def build(hub_id: str, origin_id: str, depth: int = 1):
         origin = by_id.get(origin_id, {})
-        kid_ids = children.get(origin_id, [])[:3]  # up to 3
+        kid_ids = children.get(origin_id, [])[:3]  # up to 3 children
         option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(kid_ids))]
 
-        # --- Hub (ALWAYS a SCENARIO) ---
+        # --- Hub node (Scenario) ---
         result[hub_id] = {
             "id": hub_id,
             "type": "scenario",
             "position": "",
             "data_description": merged_desc(origin),
-            "data_explanation": expl_field(origin, "Reflect on this decision before proceeding."),
-            "options": option_ids,            # scenario → its options
+            "data_explanation": expl_field(origin),
+            "options": option_ids,
             "psych_dimensions": clean_psych(aspect_map.get(origin_id, "")),
         }
 
-        # --- Options off this hub ---
+        # --- Option nodes ---
         for i, child_orig_id in enumerate(kid_ids):
             child = by_id.get(child_orig_id, {})
-            grandkids = children.get(child_orig_id, [])
-            non_ending_grandkids = [g for g in grandkids if by_id.get(g, {}).get("type") != "ending"]
-
             opt_id = option_ids[i]
 
-            if not non_ending_grandkids:
-                # leaf → ending
+            # If this is the first hub (101 → 201/202/203)
+            if depth == 1:
+                next_hub = next_hub_id(hub_id, i)  # e.g. 201/202/203
+                result[opt_id] = {
+                    "id": opt_id,
+                    "type": "option",
+                    "position": "",
+                    "data_description": merged_desc(child),
+                    "data_explanation": "Proceed to the next scenario phase.",
+                    "options": [],
+                    "next": next_hub,
+                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
+                }
+
+                # recursively create the next hub (second tier)
+                build(next_hub, child_orig_id, depth + 1)
+
+            # If this is the second hub (201/202/203 → endings)
+            else:
                 eid = pick_ending_id()
                 result[opt_id] = {
                     "id": opt_id,
                     "type": "option",
                     "position": "",
-                    "data_description": merged_desc(child) or "This choice concludes the scenario.",
+                    "data_description": merged_desc(child),
                     "data_explanation": "Your decision leads to this outcome.",
-                    "options": [],                # IMPORTANT: options empty
-                    "next": eid,                  # IMPORTANT: single next pointer
-                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
-                }
-            else:
-                # 🧩 branch → unique next hub (201A, 202B, 203C ...)
-                base_next = next_hub_id(hub_id, i)   # e.g. 201 / 202 / 203
-                nxt_hub = f"{base_next}{letters[i]}" # e.g. 201A / 202B / 203C
-
-                result[opt_id] = {
-                    "id": opt_id,
-                    "type": "option",
-                    "position": "",
-                    "data_description": merged_desc(child) or "Proceed to the next phase.",
-                    "data_explanation": "Consider the implications before proceeding.",
                     "options": [],
-                    "next": nxt_hub,  # ✅ now unique per branch
+                    "next": eid,
                     "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
                 }
 
-                # recursively create that next hub (independent branch)
-                build(nxt_hub, child_orig_id)
+    # Build root
+    build(ROOT_HUB_ID, ROOT_ORIG, depth=1)
 
-    # Build from the root hub
-    build(ROOT_HUB_ID, ROOT_ORIG)
-
-    # --- Endings (unchanged) ---
+    # --- Endings (same as before) ---
     ending_map = {
         "E1": ("✅ Successful Resolution", "The crisis is fully resolved, and relationships or goals are restored."),
         "E2": ("⚖️ Partial Recovery", "Some improvement achieved, but challenges or reputational impacts remain."),
@@ -504,6 +502,7 @@ def build_flat_with_hubs(model, aspect_map):
         }
 
     return result
+
 
 
 # =========================
