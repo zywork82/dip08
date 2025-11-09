@@ -5,6 +5,7 @@
 .scenerio-history-container {
   display: flex;
   flex-direction: column;
+  height: 100vh;
   justify-content: space-between;
   height: 100%;margin-top: 20px;
   background-color: #f7f7f7;

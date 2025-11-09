@@ -115,10 +115,12 @@ def save_flow():
                 "options": raw_data.get("options", node.get("options", [])),
                 "next": raw_data.get("next", node.get("next", None)),
                 "scene": raw_data.get("scene", ""),
-               "b64image": raw_data.get("b64image") if raw_data.get("b64image") else first_img,
-                "imageUrl": raw_data.get("imageUrl") if raw_data.get("imageUrl") else first_img,
-                "generatedImages": gen_imgs,
+                # ✅ Preserve images if already set
+                "b64image": raw_data.get("b64image", ""),
+                "imageUrl": raw_data.get("imageUrl", ""),
+                "generatedImages": raw_data.get("generatedImages", []),
             }
+
 
             node_doc = {
                 "id": str(node.get("id")).strip(),
