@@ -69,7 +69,6 @@
 
 /* --- Case Studies Section --- */
 .case-studies-section {
-  margin-top: 10px;
   display: flex;
   flex-direction: column;
 }
@@ -85,6 +84,20 @@
   font-size: 1.5rem;
   font-weight: bold;
   color: #1f2937;
+}
+
+.create-scenario-btn {
+  padding: 0.5rem 1rem;
+  background-color: #6b46c1;
+  color: #fff;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition-property: background-color;
+  transition-duration: 0.15s;
+}
+
+.create-scenario-btn:hover {
+  background-color: #553c9a;
 }
 
 .tabs {
@@ -192,15 +205,28 @@
   background-color: #10b981;
   color: #fff;
 }
+
+/* --- Tips Section --- */
+.tips-heading {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+.tips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .tip-card {
   background-color: #fff;
   border-radius: 0.75rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-              0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   padding: 1rem;
   display: flex;
-  flex-direction: column; /* stack vertically */
+flex-direction: column; /* stack vertically */
   align-items: center; /* center image and text */
   gap: 0.75rem;
   border: 1px solid #e5e7eb;
@@ -211,8 +237,7 @@
   width: 100%; /* full width of card */
   height: 8rem; /* bigger height */
   border-radius: 0.75rem;
-  overflow: hidden;
-}
+  overflow: hidden;}
 
 .tip-image-container img {
   width: 100%;
@@ -220,13 +245,12 @@
   object-fit: cover;
 }
 
-/* center text */
 .tip-info {
-  text-align: center;
+  text-align:center;
 }
 
 .tip-title {
-  font-size: 1rem;
+  font-size:1rem;
   font-weight: 600;
   color: #1f2937;
 }
@@ -245,4 +269,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem; /* increased spacing between boxes */
+}
+.tip-link:hover {
+  text-decoration: underline;
 }

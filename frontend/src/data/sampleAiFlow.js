@@ -1,3 +1,5 @@
+// sampleAiFlow.js
+
 /*
 * This file contains the node data for the scenario playthrough.
 * Each option is tagged with a 'scores' object to enable psychological analysis.
@@ -27,7 +29,8 @@ export const sampleNodes = {
     id: '101',
     type: 'scenario',
     position: { x: 300, y: 50 },
-    data: 'A viral post is spreading about your organization. What do you do first?',
+    data: 'A viral post is spreading. What do you do first?',
+    // ADDED: This connects the scenario to its options
     scene: 'The president ow ow',
     options: ['101_A', '101_B'],
     b64image: 'imagesample' 
@@ -201,7 +204,6 @@ export const sampleNodes = {
     options: [],
     b64image: 'imagesample'
   },
-
   '301_A': {
     id: '301_A',
     type: 'option',

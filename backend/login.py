@@ -29,10 +29,14 @@ def create_access_token(user_id: str):
 @login_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
+    print("Connected to DB:", db.name)
     email = data.get("email")
+    print("Email received:", email)
     password = data.get("password")
     role = data.get("role")
-    db_user = db["users"].find_one({"email": email})
+    print("Role received:", role)
+    db_user = db["users"].find_one({"email": {"$regex": f"^{email}$", "$options": "i"}})
+    print("User found in DB:", db_user)
     if not db_user:
         return jsonify({"error": "Invalid email or password"}), 401
     if not verify_password(password, db_user["password"]):
@@ -52,3 +56,7 @@ def login():
             "role": db_user["role"],
         },
     }), 200
+
+@login_bp.route("/ping")
+def ping():
+    return jsonify({"msg": "login backend is running"}), 200

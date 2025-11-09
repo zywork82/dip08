@@ -2,13 +2,15 @@ import React, { useState, useEffect} from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/Global.css';
 import '../styles/Student.css';
-import axios from 'axios';
+import { caseStudies } from '../data/mockdata.js';
 import CaseStudyCard from '../components/CaseStudyCard';
-import StudentSidebar from '../components/StudentSidebar';
+import SharedSidebar from '../components/SharedSidebar';
 import SharedHeader from '../components/SharedHeader';
 import TutorialBanner from '../components/TutorialBanner';
+import axios from 'axios';
+import StudentSidebar from '../components/StudentSidebar.jsx';
 
-const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=H';
+const profileImage = 'https://placehold.co/40x40/E6E6FA/3f51b5?text=HW';
 const tips = [
   {
     id: 1,
@@ -28,7 +30,6 @@ const tips = [
 ];
 
 
-
 const TipCard = ({ title, image }) => (
   <div className="tip-card">
     <div className="tip-image-container">
@@ -42,18 +43,26 @@ const TipCard = ({ title, image }) => (
 );
 
 const StudentPage = () => {
-  const [student, setStudent] = useState(null);
-  const [caseStudies, setCaseStudies] = useState([]);
   const [activeTab, setActiveTab] = useState('All');
+  const [student, setStudent] = useState(null);
+   const [caseStudies, setCaseStudies] = useState([]);
   const [loadingCaseStudies, setLoadingCaseStudies] = useState(false);
   const [caseStudiesError, setCaseStudiesError] = useState(null);
 
-  const filteredScenarios = caseStudies.filter(s => {
+
+
+  // useEffect(() => {
+  //   // Example: load student from localStorage after login
+  //   const storedUser = JSON.parse(localStorage.getItem('user'));
+  //   if (storedUser) setStudent(storedUser);
+  // }, []);
+
+ const filteredScenarios = caseStudies.filter(s => {
     if (activeTab === 'All') return true;
     return s.status === activeTab;
   });
 
- useEffect(() => {
+  useEffect(() => {
   const fetchCaseStudies = async () => {
     setLoadingCaseStudies(true);
     setCaseStudiesError(null);
@@ -63,7 +72,7 @@ const StudentPage = () => {
       if (!token) throw new Error("No token found in localStorage");
 
       const res = await axios.get('http://localhost:5000/scenarios/', {
-       
+
       });
 
       console.log("Raw response data:", res.data);
@@ -132,7 +141,7 @@ const StudentPage = () => {
                   <i className="icon-grid-view active"></i>
                 </div>
               </div>
-             <div className="scenario-grid">
+               <div className="scenario-grid">
               {loadingCaseStudies && <p>Loading scenarios...</p>}
               {caseStudiesError && <p>Error: {caseStudiesError}</p>}
               {!loadingCaseStudies && !caseStudiesError && filteredScenarios.map(scenario => (
@@ -146,8 +155,8 @@ const StudentPage = () => {
                   />
                 </div>
               ))}
-            </div>
               </div>
+            </div>
             </div>
             <div className="right-column"><aside className="tips-aside">
           <h3 className="tips-heading">Tips On Strategic Thinking</h3>

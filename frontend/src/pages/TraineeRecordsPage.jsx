@@ -20,7 +20,6 @@ const reportData = {
 
 // New Modal Component
 const TraineeReportModal = ({ trainee, onClose }) => {
-  
   if (!trainee) return null;
 
   const modalOverlayStyle = {
@@ -116,8 +115,6 @@ const TraineeReportModal = ({ trainee, onClose }) => {
     alignItems: 'center',
   };
 
-
-
   return (
     <div style={modalOverlayStyle}>
       <div style={modalContentStyle}>
@@ -182,7 +179,7 @@ const TraineeReportModal = ({ trainee, onClose }) => {
 // Main TraineeRecordsPage component
 const TraineeRecordsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sort, setSort] = useState('latest'); 
+  const [sort, setSort] = useState('latest');
   const [filters, setFilters] = useState({
     date: '',
     caseStudy: '',
@@ -202,8 +199,7 @@ const TraineeRecordsPage = () => {
 
     return matchesSearch && matchesDate && matchesCaseStudy && matchesStatus;
   });
-
-    const sortedTrainees = [...filteredTrainees].sort((a, b) => {
+  const sortedTrainees = [...filteredTrainees].sort((a, b) => {
     // Parse dates into timestamps; fallback to 0 if invalid
     const dateA = new Date(a.date).getTime() || 0;
     const dateB = new Date(b.date).getTime() || 0;
@@ -216,8 +212,6 @@ const TraineeRecordsPage = () => {
     }
     return 0;
   });
-
-
   const resetFilters = () => {
     setFilters({ date: '', caseStudy: '', status: '' });
     setSearchQuery('');
@@ -352,10 +346,9 @@ const TraineeRecordsPage = () => {
     <div style={containerStyle}>
       <SharedSidebar />
       <div style={mainContentStyle}>
-        <SharedHeader
+       <SharedHeader
           profileImage={`https://placehold.co/100x100/E6E6FA/3f51b5?text=A`}
         />
-
         <div style={bodyStyle}>
           <h2 style={titleStyle}>Trainee Records</h2>
           <div style={filterRowStyle}>
@@ -369,10 +362,11 @@ const TraineeRecordsPage = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+             <select value={sort} onChange={(e) => setSort(e.target.value)}>
                 <option value="latest">Latest first</option>
                 <option value="earliest">Earliest first</option>
               </select>
+           
             <div style={resetStyle} onClick={resetFilters}>
               <FaRedo style={{ marginRight: '6px' }} />
               Reset Filter

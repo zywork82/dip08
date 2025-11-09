@@ -24,7 +24,7 @@ const StudentSidebar = () => {
         <div className="w-12 h-12">
           <img src={logo} alt="Deciwise Logo" className="logo-icon" />
         </div>
-  
+
       </div>
       <nav className="nav-menu">
         {navItems.map((item) => (

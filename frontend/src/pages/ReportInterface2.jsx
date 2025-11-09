@@ -39,14 +39,14 @@ const analyzePsychData = (data) => {
     if (!arr || arr.length === 0) return 0;
     return arr.reduce((acc, val) => acc + val, 0) / arr.length;
   };
-  
+
   const avgTime = getAverage(data.map(entry => entry.timeTaken));
   const avgBiasConfirmation = getAverage(data.map(entry => entry.scores.bias_confirmation || 0));
   const avgBiasConfidence = getAverage(data.map(entry => entry.scores.bias_confidence || 0));
   const avgRiskTolerance = getAverage(data.map(entry => entry.scores.risk_tolerance || 0));
   const avgTimeVsRelationship = getAverage(data.map(entry => entry.scores.time_vs_relationship || 0));
   const avgThinkingDisposition = getAverage(data.map(entry => entry.scores.thinking_disposition || 0));
-  
+
   const biasScore = ( (avgBiasConfirmation + avgBiasConfidence) / 2 + 1) * 50;
   const riskScore = (avgRiskTolerance + 1) * 50;
   const orientationScore = (avgTimeVsRelationship + 1) * 50;
@@ -108,7 +108,7 @@ const prepareLineChartData = (data) => {
       }
     }
   };
-  
+
   return { chartData, chartOptions };
 };
 
@@ -202,4 +202,3 @@ const ReportInterface = ({ data, onRestart }) => {
 };
 
 export default ReportInterface2;
-

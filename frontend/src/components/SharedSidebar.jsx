@@ -38,7 +38,7 @@ const SharedSidebar = () => {
             <span className="font-semibold">{item.name}</span>
           </Link>
         ))}
-      </nav>
+       </nav>
       <div className="profile-section">
         <div className="profile-info">
           <span className="profile-name">Andy</span>

@@ -94,7 +94,7 @@ useEffect(() => {
               }`}
               onClick={() => setActiveTab("accounts")}
             >
-              
+
             </span>
           </h2>
 
@@ -212,7 +212,7 @@ useEffect(() => {
                   />
                 </div>
 
-          
+
 
                 {/* Password */}
                 <div className="account-field">

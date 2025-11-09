@@ -25,7 +25,7 @@ const AdminDashboard = () => {
   const [caseStudiesError, setCaseStudiesError] = useState(null);
 
   const getInitials = (name) => {
-    if (!name) return "PA";
+    if (!name) return "NA";
     const parts = name.trim().split(" ");
     if (parts.length === 1) return parts[0][0].toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -175,7 +175,6 @@ setCaseStudies(sortedScenarios);
                         image={scenario.image}
                         scenarioId={scenario._id} // ✅ pass the full object here
                       />
-
                     </div>
                   ))}
                 </div>

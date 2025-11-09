@@ -194,21 +194,23 @@
 
 .button-container{
   position: absolute;
-  right: 1%;
- top: 70px; 
+  top: 2vh;         /* scales with screen height */
+  right: 2vw;       /* scales with screen width */
   display: flex; 
+  flex-wrap: nowrap; 
+  flex-direction: row;
   gap: 10px;
 }
 .action-buttons{
-  height: 40px;
-  width: 80px;
+  height: clamp(26px, 3vh, 32px);  /* scales with screen height */
+  max-width: 160px;
   padding: 10px;
   background-color: #1b007e;
   color: white;
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: clamp(10px, 0.9vw, 12px);
   padding: 2px;
 }
 .action-buttons.loading {

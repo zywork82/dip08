@@ -42,7 +42,7 @@ useEffect(() => {
 
   fetchAdmins();
 }, []);
-  
+
 
   useEffect(() => {
   const fetchCaseStudies = async () => {
@@ -63,7 +63,7 @@ useEffect(() => {
     if (activeTab === 'In-Progress') return cs.status === 'In-Progress' || cs.status === 'Edit';
     return false;
   });
-  
+
    const renderCaseStudies = () => {
   // Step 1: filter based on tab
   const filteredCaseStudies = caseStudiesData.filter((cs) => {

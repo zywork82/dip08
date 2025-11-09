@@ -36,6 +36,7 @@ const CaseStudyCard = ({ title, lastEdited, status, image, onGoClick, scenarioId
           {isCompleted ? 'Completed' : 'Go'}
         </button>
       </div>
+	
     </div>
   );
 };

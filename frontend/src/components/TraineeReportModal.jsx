@@ -4,6 +4,7 @@ import { traineeData } from '../data/TraineeData.js';
 import StudentSidebar from './StudentSidebar.jsx';
 import SharedHeader from './SharedHeader.jsx';
 
+
 // Mock data for the report's internal details
 const reportData = {
   // Renamed to match the key in traineeData
@@ -18,10 +19,13 @@ const reportData = {
   ]
 };
 
+
 // New Modal Component
 const TraineeReportModal = ({ trainee, onClose }) => {
-  
+
+
   if (!trainee) return null;
+
 
   const modalOverlayStyle = {
     position: 'fixed',
@@ -36,6 +40,7 @@ const TraineeReportModal = ({ trainee, onClose }) => {
     zIndex: 1000,
   };
 
+
   const modalContentStyle = {
     backgroundColor: '#fff',
     borderRadius: '12px',
@@ -45,6 +50,7 @@ const TraineeReportModal = ({ trainee, onClose }) => {
     display: 'flex',
     flexDirection: 'column',
   };
+
 
   const modalHeaderStyle = {
     backgroundColor: '#5B50A7',
@@ -57,11 +63,13 @@ const TraineeReportModal = ({ trainee, onClose }) => {
     borderTopRightRadius: '12px',
   };
 
+
  const modalBodyStyle = {
   padding: '20px 0 0 20px', // top right bottom left
   overflowY: 'auto',
   flexGrow: 1,
 };
+
 
   const reportTitleStyle = {
     textAlign: 'center',
@@ -71,11 +79,13 @@ const TraineeReportModal = ({ trainee, onClose }) => {
     color: '#333',
   };
 
+
   const tableStyle = {
     width: '100%',
     borderCollapse: 'collapse',
     marginBottom: '2rem',
   };
+
 
   const tableHeaderStyle = {
     fontWeight: 600,
@@ -83,10 +93,12 @@ const TraineeReportModal = ({ trainee, onClose }) => {
     padding: '12px',
   };
 
+
   const tableCellStyle = {
     padding: '10px',
     border: '1px solid #ddd',
   };
+
 
   const downloadButtonStyle = {
     display: 'flex',
@@ -103,6 +115,7 @@ const TraineeReportModal = ({ trainee, onClose }) => {
     fontWeight: 500,
   };
 
+
   const closeButtonStyle = {
     background: 'none',
     border: 'none',
@@ -118,6 +131,9 @@ const TraineeReportModal = ({ trainee, onClose }) => {
 
 
 
+
+
+
   return (
     <div style={modalOverlayStyle}>
       <div style={modalContentStyle}>
@@ -129,7 +145,8 @@ const TraineeReportModal = ({ trainee, onClose }) => {
         </div>
         <div style={modalBodyStyle}>
           <h4 style={reportTitleStyle}>Trainee Performance Report</h4>
-          
+
+
           <div style={tableStyle}>
             <table>
               <tbody>
@@ -145,6 +162,7 @@ const TraineeReportModal = ({ trainee, onClose }) => {
               </tbody>
             </table>
           </div>
+
 
           <h5 style={{fontWeight: 600, marginBottom: '1rem'}}>Decision Timeline</h5>
           <div style={tableStyle}>
@@ -169,6 +187,7 @@ const TraineeReportModal = ({ trainee, onClose }) => {
               </tbody>
             </table>
           </div>
+
 
           <button style={downloadButtonStyle}>
             Download Report <FaDownload style={{marginLeft: '8px'}} />

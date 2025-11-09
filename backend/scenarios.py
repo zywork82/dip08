@@ -48,7 +48,7 @@ def scenarios_root():
 
 
 # =========================================================
-# ✅ Save Flow (upsert nodes with consistent data format)
+# ✅ Save Flow (upsert nodes with full image support)
 # =========================================================
 @scenarios_bp.route("/saveFlow", methods=["POST"])
 def save_flow():
@@ -57,7 +57,16 @@ def save_flow():
         now = datetime.utcnow()
         scenario_id = flow.get("id")
 
-        # --- Create or update main scenario document ---
+        # --- Validate ObjectId ---
+        def is_valid_objectid(val):
+            from bson.errors import InvalidId
+            try:
+                ObjectId(val)
+                return True
+            except (InvalidId, TypeError):
+                return False
+
+        # --- Prepare main scenario document ---
         scenario_doc = {
             "title": flow.get("title", "Untitled Scenario").strip(),  # ✅ always update title
             "status": flow.get("status", "Edit"),
@@ -66,28 +75,23 @@ def save_flow():
             "startNodeId": flow.get("startNodeId"),
         }
 
-        if scenario_id:
-            db.scenarios.update_one(
+        # --- Determine if we are updating or creating ---
+        if scenario_id and is_valid_objectid(scenario_id):
+            result = db.scenarios.update_one(
                 {"_id": ObjectId(scenario_id)},
                 {"$set": scenario_doc},
                 upsert=True
             )
-            scenario_oid = ObjectId(scenario_id)
+            if result.matched_count == 0:
+                print(f"⚠️ No scenario found for ID {scenario_id}, creating new instead.")
+                scenario_oid = db.scenarios.insert_one(scenario_doc).inserted_id
+            else:
+                scenario_oid = ObjectId(scenario_id)
         else:
-            scenario_oid = db.scenarios.insert_one(scenario_doc).inserted_id
-
-        # --- Upsert nodes ---
-        for node in flow.get("nodes", []):
-            raw_data = node.get("data", {})
-            # 🧠 Normalize node.data into consistent object form
-            if isinstance(raw_data, str):
-                formatted_data = {
-                    "data_description": raw_data,
-                    "options": node.get("options", []),
-                    "next": node.get("next", None),
-                    "scene": "",
-                    "b64image": ""
-                }
+            existing = db.scenarios.find_one({"title": scenario_doc["title"]})
+            if existing:
+                db.scenarios.update_one({"_id": existing["_id"]}, {"$set": scenario_doc})
+                scenario_oid = existing["_id"]
             else:
                 scenario_oid = db.scenarios.insert_one(scenario_doc).inserted_id
 
@@ -117,8 +121,8 @@ def save_flow():
             }
 
             node_doc = {
-                "id": node.get("id"),
-                "type": node.get("type"),
+                "id": str(node.get("id")).strip(),
+                "type": node.get("type", "scenario"),
                 "data": formatted_data,
                 "psych_dimensions": node.get("psych_dimensions", ""),
                 "position": node.get("position", {}),
@@ -130,6 +134,15 @@ def save_flow():
                 {"$set": node_doc},
                 upsert=True
             )
+            saved_nodes.append(node_doc)
+
+        for n in saved_nodes:
+            if "_id" in n:
+                n["_id"] = str(n["_id"])
+            if isinstance(n.get("scenarioId"), ObjectId):
+                n["scenarioId"] = str(n["scenarioId"])
+
+        print(f"✅ Saved {len(saved_nodes)} nodes for scenario {scenario_oid}")
 
         return jsonify({
             "success": True,
@@ -142,7 +155,7 @@ def save_flow():
         }), 200
 
     except Exception as e:
-        print("Error saving flow:", e)
+        print("❌ Error saving flow:", e)
         return jsonify({"success": False, "error": str(e)}), 500
 
 # =========================================================
@@ -153,7 +166,7 @@ def save_flow():
 # =========================================================
 @scenarios_bp.route("/updateImage", methods=["POST"])
 def update_image():
-    from backend.app import TMP_DIR, _generate_single_image_file, _file_to_b64
+    from app import TMP_DIR, _generate_single_image_file, _file_to_b64
 
     try:
         data = request.get_json(silent=True) or {}
@@ -243,6 +256,7 @@ def get_flow(scenario_id):
         if not scenario:
             return jsonify({"error": "Scenario not found"}), 404
 
+        # 🧩 Fetch nodes for scenario
         nodes = list(db.scenarioNodes.find({"scenarioId": ObjectId(scenario_id)}))
         edges = []
 
@@ -276,8 +290,8 @@ def get_flow(scenario_id):
                 "generatedImages": data_field.get("generatedImages", []),
             }
 
-            # --- Build edges ---
-            for opt_id in n["data"].get("options", []):
+            # --- Build edges safely ---
+            for opt_id in n["data"]["options"]:
                 edges.append({
                     "id": f"e-{n['id']}-{opt_id}",
                     "source": n["id"],
@@ -285,7 +299,8 @@ def get_flow(scenario_id):
                     "type": "smoothstep",
                     "animated": True
                 })
-            if n["data"].get("next"):
+
+            if n["data"]["next"]:
                 edges.append({
                     "id": f"e-{n['id']}-{n['data']['next']}",
                     "source": n["id"],
@@ -297,6 +312,10 @@ def get_flow(scenario_id):
             n["_id"] = str(n["_id"])
             n["scenarioId"] = str(n["scenarioId"])
 
+        # 🧩 FIX 3: Normalize all node IDs as strings
+        for n in nodes:
+            n["id"] = str(n["id"]).strip()
+
         flow_data = {
             "id": str(scenario["_id"]),
             "title": scenario.get("title"),
@@ -307,9 +326,35 @@ def get_flow(scenario_id):
             "nodes": nodes,
             "edges": edges,
         }
+
         return jsonify(flow_data), 200
 
     except Exception as e:
         print("Error in get_flow:", e)
         return jsonify({"error": str(e)}), 500
 
+@scenarios_bp.route("/delete/<scenario_id>", methods=["DELETE"])
+def delete_scenario(scenario_id):
+    try:
+        from bson import ObjectId
+
+        if not ObjectId.is_valid(scenario_id):
+            return jsonify({"success": False, "error": "Invalid scenario ID"}), 400
+
+        scenario_oid = ObjectId(scenario_id)
+
+        # 🗑 delete the scenario itself
+        deleted_scenario = db.scenarios.delete_one({"_id": scenario_oid})
+
+        # 🗑 delete all nodes linked to it
+        deleted_nodes = db.scenarioNodes.delete_many({"scenarioId": scenario_oid})
+
+        return jsonify({
+            "success": True,
+            "scenarioDeleted": deleted_scenario.deleted_count,
+            "nodesDeleted": deleted_nodes.deleted_count,
+            "scenarioId": scenario_id
+        }), 200
+    except Exception as e:
+        print("❌ Error deleting scenario:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
