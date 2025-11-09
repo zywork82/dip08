@@ -5,6 +5,7 @@ import NavigationBar from "../components/SlimNavBar";
 import SharedHeader from "../components/SharedHeader";
 import "../styles/Global.css";
 import "../styles/SimulationInterface.css";
+import axios from "axios";
 
 // ========= Helpers =========
 const byId = (arr = []) => Object.fromEntries((arr || []).map((n) => [String(n.id), n]));
@@ -82,6 +83,7 @@ const SimulationInterface = () => {
   const [isAdmin] = useState(true); // ← replace with real auth check later
 const [panelMinimized, setPanelMinimized] = useState(false);
 
+
   const profileImage = "https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A";
 
   // Initial flow boot
@@ -100,6 +102,7 @@ const [panelMinimized, setPanelMinimized] = useState(false);
       return;
     }
 
+    
     // Ensure nodes/edges exist
     const nodes = loaded.nodes || [];
     const edges = loaded.edges && loaded.edges.length > 0 ? loaded.edges : generateEdgesFromNodes(nodes);
@@ -117,6 +120,26 @@ const [panelMinimized, setPanelMinimized] = useState(false);
       // ignore quota issues
     }
   }, [passedFlow, scenarioId]);
+
+ useEffect(() => {
+  const fetchFlow = async () => {
+    if (!flowData && scenarioId) {
+      try {
+        const res = await axios.get(`http://127.0.0.1:5000/scenarios/getFlow/${scenarioId}`);
+        const data = res.data;
+
+        if (!data || !data.nodes) throw new Error("No flow data returned");
+
+        setFlowData(data);
+        setCurrentNodeId(resolveStartNodeId(data));
+      } catch (err) {
+        console.error("Failed to load scenario flow:", err);
+        alert("⚠️ Failed to load scenario. Please try again.");
+      }
+    }
+  };
+  fetchFlow();
+}, [flowData, scenarioId]);
 
   // Derived maps
   const nodeMap = useMemo(() => byId(flowData?.nodes || []), [flowData]);
