@@ -553,7 +553,7 @@ def build_flat_with_hubs(model, aspect_map):
             "id": hub_id,
             "type": "scenario",
             "position": "",
-            "data_description": merged_desc(origin,"scanario"),
+            "data_description": merged_desc(origin,"scenario"),
             "data_explanation": expl_field(origin),
             "options": option_ids,
             "psych_dimensions": clean_psych(aspect_map.get(origin_id, "")),
