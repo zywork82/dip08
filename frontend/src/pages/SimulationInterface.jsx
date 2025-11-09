@@ -5,7 +5,7 @@ import NavigationBar from "../components/SlimNavBar";
 import SharedHeader from "../components/SharedHeader";
 import "../styles/Global.css";
 import "../styles/SimulationInterface.css";
-
+import { motion, AnimatePresence } from "framer-motion";
 // ========= Helpers =========
 const byId = (arr = []) => Object.fromEntries((arr || []).map((n) => [String(n.id), n]));
 
@@ -283,60 +283,58 @@ const [panelMinimized, setPanelMinimized] = useState(false);
               className="scene-image-wrapper"
               
             >
-              {imageSrc ? (
-                <img
-                  src={imageSrc}
-                  alt={`Scene ${currentNode.id}`}
-                  
-                />
-              ) : (
-                <div >(No image selected for this scene)</div>
-              )}
-           <div className="infobox">
-              {/* Options or End */}
-              <div className="optionsWrapper">
-                {/* Scene text */}
-              <div
-                className="scene-text"
-              >
-                {/* <h3>Scene {String(currentNode.id)}</h3> */}
-                <p s>{text}</p>
-              </div> 
-                {currentNode.type === "scenario" && optionButtons.length > 0 ? (
-                  <div className="options-grid" >
-                    {optionButtons.map((opt) => (
-                      <button
-                        key={opt.id}
-                        className="action-buttons"
-                        onClick={() => goViaOption(currentNode.id, opt.id)}
-                    
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : isEnd ? (
-                  <div>
-                    <strong>Scenario complete.</strong>
-                    <div >
-                      <button className="action-buttons" onClick={restart}>🔁 Restart</button>
-                      <button
-                        className="action-buttons"
-                        onClick={() =>
-                          navigate("/report", {
-                            state: { scenarioId, choicesLog, flowData },
-                          })
-                        }
-                      >
-                        📊 View Report
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentNodeId}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ duration: 0.6 }}
+              className="scene-container"
+            >
+          {imageSrc ? (
+            <img className="scene-image" src={imageSrc} alt={`Scene ${currentNode.id}`} />
+          ) : (
+            <div>(No image selected for this scene)</div>
+          )}
+
+          <div className="infobox">
+            <div className="scene-text">
+              <p>{text}</p>
+            </div>
+
+            {currentNode.type === "scenario" && optionButtons.length > 0 ? (
+              <div className="options-grid">
+                {optionButtons.map((opt) => (
+                  <button
+                    key={opt.id}
+                    className="action-buttons"
+                    onClick={() => goViaOption(currentNode.id, opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-              
-              
-              </div></div>
+            ) : isEnd ? (
+              <div>
+                <strong>Scenario complete.</strong>
+                <div>
+                  <button className="action-buttons" onClick={restart}>🔁 Restart</button>
+                  <button
+                    className="action-buttons"
+                    onClick={() =>
+                      navigate("/report", { state: { scenarioId, choicesLog, flowData } })
+                    }
+                  >
+                    📊 View Report
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+  </motion.div>
+</AnimatePresence>
+</div>
           
 
           {/* 🧭 Floating Admin Panel */}
@@ -387,16 +385,16 @@ const [panelMinimized, setPanelMinimized] = useState(false);
       <>
         {/* Navigation Buttons */}
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
-          <button className="action-buttons" onClick={() => navigate("/scene-editor", { state: { scenarioId, flowData } })}>
+          <button className="admin-action-buttons" onClick={() => navigate("/scene-editor", { state: { scenarioId, flowData } })}>
             ✏️ Edit Images
           </button>
-          <button className="action-buttons" onClick={() => navigate("/editor", { state: { scenarioId, flowData } })}>
+          <button className="admin-action-buttons" onClick={() => navigate("/editor", { state: { scenarioId, flowData } })}>
             🧭 Edit Flow
           </button>
-          <button className="action-buttons" disabled={atStart} onClick={goBack}>
+          <button className="admin-action-buttons" disabled={atStart} onClick={goBack}>
             ⬅️ Back
           </button>
-          <button className="action-buttons" onClick={restart}>
+          <button className="admin-action-buttons" onClick={restart}>
             🔄 Restart
           </button>
         </div>
