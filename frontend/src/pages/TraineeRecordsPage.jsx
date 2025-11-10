@@ -1,208 +1,89 @@
 import React, { useState, useEffect } from 'react';
 import { FaSearch, FaRedo, FaTimes, FaDownload } from 'react-icons/fa';
-import { traineeData } from '../data/TraineeData.js';
-import SharedSidebar from '../components/SharedSidebar';
+import SharedSidebar from '../components/SharedSidebar.jsx';
 import SharedHeader from '../components/SharedHeader';
+import TraineeReportModal from '../components/TraineeReportModal.jsx';
 
-// Mock data for the report's internal details
-const reportData = {
-  // Renamed to match the key in traineeData
-  caseStudy: 'Cybersecurity Awareness',
-  totalTimeSpent: '32 minutes',
-  decisionTimeline: [
-    { step: 1, decision: 'D1', timeTaken: 5, correct: true },
-    { step: 2, decision: 'D2', timeTaken: 8, correct: false },
-    { step: 3, decision: 'D3', timeTaken: 3, correct: true },
-    { step: 4, decision: 'D4', timeTaken: 10, correct: false },
-    { step: 5, decision: 'D5', timeTaken: 6, correct: true },
-  ]
+const storedUser = {
+  id: "test_user",
+  name: "Test User",
+  email: "test@example.com"
 };
 
-// New Modal Component
-const TraineeReportModal = ({ trainee, onClose }) => {
-  if (!trainee) return null;
-
-  const modalOverlayStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  };
-
-  const modalContentStyle = {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    width: '90%',
-    maxWidth: '800px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
-    display: 'flex',
-    flexDirection: 'column',
-  };
-
-  const modalHeaderStyle = {
-    backgroundColor: '#5B50A7',
-    color: '#fff',
-    padding: '1rem 1.5rem',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopLeftRadius: '12px',
-    borderTopRightRadius: '12px',
-  };
-
- const modalBodyStyle = {
-  padding: '20px 0 0 20px', // top right bottom left
-  overflowY: 'auto',
-  flexGrow: 1,
-};
-
-  const reportTitleStyle = {
-    textAlign: 'center',
-    fontSize: '1.5rem',
-    fontWeight: 600,
-    marginBottom: '2rem',
-    color: '#333',
-  };
-
-  const tableStyle = {
-    width: '100%',
-    borderCollapse: 'collapse',
-    marginBottom: '2rem',
-  };
-
-  const tableHeaderStyle = {
-    fontWeight: 600,
-    textAlign: 'left',
-    padding: '12px',
-  };
-
-  const tableCellStyle = {
-    padding: '10px',
-    border: '1px solid #ddd',
-  };
-
-  const downloadButtonStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '2rem auto 0',
-    padding: '12px 24px',
-    backgroundColor: '#5B50A7',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    fontWeight: 500,
-  };
-
-  const closeButtonStyle = {
-    background: 'none',
-    border: 'none',
-    color: '#fff',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    width: '32px',
-    height: '32px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-  };
-
-  return (
-    <div style={modalOverlayStyle}>
-      <div style={modalContentStyle}>
-        <div style={modalHeaderStyle}>
-          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Analytics Report for {trainee.name}</h3>
-          <button onClick={onClose} style={closeButtonStyle}>
-            <FaTimes />
-          </button>
-        </div>
-        <div style={modalBodyStyle}>
-          <h4 style={reportTitleStyle}>Trainee Performance Report</h4>
-          
-          <div style={tableStyle}>
-            <table>
-              <tbody>
-                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Trainee Name:</td><td style={tableCellStyle}>{trainee.name}</td></tr>
-                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Trainee ID:</td><td style={tableCellStyle}>{trainee.id}</td></tr>
-                {/* Now using trainee.caseStudy */}
-                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Case Study:</td><td style={tableCellStyle}>{trainee.caseStudy}</td></tr>
-                {/* Now using trainee.date */}
-                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Date:</td><td style={tableCellStyle}>{trainee.date}</td></tr>
-                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Total Time Spent:</td><td style={tableCellStyle}>{reportData.totalTimeSpent}</td></tr>
-                {/* Now using trainee.status */}
-                <tr><td style={{...tableCellStyle, fontWeight: 600, backgroundColor: '#f5f5f5', width: '30%'}}>Completion Status:</td><td style={tableCellStyle}>{trainee.status}</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          <h5 style={{fontWeight: 600, marginBottom: '1rem'}}>Decision Timeline</h5>
-          <div style={tableStyle}>
-            <table>
-              <thead>
-                <tr style={{backgroundColor: '#e8e8ff'}}>
-                  <th style={tableHeaderStyle}>Step</th>
-                  <th style={tableHeaderStyle}>Decision</th>
-                  <th style={tableHeaderStyle}>Time Taken (s)</th>
-                  <th style={tableHeaderStyle}>Correct?</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.decisionTimeline.map((item, index) => (
-                  <tr key={index}>
-                    <td style={tableCellStyle}>{item.step}</td>
-                    <td style={tableCellStyle}>{item.decision}</td>
-                    <td style={tableCellStyle}>{item.timeTaken}</td>
-                    <td style={tableCellStyle}>{item.correct ? 'Yes' : 'No'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <button style={downloadButtonStyle}>
-            Download Report <FaDownload style={{marginLeft: '8px'}} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Main TraineeRecordsPage component
 const TraineeRecordsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sort, setSort] = useState('latest');
+  const [sort, setSort] = useState('latest'); // default to latest
+  const [records, setRecords] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedTrainee, setSelectedTrainee] = useState(null);
   const [filters, setFilters] = useState({
     date: '',
     caseStudy: '',
     status: '',
   });
-  const [showModal, setShowModal] = useState(false);
-  const [selectedTrainee, setSelectedTrainee] = useState(null);
 
-  const filteredTrainees = traineeData.filter((trainee) => {
-    const matchesSearch = trainee.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
+ const [scenarios, setScenarios] = useState({}); // object, not array
 
-    const matchesDate = !filters.date || trainee.date === filters.date;
-    const matchesCaseStudy = !filters.caseStudy || trainee.caseStudy === filters.caseStudy;
-    const matchesStatus = !filters.status || trainee.status === filters.status;
+useEffect(() => {
+  const fetchScenarios = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:5000/scenarios'); // adjust endpoint if needed
+      const data = await res.json();
+      // Convert array of scenarios into a map: { id: title }
+      const scenarioMap = {};
+      data.forEach(scenario => {
+        scenarioMap[scenario._id] = scenario.title;
+      });
+      setScenarios(scenarioMap);
+      console.log("✅ Loaded scenarios:", scenarioMap);
+    } catch (err) {
+      console.error("❌ Failed to fetch scenarios:", err);
+    }
+  };
+  fetchScenarios();
+}, []);
 
-    return matchesSearch && matchesDate && matchesCaseStudy && matchesStatus;
-  });
+  useEffect(() => {
+  if (!storedUser) {
+    console.error("❌ No logged-in user found.");
+    return;
+  }
+
+  const fetchRecords = async () => {
+    try {
+      const res = await fetch(`http://127.0.0.1:5000/api/analytics/${storedUser.id}`);
+      const data = await res.json();
+      console.log("Trainee records:", data); // <-- add this
+      setRecords(data);
+      console.log("✅ Loaded trainee analytics:", data);
+    } catch (err) {
+      console.error("❌ Failed to fetch analytics:", err);
+    }
+  };
+
+  fetchRecords();
+}, []);
+
+  const filteredTrainees = records.filter((trainee) => { 
+  const scenarioName = scenarios[trainee.scenario_id] || trainee.scenario_id;
+  const userId = trainee.user_id || "unknown_user";
+
+  const matchesSearch =
+    userId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    scenarioName.toLowerCase().includes(searchQuery.toLowerCase());
+
+  const matchesDate = !filters.date || trainee.date === filters.date;
+  const matchesCaseStudy = !filters.caseStudy || scenarioName === filters.caseStudy;
+  const matchesStatus = !filters.status || trainee.status === filters.status;
+
+  return matchesSearch && matchesDate && matchesCaseStudy && matchesStatus;
+});
+
+  // Sort - apply on top of filteredTrainees
   const sortedTrainees = [...filteredTrainees].sort((a, b) => {
     // Parse dates into timestamps; fallback to 0 if invalid
-    const dateA = new Date(a.date).getTime() || 0;
-    const dateB = new Date(b.date).getTime() || 0;
+    const dateA = new Date(a.created_at).getTime() || 0;
+    const dateB = new Date(b.created_at).getTime() || 0;
 
     if (sort === 'latest') {
       return dateB - dateA; // newest first
@@ -212,38 +93,14 @@ const TraineeRecordsPage = () => {
     }
     return 0;
   });
+
+  const handleViewReport = (trainee) => {
+  setSelectedTrainee(trainee);
+  setShowModal(true);
+};
   const resetFilters = () => {
     setFilters({ date: '', caseStudy: '', status: '' });
     setSearchQuery('');
-  };
-
-  const handleViewReport = (trainee) => {
-    setSelectedTrainee(trainee);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedTrainee(null);
-  };
-
-  const statusBadge = (status) => {
-    const colors = {
-      Completed: { bg: '#E6F7F1', color: '#2ECC71' },
-      Processing: { bg: '#F3E8FF', color: '#9B59B6' },
-      Rejected: { bg: '#FDEDEC', color: '#E74C3C' },
-      'On Hold': { bg: '#FEF5E7', color: '#E67E22' },
-      'In Transit': { bg: '#F0F4FF', color: '#5B50A7' },
-    };
-    const style = {
-      backgroundColor: colors[status]?.bg || '#eee',
-      color: colors[status]?.color || '#333',
-      padding: '5px 10px',
-      borderRadius: '12px',
-      fontSize: '0.8rem',
-      fontWeight: '500',
-    };
-    return <span style={style}>{status}</span>;
   };
 
   const containerStyle = {
@@ -346,9 +203,10 @@ const TraineeRecordsPage = () => {
     <div style={containerStyle}>
       <SharedSidebar />
       <div style={mainContentStyle}>
-       <SharedHeader
-          profileImage={`https://placehold.co/100x100/E6E6FA/3f51b5?text=A`}
+        <SharedHeader
+          profileImage={`https://placehold.co/100x100/E6E6FA/3f51b5?text=PA`}
         />
+
         <div style={bodyStyle}>
           <h2 style={titleStyle}>Trainee Records</h2>
           <div style={filterRowStyle}>
@@ -356,53 +214,58 @@ const TraineeRecordsPage = () => {
               <FaSearch style={{ color: '#aaa' }} />
               <input
                 type="text"
-                placeholder="Search for name"
+                placeholder="Search for Case Study"
                 style={searchInputStyle}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-             <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              <select value={sort} onChange={(e) => setSort(e.target.value)}>
                 <option value="latest">Latest first</option>
                 <option value="earliest">Earliest first</option>
               </select>
-           
+
             <div style={resetStyle} onClick={resetFilters}>
               <FaRedo style={{ marginRight: '6px' }} />
               Reset Filter
             </div>
           </div>
           <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>ID</th>
-                <th style={thStyle}>Name</th>
-                <th style={thStyle}>Case Study</th>
-                <th style={thStyle}>Date</th>
-                <th style={thStyle}>Report</th>
-                <th style={thStyle}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTrainees.map((trainee) => (
-                <tr key={trainee.id}>
-                  <td style={tdStyle}>{trainee.id}</td>
-                  <td style={tdStyle}>{trainee.name}</td>
-                  <td style={tdStyle}>{trainee.caseStudy}</td>
-                  <td style={tdStyle}>{trainee.date}</td>
-                  <td style={tdStyle}>
-                    <span style={linkStyle} onClick={() => handleViewReport(trainee)}>
-                      View
-                    </span>
-                  </td>
-                  <td style={tdStyle}>{statusBadge(trainee.status)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <thead>
+          <tr>
+            <th style={thStyle}>User ID</th>
+            <th style={thStyle}>Case Study</th>
+            <th style={thStyle}>Date</th>
+            <th style={thStyle}>Report</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedTrainees.map((trainee) => (
+            <tr key={trainee._id}>
+              <td style={tdStyle}>{trainee.user_id || "unknown_user"}</td>
+              <td style={tdStyle}>{scenarios[trainee.scenario_id] || trainee.scenario_id}</td>
+              <td style={tdStyle}>{new Date(trainee.created_at).toLocaleDateString()}</td>
+              <td style={tdStyle}>
+                <span style={linkStyle} onClick={() => handleViewReport(trainee)}>
+                  View
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+
+                    </table>
         </div>
       </div>
-      {showModal && <TraineeReportModal trainee={selectedTrainee} onClose={handleCloseModal} />}
+      {showModal && selectedTrainee && (
+      <TraineeReportModal
+        trainee={selectedTrainee}
+        onClose={() => {
+          setShowModal(false);
+          setSelectedTrainee(null);
+        }}
+      />
+    )}
     </div>
   );
 };
