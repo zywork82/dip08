@@ -73,6 +73,7 @@ const startScenario = sampleNodes['101'] || {};
       console.error(`Option ${selectedOption.id} is missing a 'next' property.`);
     }
     // If it's finished, we just stay on the current ID, and 'isFinished' will become true
+    // If it's finished, we just stay on the current ID, and 'isFinished' will become true
   };
 const suppressResizeObserverError = (error) => {
   // Check if the error message contains the specific text

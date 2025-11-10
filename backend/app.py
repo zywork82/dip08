@@ -11,7 +11,7 @@ import google.generativeai as genai
 from PIL import Image
 from scenarios import scenarios_bp as scenarios_router
 from signup import signup_router
-
+from analytics import analytics_bp
 from login import login_bp
 
 from users import users_bp
@@ -66,17 +66,22 @@ PSYCH_SEED = os.getenv("PSYCH_SEED")
 # =========================
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 app.register_blueprint(scenarios_router)
+
 
 app.register_blueprint(signup_router)
 
+
 app.register_blueprint(login_bp)
+
 
 app.register_blueprint(users_bp)
 
+
 app.register_blueprint(admin_bp)
 
-
+app.register_blueprint(analytics_bp)
 
 # =========================
 # Small helpers
@@ -162,11 +167,13 @@ def build_full_skeleton(story: str, tier_level: int = 4) -> Dict[str, Any]:
                 oid = f"{d}_{L}"
                 nodes.append({
                     "id": oid,
-                    "type": "option",
-                    "text": f"{oid}: option",
+                    # ✅ These nodes are *new scenario states*, not actions
+                    "type": "scenario",
+                    "text": f"{oid}: scenario state",
                     "narrative": "",
-                    "data_explanation": ""
+                    "data_explanation": "This represents the situation *after* the previous decision."
                 })
+
                 edges.append({"from": d, "to": oid})
                 option_nodes.append(oid)
         current_leaves = option_nodes[:]
@@ -281,84 +288,181 @@ def assign_aspects_unique_per_sibling(model, aspects, seed=None):
 
     return assignment
 
-# =========================
-# OpenAI content fill
-# =========================
-def fill_content_for_nodes(story, node_ids, aspect_map):
+def fill_content_for_nodes(story, node_ids, aspect_map, mode="action"):
+
+    """
+    mode = "action" → Generate choice/action text (verbs, decisions).
+    mode = "state"  → Generate scenario state descriptions after a choice.
+    """
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY not set.")
     client = OpenAI(api_key=OPENAI_API_KEY)
+
+    # ---------------- PROMPT DIFFERENCES ----------------
+    if mode == "action":
+        sys_msg = """
+        You are generating *decision actions* for an interactive scenario.
+
+        TEXT (required):
+        - Write a clear decision/action the user takes.
+        - Must start with a verb.
+        - Example: "Hold an emergency meeting with leadership."
+
+        NARRATIVE (required):
+        - Describe what happens immediately *after* this choice.
+        - Do NOT describe long-term outcomes.
+
+        Keep each part under 220 characters.
+        """
+
+    elif mode == "state":
+        sys_msg = """
+        You are generating *scenario states* (situational descriptions after a choice).
+
+        TEXT (required):
+        - Describe the new situation now.
+        - Do NOT include any decision or instruction.
+        - Do NOT start with a verb.
+        - Example: "Leadership has gathered, but internal confusion remains."
+
+        NARRATIVE (required):
+        - Provide immediate emotional or operational impact.
+        - Example: "Staff are unsure how to respond, and tension is rising."
+
+        Keep each part under 220 characters.
+        """
+
     result = {}
 
-    def one_batch(batch_ids):
-        per_aspect = {nid: aspect_map.get(nid, "") for nid in batch_ids}
+    def batch(ids):
+        per_aspect = {nid: aspect_map.get(nid, "") for nid in ids}
 
-        sys_msg = (
-            "You are generating branching decision options for an interactive training scenario.\n"
-            "- 'text' = an imperative or action-based sentence describing what the learner chooses to do.\n"
-            "  (e.g., 'Hold an emergency meeting with all members' or 'Issue a public apology through social media.')\n"
-            "- 'narrative' = a short continuation describing what happens immediately after that choice.\n"
-            "  (e.g., 'Members express relief, though tensions remain over unresolved details.')\n"
-            "- Always write in imperative / action form, not first or third person (no 'I', 'you', or 'The president...').\n"
-            "- Avoid modal or predictive phrasing like 'This may...' or 'This could...'. Focus on what actually happens next.\n"
-            "- Keep both fields clear and natural (about 100–200 characters each, max 250).\n"
-            "- Tailor the content closely to THIS specific scenario.\n"
-            "- Return ONLY valid JSON in the shape provided.\n"
-        )
-
-        usr = textwrap.dedent(f"""
-        SCENARIO / BACKGROUND:
+        usr = f"""
+        SCENARIO BACKGROUND:
         {story}
 
-        Internal design hints (do NOT reveal in answers):
+        Internal design hints (not shown to user, only to help style tone):
         {json.dumps(per_aspect, indent=2)}
 
-        Node IDs to fill:
-        {', '.join(batch_ids)}
+        Fill the following node IDs:
+        {ids}
 
-        Return JSON ONLY in this shape:
+        Return ONLY valid JSON in this shape:
         {{
           "NODE_ID": {{
-            "text": "Action choice (imperative form)",
-            "narrative": "Short descriptive continuation"
+            "text": "string",
+            "narrative": "string"
           }},
           ...
         }}
+        """
 
-        Rules:
-        - Write the 'text' field like a clear action the user might choose.
-        - Start with a verb (e.g., 'Hold', 'Issue', 'Suspend', 'Invite').
-        - 'narrative' continues the scene in a neutral, descriptive tone.
-        - Do NOT use first-person or third-person narration.
-        """)
-
-        cc = client.chat.completions.create(
+        resp = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": sys_msg},
-                {"role": "user", "content": usr}
+                {"role": "user", "content": usr},
             ],
             temperature=TEMPERATURE,
         )
 
-        raw = cc.choices[0].message.content or ""
+        raw = resp.choices[0].message.content or ""
         js = _extract_json_block(raw)
-        data = json.loads(js)
+        parsed = json.loads(js)
 
-        out_local = {}
-        for k in batch_ids:
-            v = data.get(k, {})
-            out_local[k] = {
+        out = {}
+        for nid in ids:
+            v = parsed.get(nid, {})
+            out[nid] = {
                 "text": _as_str(v.get("text", ""))[:250],
                 "narrative": _as_str(v.get("narrative", ""))[:250],
             }
-        return out_local
+        return out
 
     for i in range(0, len(node_ids), BATCH_SIZE):
         chunk = node_ids[i:i+BATCH_SIZE]
-        result.update(one_batch(chunk))
+        result.update(batch(chunk))
 
     return result
+
+# =========================
+# OpenAI content fill
+# =========================
+# def fill_content_for_nodes(story, node_ids, aspect_map):
+#     if not OPENAI_API_KEY:
+#         raise RuntimeError("OPENAI_API_KEY not set.")
+#     client = OpenAI(api_key=OPENAI_API_KEY)
+#     result = {}
+
+#     def one_batch(batch_ids):
+#         per_aspect = {nid: aspect_map.get(nid, "") for nid in batch_ids}
+
+#         sys_msg = (
+#             "You are generating branching decision options for an interactive training scenario.\n"
+#             "- 'text' = an imperative or action-based sentence describing what the learner chooses to do.\n"
+#             "  (e.g., 'Hold an emergency meeting with all members' or 'Issue a public apology through social media.')\n"
+#             "- 'narrative' = a short continuation describing what happens immediately after that choice.\n"
+#             "  (e.g., 'Members express relief, though tensions remain over unresolved details.')\n"
+#             "- Always write in imperative / action form, not first or third person (no 'I', 'you', or 'The president...').\n"
+#             "- Avoid modal or predictive phrasing like 'This may...' or 'This could...'. Focus on what actually happens next.\n"
+#             "- Keep both fields clear and natural (about 100–200 characters each, max 250).\n"
+#             "- Tailor the content closely to THIS specific scenario.\n"
+#             "- Return ONLY valid JSON in the shape provided.\n"
+#         )
+
+#         usr = textwrap.dedent(f"""
+#         SCENARIO / BACKGROUND:
+#         {story}
+
+#         Internal design hints (do NOT reveal in answers):
+#         {json.dumps(per_aspect, indent=2)}
+
+#         Node IDs to fill:
+#         {', '.join(batch_ids)}
+
+#         Return JSON ONLY in this shape:
+#         {{
+#           "NODE_ID": {{
+#             "text": "Action choice (imperative form)",
+#             "narrative": "Short descriptive continuation"
+#           }},
+#           ...
+#         }}
+
+#         Rules:
+#         - Write the 'text' field like a clear action the user might choose.
+#         - Start with a verb (e.g., 'Hold', 'Issue', 'Suspend', 'Invite').
+#         - 'narrative' continues the scene in a neutral, descriptive tone.
+#         - Do NOT use first-person or third-person narration.
+#         """)
+
+#         cc = client.chat.completions.create(
+#             model=MODEL_NAME,
+#             messages=[
+#                 {"role": "system", "content": sys_msg},
+#                 {"role": "user", "content": usr}
+#             ],
+#             temperature=TEMPERATURE,
+#         )
+
+#         raw = cc.choices[0].message.content or ""
+#         js = _extract_json_block(raw)
+#         data = json.loads(js)
+
+#         out_local = {}
+#         for k in batch_ids:
+#             v = data.get(k, {})
+#             out_local[k] = {
+#                 "text": _as_str(v.get("text", ""))[:250],
+#                 "narrative": _as_str(v.get("narrative", ""))[:250],
+#             }
+#         return out_local
+
+#     for i in range(0, len(node_ids), BATCH_SIZE):
+#         chunk = node_ids[i:i+BATCH_SIZE]
+#         result.update(one_batch(chunk))
+
+#     return result
 
 def apply_content(model, content_map):
     id2node = {n["id"]: n for n in model["nodes"]}
@@ -376,12 +480,11 @@ def apply_content(model, content_map):
 # =========================
 def build_flat_with_hubs(model, aspect_map):
     """
-    OLD-STYLE flatten:
-    - Hubs (101, 201, 202, 203, 301, ...) are ALWAYS type 'scenario'
-    - Each hub has 3 options (A/B/C) with ids like 101A/101B/101C
-    - Each option has: options=[], and a single 'next' that points to either
-      the next hub (201/202/203, ...) or an ending (E1/E2/E3).
+    PROTOTYPE VERSION (2-tier)
+    - 101 (root) → 101A/101B/101C → 201/202/203
+    - 201/202/203 each → 3 options (A/B/C) → endings (E1/E2/E3)
     """
+
     nodes = model["nodes"]
     edges = model["edges"]
     by_id, children, parents = _build_maps(nodes, edges)
@@ -400,20 +503,35 @@ def build_flat_with_hubs(model, aspect_map):
         return f"{hub_id}_{letter}" if USE_UNDERSCORE else f"{hub_id}{letter}"
 
     def hub_bucket(hub_id: str) -> int:
-        # 101 -> 1, 201 -> 2, ...
-        return int(hub_id) // 100
+        # Safely extract numeric part
+        num_part = "".join(ch for ch in str(hub_id) if ch.isdigit())
+        return int(num_part) // 100 if num_part else 0
 
     def next_hub_id(hub_id: str, idx: int) -> str:
-        # 101 -> (201/202/203) depending on idx
+        # 101 -> 201/202/203 depending on index
         return f"{hub_bucket(hub_id) + 1}0{idx + 1}"
 
     def _s(x): return _as_str(x).strip()
 
-    def merged_desc(n):
-        # text + narrative joined, just like before
+    # def merged_desc(n):
+    #     t = _s(n.get("text", ""))
+    #     r = _s(n.get("narrative", ""))
+    #     return f"{t}\n\n{r}" if t and r else (t or r or "Choose your next step.")
+
+    def merged_desc(n, node_type):
         t = _s(n.get("text", ""))
         r = _s(n.get("narrative", ""))
-        return f"{t}\n\n{r}" if t and r else (t or r or "Choose your next step.")
+
+        if node_type == "scenario":
+            # Scenario nodes should show only the resulting situation (narrative)
+            return r or t or "The situation progresses."
+
+        if node_type == "option":
+            # Option nodes show only the action
+            return t or "Choose an action."
+
+        # Endings & fallback
+        return r or t or "Outcome."
 
     def expl_field(n, default_msg="Reflect on the implications of this decision."):
         e = _s(n.get("data_explanation", ""))
@@ -427,66 +545,65 @@ def build_flat_with_hubs(model, aspect_map):
     ROOT_ORIG = "scenario" if "scenario" in by_id else nodes[0]["id"]
     ROOT_HUB_ID = "101"
 
-    def build(hub_id: str, origin_id: str):
+    # =========================================================
+    # 🧩 Recursive builder
+    # =========================================================
+    def build(hub_id: str, origin_id: str, depth: int = 1):
         origin = by_id.get(origin_id, {})
-        kid_ids = children.get(origin_id, [])[:3]  # up to 3
+        kid_ids = children.get(origin_id, [])[:3]  # up to 3 children
         option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(kid_ids))]
 
-        # --- Hub (ALWAYS a SCENARIO) ---
+        # --- Hub node (Scenario) ---
         result[hub_id] = {
             "id": hub_id,
             "type": "scenario",
             "position": "",
-            "data_description": merged_desc(origin),
-            "data_explanation": expl_field(origin, "Reflect on this decision before proceeding."),
-            "options": option_ids,            # scenario → its options
+            "data_description": merged_desc(origin,"scenario"),
+            "data_explanation": expl_field(origin),
+            "options": option_ids,
             "psych_dimensions": clean_psych(aspect_map.get(origin_id, "")),
         }
 
-        # --- Options off this hub ---
+        # --- Option nodes ---
         for i, child_orig_id in enumerate(kid_ids):
             child = by_id.get(child_orig_id, {})
-            grandkids = children.get(child_orig_id, [])
-            non_ending_grandkids = [g for g in grandkids if by_id.get(g, {}).get("type") != "ending"]
-
             opt_id = option_ids[i]
 
-            if not non_ending_grandkids:
-                # leaf → ending
+            # If this is the first hub (101 → 201/202/203)
+            if depth == 1:
+                next_hub = next_hub_id(hub_id, i)  # e.g. 201/202/203
+                result[opt_id] = {
+                    "id": opt_id,
+                    "type": "option",
+                    "position": "",
+                    "data_description": merged_desc(child, "option"),
+                    "data_explanation": "Proceed to the next scenario phase.",
+                    "options": [],
+                    "next": next_hub,
+                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
+                }
+
+                # recursively create the next hub (second tier)
+                build(next_hub, child_orig_id, depth + 1)
+
+            # If this is the second hub (201/202/203 → endings)
+            else:
                 eid = pick_ending_id()
                 result[opt_id] = {
                     "id": opt_id,
                     "type": "option",
                     "position": "",
-                    "data_description": merged_desc(child) or "This choice concludes the scenario.",
+                    "data_description": merged_desc(child,"option"),
                     "data_explanation": "Your decision leads to this outcome.",
-                    "options": [],                # IMPORTANT: options empty
-                    "next": eid,                  # IMPORTANT: single next pointer
-                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
-                }
-            else:
-                # 🧩 branch → unique next hub (201A, 202B, 203C ...)
-                base_next = next_hub_id(hub_id, i)   # e.g. 201 / 202 / 203
-                nxt_hub = f"{base_next}{letters[i]}" # e.g. 201A / 202B / 203C
-
-                result[opt_id] = {
-                    "id": opt_id,
-                    "type": "option",
-                    "position": "",
-                    "data_description": merged_desc(child) or "Proceed to the next phase.",
-                    "data_explanation": "Consider the implications before proceeding.",
                     "options": [],
-                    "next": nxt_hub,  # ✅ now unique per branch
+                    "next": eid,
                     "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
                 }
 
-                # recursively create that next hub (independent branch)
-                build(nxt_hub, child_orig_id)
+    # Build root
+    build(ROOT_HUB_ID, ROOT_ORIG, depth=1)
 
-    # Build from the root hub
-    build(ROOT_HUB_ID, ROOT_ORIG)
-
-    # --- Endings (unchanged) ---
+    # --- Endings (same as before) ---
     ending_map = {
         "E1": ("✅ Successful Resolution", "The crisis is fully resolved, and relationships or goals are restored."),
         "E2": ("⚖️ Partial Recovery", "Some improvement achieved, but challenges or reputational impacts remain."),
@@ -504,6 +621,7 @@ def build_flat_with_hubs(model, aspect_map):
         }
 
     return result
+
 
 
 # =========================
@@ -600,30 +718,17 @@ def _file_to_b64(path: Path) -> str:
 @app.get("/health")
 def health():
     return {"ok": True}
-
 @app.post("/generate")
 def generate():
-    """
-    Build the branching scenario JSON and return it.
-    Body:
-    {
-      "story": "...",         // required
-      "tier_level": 4,        // optional
-      "download": false,
-      "filename": "flow.json",
-      "psych_seed": 42
-    }
-    """
     body = request.get_json(silent=True) or {}
 
     story = (body.get("story") or "").strip()
     if len(story) < 10:
         return jsonify({"error": "Provide a 'story' >=10 chars"}), 400
 
-    print("\n=== 🧠 NEW GENERATION REQUEST ===")
-    print("Story input:", story[:200], "..." if len(story) > 200 else "")
     tier_level = body.get("tier_level", 4)
     seed = body.get("psych_seed", PSYCH_SEED)
+
     download_flag = (
         bool(body.get("download")) or
         str(request.args.get("download", "")).lower() in {"1", "true"}
@@ -631,28 +736,45 @@ def generate():
     filename = body.get("filename") or f"flow_{int(time.time())}.json"
 
     try:
-        # 1. Build raw skeleton
+        # 1. Build raw branching structure
         model = build_full_skeleton(story, tier_level=tier_level)
 
-        # 2. Assign psych aspects
+        # 2. Assign psychological dimensions
         aspect_map = assign_aspects_unique_per_sibling(model, PSYCH_ASPECTS, seed)
 
-        # 3. Generate text/narrative
-        non_ending_ids = [n["id"] for n in model["nodes"] if n["id"] != "scenario"]
-        # non_ending_ids = [
-        #     n["id"] for n in model["nodes"]
-        #     if n.get("type") != "ending" and n["id"] != "scenario" ]
-        node_content_map = fill_content_for_nodes(story, non_ending_ids, aspect_map)
+        # 3. Identify *option* vs *scenario-state* nodes
+        option_node_ids = [n["id"] for n in model["nodes"] if n.get("type") == "option"]
+        scenario_state_ids = [
+            n["id"] for n in model["nodes"]
+            if n.get("type") == "scenario" and n["id"] != "scenario"
+        ]
 
-        # 4. Merge AI output into nodes
-        model = apply_content(model, node_content_map)
+        # # 4. Generate content separately for clarity
+        # opt_map = fill_content_for_nodes(story, option_node_ids, aspect_map, mode="action")
+        # state_map = fill_content_for_nodes(story, scenario_state_ids, aspect_map, mode="state")
 
-        # 5. Flatten for frontend
+        # node_content_map = {**opt_map, **state_map}
+
+        # # 5. Merge content back in
+        # model = apply_content(model, node_content_map)
+        option_node_ids = [n["id"] for n in model["nodes"] if n.get("type") == "option"]
+        scenario_node_ids = [n["id"] for n in model["nodes"] if n.get("type") == "scenario" and n["id"] != "scenario"]
+
+        # Generate action text for OPTION nodes
+        option_content = fill_content_for_nodes(story, option_node_ids, aspect_map, mode="action")
+
+        # Generate state descriptions for SCENARIO nodes
+        scenario_content = fill_content_for_nodes(story, scenario_node_ids, aspect_map, mode="state")
+
+        # Combine
+        model = apply_content(model, {**option_content, **scenario_content})
+
+
+        # 6. Convert to flattened hub form
         flat = build_flat_with_hubs(model, aspect_map)
-        # ✅ Identify and include the root starting node for frontend focus
         flat["startNodeId"] = "101"
 
-        # 6. Handle download
+        # 7. Optional download response
         if download_flag:
             payload = json.dumps(flat, indent=2, ensure_ascii=False)
             resp = make_response(payload)
@@ -666,6 +788,76 @@ def generate():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+# @app.post("/generate")
+# def generate():
+#     """
+#     Build the branching scenario JSON and return it.
+#     Body:
+#     {
+#       "story": "...",         // required
+#       "tier_level": 4,        // optional
+#       "download": false,
+#       "filename": "flow.json",
+#       "psych_seed": 42
+#     }
+#     """
+#     body = request.get_json(silent=True) or {}
+
+#     story = (body.get("story") or "").strip()
+#     if len(story) < 10:
+#         return jsonify({"error": "Provide a 'story' >=10 chars"}), 400
+
+#     print("\n=== 🧠 NEW GENERATION REQUEST ===")
+#     print("Story input:", story[:200], "..." if len(story) > 200 else "")
+#     tier_level = body.get("tier_level", 4)
+#     seed = body.get("psych_seed", PSYCH_SEED)
+#     download_flag = (
+#         bool(body.get("download")) or
+#         str(request.args.get("download", "")).lower() in {"1", "true"}
+#     )
+#     filename = body.get("filename") or f"flow_{int(time.time())}.json"
+
+#     try:
+#         # 1. Build raw skeleton
+#         model = build_full_skeleton(story, tier_level=tier_level)
+
+#         # 2. Assign psych aspects
+#         aspect_map = assign_aspects_unique_per_sibling(model, PSYCH_ASPECTS, seed)
+
+#         # 3. Generate text/narrative
+#         non_ending_ids = [
+#             n["id"] for n in model["nodes"]
+#             if n.get("type") == "option"
+#         ]
+
+#         non_ending_ids = [
+#             n["id"] for n in model["nodes"]
+#             if n.get("type") != "ending" and n["id"] != "scenario" ]
+#         node_content_map = fill_content_for_nodes(story, non_ending_ids, aspect_map)
+
+#         # 4. Merge AI output into nodes
+#         model = apply_content(model, node_content_map)
+
+#         # 5. Flatten for frontend
+#         flat = build_flat_with_hubs(model, aspect_map)
+#         # ✅ Identify and include the root starting node for frontend focus
+#         flat["startNodeId"] = "101"
+
+#         # 6. Handle download
+#         if download_flag:
+#             payload = json.dumps(flat, indent=2, ensure_ascii=False)
+#             resp = make_response(payload)
+#             resp.headers["Content-Type"] = "application/json"
+#             resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+#             return resp
+
+#         return jsonify(flat)
+
+#     except Exception as e:
+#         import traceback
+#         traceback.print_exc()
+#         return jsonify({"error": str(e)}), 500
 
 
 @app.post("/generate_images")

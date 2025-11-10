@@ -7,13 +7,25 @@ const CaseStudyCard = ({ title, lastEdited, status, image, onGoClick, scenarioId
   const isCompleted = status === 'Completed';
   const buttonClass = isCompleted ? 'case-study-btn completed' : 'case-study-btn in-progress';
 
-  const handleOpenScenario = () => {
-    if (!scenarioId) {
-      console.error("❌ scenarioId is missing!");
+ const handleOpenScenario = async () => {
+  if (!scenarioId) return console.error("❌ scenarioId is missing");
+
+  try {
+    const response = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${scenarioId}`);
+    if (!response.ok) throw new Error("Scenario not found");
+    const flowData = await response.json();
+
+    if (!flowData || !flowData.nodes) {
+      alert("No flow data found for this scenario.");
       return;
     }
-    navigate("/editor", { state: { scenarioId, title } });
-  };
+
+    navigate("/scene-editor", { state: { flowData, scenarioId } });
+  } catch (err) {
+    console.error("Error opening scenario:", err);
+    alert("⚠️ Failed to load scenario. Please try again.");
+  }
+};
   return (
     <div className="case-study-card" onClick={handleOpenScenario}>
       <div className="case-study-image">
@@ -25,12 +37,13 @@ const CaseStudyCard = ({ title, lastEdited, status, image, onGoClick, scenarioId
         <p className="case-study-date">Last edited on {lastEdited}</p>
         <button
           className={buttonClass}
-          onClick={() => {
+          onClick={(e) => {
+             e.stopPropagation(); // prevent parent click
             if (!scenarioId) {
               console.error("❌ scenarioId is missing!");
               return;
             }
-            navigate('/editor', { state: { scenarioId, title } }) // ✅ scenarioId now defined
+            handleOpenScenario();
           }}
         >
           {isCompleted ? 'Completed' : 'Go'}

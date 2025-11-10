@@ -1,4 +1,5 @@
 import React from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
@@ -24,10 +25,124 @@ ChartJS.register(
   LineElement,
   RadialLinearScale,
   Filler,
+  RadialLinearScale,
+  Filler,
   Title,
   Tooltip,
   Legend
 );
+
+// <<<<<<< HEAD
+// // ========== Helper 1: Prepare line chart ==========
+// const prepareLineChartData = (data = []) => {
+//   if (!Array.isArray(data)) data = [];
+//   const labels = data.map((entry, index) => `Choice ${index + 1}`);
+//   const times = data.map(entry => entry.timeTaken);
+
+//   await fetch("http://localhost:8000/api/analytics/playthrough", {
+//   method: "POST",
+//   headers: { "Content-Type": "application/json" },
+//   body: JSON.stringify({
+//     username: "user123",
+//     scenario_id: "scenario1",
+//     choices: data.map(d => ({
+//       node_id: d.nodeId,
+//       selected_option: d.choice,
+//       time_taken: d.timeTaken,
+//     }))
+//   }),
+// });
+
+//   //Chart data configuration remains largely the same
+//   const chartData = {
+//     labels,
+//     datasets: [
+//       {
+//         label: 'Time Taken (seconds)',
+//         data: times,
+//         // Style adjustments for a line chart
+//         borderColor: 'rgb(75, 192, 192)',
+//         backgroundColor: 'rgba(75, 192, 192, 0.5)',
+//         tension: 0.1 // Makes the line slightly curved
+//       },
+//     ],
+//   };
+
+//   //Chart options configuration remains the same
+//   const chartOptions = {
+//     responsive: true,
+//     plugins: {
+//       legend: {
+//         position: 'top',
+//       },
+//       title: {
+//         display: true,
+//         text: 'User Response Time per Choice',
+//         font: { size: 18 }
+//       },
+//       tooltip: {
+//         callbacks: {
+//           label: function(context) {
+//             const entry = data[context.dataIndex];
+//             return `${entry.choice}: ${entry.timeTaken}s`;
+//           }
+//         }
+//       }
+//     },
+    
+//     scales: {
+//       y: {
+//         beginAtZero: true,
+//         title: {
+//           display: true,
+//           text: 'Time (seconds)'
+//         }
+//       },
+//       x: {
+//          title: {
+//           display: true,
+//           text: 'Sequence of Choices'
+//         }
+//       }
+//     }
+//   };
+
+//   return (
+//     <div className="report-container" style={{ textAlign: 'center', padding: '2rem' }}>
+//       <h1>Playthrough Report</h1>
+//       <div style={{ maxWidth: '800px', margin: '2rem auto' }}>
+//         {/* 4. Use the <Line /> component */}
+//         <Line options={chartOptions} data={chartData} />
+//       </div>
+
+//       {/* The rest of your component remains the same */}
+//       <div className="summary-list">
+//         <h2>Summary of Choices</h2>
+//         <ul style={{ listStyle: 'none', padding: 0 }}>
+//           {data.map((entry, index) => (
+//             <li key={index} style={{ margin: '0.5rem 0' }}>
+//               <strong>Choice {index + 1}:</strong> {entry.choice} (<em>{entry.timeTaken}s</em>)
+//             </li>
+//           ))}
+//         </ul>
+//       </div>
+
+//       <button onClick={onRestart} className="restart-button" style={{ marginTop: '2rem', padding: '1rem 2rem', fontSize: '1rem', cursor: 'pointer' }}>
+//         Play Again 🔄
+
+const saveReportToDB = async (payload) => {
+  try {
+    const res = await fetch("http://127.0.0.1:5000/api/analytics/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    console.log("✅ Report saved:", data);
+  } catch (err) {
+    console.error("❌ Error saving report:", err);
+  }
+};
 
 // ========== Helper 1: Prepare line chart ==========
 const prepareLineChartData = (data = []) => {
@@ -129,6 +244,28 @@ const ReportInterface = () => {
   const navigate = useNavigate();
   const { scenarioId, choicesLog = [], flowData } = location.state || {};
 
+  useEffect(() => {
+  const autoSaveReport = async () => {
+    const totalScore = radarScores.reduce((a, b) => a + b, 0) / radarScores.length;
+
+    await saveReportToDB({
+      user_id: "test_user",             // 🔁 Replace with actual user ID
+      scenario_id: scenarioId || "unknown_scenario",
+      score: totalScore.toFixed(2),
+      choices: data.map((entry) => ({
+        choice: entry.choice,
+        timeTaken: entry.timeTaken,
+        scores: entry.scores,
+      })),
+      time_taken: avgTime,
+    });
+  };
+
+  if (data.length) {
+    autoSaveReport(); // save automatically when report page loads
+  }
+}, []); // empty dependency array → runs once on mount
+
   // 🩹 Safety: if user comes here with no data
   if (!choicesLog.length) {
     return (
@@ -211,6 +348,20 @@ const ReportInterface = () => {
       body: tableBody,
       startY: 30,
       theme: "grid",
+    });
+    // 🧠 Save to backend before downloading
+    const totalScore = radarScores.reduce((a, b) => a + b, 0) / radarScores.length;
+
+    await saveReportToDB({
+      user_id: "test_user", // 🔁 replace with real user ID if you have login/auth
+      scenario_id: scenarioId || "unknown_scenario",
+      score: totalScore.toFixed(2),
+      choices: data.map((entry) => ({
+        choice: entry.choice,
+        timeTaken: entry.timeTaken,
+        scores: entry.scores,
+      })),
+      time_taken: avgTime,
     });
 
     doc.save("Scenario_Report.pdf");

@@ -5,7 +5,8 @@ import NavigationBar from "../components/SlimNavBar";
 import SharedHeader from "../components/SharedHeader";
 import "../styles/Global.css";
 import "../styles/SimulationInterface.css";
-
+import axios from "axios";
+import { motion, AnimatePresence } from "framer-motion";
 // ========= Helpers =========
 const byId = (arr = []) => Object.fromEntries((arr || []).map((n) => [String(n.id), n]));
 
@@ -82,6 +83,7 @@ const SimulationInterface = () => {
   const [isAdmin] = useState(true); // ← replace with real auth check later
 const [panelMinimized, setPanelMinimized] = useState(false);
 
+
   const profileImage = "https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A";
 
   // Initial flow boot
@@ -100,6 +102,7 @@ const [panelMinimized, setPanelMinimized] = useState(false);
       return;
     }
 
+    
     // Ensure nodes/edges exist
     const nodes = loaded.nodes || [];
     const edges = loaded.edges && loaded.edges.length > 0 ? loaded.edges : generateEdgesFromNodes(nodes);
@@ -117,6 +120,26 @@ const [panelMinimized, setPanelMinimized] = useState(false);
       // ignore quota issues
     }
   }, [passedFlow, scenarioId]);
+
+ useEffect(() => {
+  const fetchFlow = async () => {
+    if (!flowData && scenarioId) {
+      try {
+        const res = await axios.get(`http://127.0.0.1:5000/scenarios/getFlow/${scenarioId}`);
+        const data = res.data;
+
+        if (!data || !data.nodes) throw new Error("No flow data returned");
+
+        setFlowData(data);
+        setCurrentNodeId(resolveStartNodeId(data));
+      } catch (err) {
+        console.error("Failed to load scenario flow:", err);
+        alert("⚠️ Failed to load scenario. Please try again.");
+      }
+    }
+  };
+  fetchFlow();
+}, [flowData, scenarioId]);
 
   // Derived maps
   const nodeMap = useMemo(() => byId(flowData?.nodes || []), [flowData]);
@@ -283,60 +306,58 @@ const [panelMinimized, setPanelMinimized] = useState(false);
               className="scene-image-wrapper"
               
             >
-              {imageSrc ? (
-                <img
-                  src={imageSrc}
-                  alt={`Scene ${currentNode.id}`}
-                  
-                />
-              ) : (
-                <div >(No image selected for this scene)</div>
-              )}
-           <div className="infobox">
-              {/* Options or End */}
-              <div className="optionsWrapper">
-                {/* Scene text */}
-              <div
-                className="scene-text"
-              >
-                {/* <h3>Scene {String(currentNode.id)}</h3> */}
-                <p s>{text}</p>
-              </div> 
-                {currentNode.type === "scenario" && optionButtons.length > 0 ? (
-                  <div className="options-grid" >
-                    {optionButtons.map((opt) => (
-                      <button
-                        key={opt.id}
-                        className="action-buttons"
-                        onClick={() => goViaOption(currentNode.id, opt.id)}
-                    
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : isEnd ? (
-                  <div>
-                    <strong>Scenario complete.</strong>
-                    <div >
-                      <button className="action-buttons" onClick={restart}>🔁 Restart</button>
-                      <button
-                        className="action-buttons"
-                        onClick={() =>
-                          navigate("/report", {
-                            state: { scenarioId, choicesLog, flowData },
-                          })
-                        }
-                      >
-                        📊 View Report
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentNodeId}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ duration: 0.6 }}
+              className="scene-container"
+            >
+          {imageSrc ? (
+            <img className="scene-image" src={imageSrc} alt={`Scene ${currentNode.id}`} />
+          ) : (
+            <div>(No image selected for this scene)</div>
+          )}
+
+          <div className="infobox">
+            <div className="scene-text">
+              <p>{text}</p>
+            </div>
+
+            {currentNode.type === "scenario" && optionButtons.length > 0 ? (
+              <div className="options-grid">
+                {optionButtons.map((opt) => (
+                  <button
+                    key={opt.id}
+                    className="action-buttons"
+                    onClick={() => goViaOption(currentNode.id, opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-              
-              
-              </div></div>
+            ) : isEnd ? (
+              <div>
+                <strong>Scenario complete.</strong>
+                <div>
+                  <button className="action-buttons" onClick={restart}>🔁 Restart</button>
+                  <button
+                    className="action-buttons"
+                    onClick={() =>
+                      navigate("/report", { state: { scenarioId, choicesLog, flowData } })
+                    }
+                  >
+                    📊 View Report
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+  </motion.div>
+</AnimatePresence>
+</div>
           
 
           {/* 🧭 Floating Admin Panel */}
@@ -387,16 +408,16 @@ const [panelMinimized, setPanelMinimized] = useState(false);
       <>
         {/* Navigation Buttons */}
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
-          <button className="action-buttons" onClick={() => navigate("/scene-editor", { state: { scenarioId, flowData } })}>
+          <button className="admin-action-buttons" onClick={() => navigate("/scene-editor", { state: { scenarioId, flowData } })}>
             ✏️ Edit Images
           </button>
-          <button className="action-buttons" onClick={() => navigate("/editor", { state: { scenarioId, flowData } })}>
+          <button className="admin-action-buttons" onClick={() => navigate("/editor", { state: { scenarioId, flowData } })}>
             🧭 Edit Flow
           </button>
-          <button className="action-buttons" disabled={atStart} onClick={goBack}>
+          <button className="admin-action-buttons" disabled={atStart} onClick={goBack}>
             ⬅️ Back
           </button>
-          <button className="action-buttons" onClick={restart}>
+          <button className="admin-action-buttons" onClick={restart}>
             🔄 Restart
           </button>
         </div>
