@@ -66,7 +66,7 @@ PSYCH_SEED = os.getenv("PSYCH_SEED")
 # =========================
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
 app.register_blueprint(scenarios_router)
 
 

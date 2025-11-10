@@ -17,8 +17,21 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # --- Helpers ---
+# def verify_password(plain_password: str, hashed_password: str) -> bool:
+#     return pwd_context.verify(plain_password, hashed_password)
+MAX_PASSWORD_LEN = 72
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    if not plain_password or not hashed_password:
+        return False
+    if len(plain_password.encode("utf-8")) > MAX_PASSWORD_LEN:
+        print("⚠️ Password too long, rejecting to prevent bcrypt error.")
+        return False
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        print("⚠️ Password verification error:", e)
+        return False
 
 def create_access_token(user_id: str):
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
