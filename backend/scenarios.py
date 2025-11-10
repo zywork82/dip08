@@ -17,6 +17,7 @@ def scenarios_root():
             data = request.get_json() or {}
             title = data.get("title", "Untitled Scenario")
             description = data.get("description", "")
+            user_id = data.get("user_id")  # ✅ Add this line
             created_at = datetime.utcnow()
 
             doc = {
@@ -25,23 +26,28 @@ def scenarios_root():
                 "status": "Draft",
                 "createdAt": created_at.isoformat(),
                 "lastEdited": created_at.isoformat(),
+                "user_id": user_id,  # ✅ store owner
             }
 
             result = db.scenarios.insert_one(doc)
             doc["_id"] = str(result.inserted_id)
             return jsonify({"success": True, "scenario": doc}), 201
-
         except Exception as e:
             return jsonify({"success": False, "error": str(e)}), 500
+
 
     # --- Get all scenarios ---
     if request.method == "GET":
         try:
-            scenarios = list(db.scenarios.find({}))
+            user_id = request.args.get("user_id")  # ✅ read from query params
+            query = {"user_id": user_id} if user_id else {}
+
+            scenarios = list(db.scenarios.find(query))
             for s in scenarios:
                 s["_id"] = str(s["_id"])
                 if "lastEdited" in s:
                     s["lastEdited"] = s["lastEdited"][:10]
+
             return jsonify(scenarios)
         except Exception as e:
             return jsonify({"success": False, "error": str(e)}), 500
