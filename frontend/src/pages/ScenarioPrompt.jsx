@@ -5,6 +5,7 @@ import "../styles/ScenarioPrompt.css";
 import NavigationBar from "../components/SlimNavBar";
 import SharedHeader from "../components/SharedHeader";
 import ScenarioHistory from "../components/ScenarioHistory";
+import localforage from "localforage";
 
 const profileImage = "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
 
@@ -22,7 +23,7 @@ const ScenarioPrompt = () => {
     if (loading) {
       setProgress(0);
       timer = setInterval(() => {
-        setProgress((p) => (p < 95 ? p + Math.random() * 5 : p));
+        setProgress((p) => (p < 95 ? p + Math.random() * 8 : p));
       }, 500);
     } else {
       clearInterval(timer);
@@ -33,34 +34,55 @@ const ScenarioPrompt = () => {
 
   // === Transform backend JSON to frontend flow ===
   const transformFlowData = (data) => {
-    const nodes = Object.values(data).map((n, idx) => ({
-      id: n.id,
-      type: n.type,
-      position: { x: idx * 200, y: idx * 120 },
-      data: {
-        data_description: n.data_description || "",
-        options: n.options || [],
-        psych_dimensions: n.psych_dimensions || "",
-        scene: n.scene || "",
-        b64image: n.b64image || null,
-      },
-    }));
+  const rawNodes = Array.isArray(data) ? data : Object.values(data);
 
-    const edges = [];
-    nodes.forEach((node) => {
-      node.data.options.forEach((optId) => {
-        edges.push({
-          id: `e-${node.id}-${optId}`,
-          source: node.id,
-          target: optId,
-          type: "smoothstep",
-          animated: true,
-        });
+  const nodes = rawNodes.map((n, idx) => ({
+    id: String(n.id),
+    type: n.type || "scenario",
+    position: { x: (idx % 4) * 250, y: Math.floor(idx / 4) * 200 },
+    data: {
+      data_description: n.data_description || "",
+      options: n.options || [],
+      next: n.next || null,
+      psych_dimensions: n.psych_dimensions || "",
+      scene: n.scene || "",
+      b64image: n.b64image || "",
+    },
+  }));
+
+  // Build all possible edges
+  const edges = [];
+  nodes.forEach((node) => {
+    if (Array.isArray(node.data.options)) {
+      node.data.options.forEach((targetId) => {
+        if (nodes.find((x) => x.id === targetId)) {
+          edges.push({
+            id: `e-${node.id}-${targetId}`,
+            source: node.id,
+            target: targetId,
+            type: "smoothstep",
+            animated: true,
+          });
+        }
       });
-    });
+    }
 
-    return { nodes, edges };
-  };
+    // fallback direct next pointer
+    if (node.data.next && nodes.find((x) => x.id === node.data.next)) {
+      edges.push({
+        id: `e-${node.id}-${node.data.next}`,
+        source: node.id,
+        target: node.data.next,
+        type: "smoothstep",
+        animated: true,
+      });
+    }
+  });
+
+  // Remove duplicates
+  const uniqueEdges = Array.from(new Map(edges.map((e) => [e.id, e])).values());
+  return { nodes, edges: uniqueEdges };
+};
 
   // === Smart title generator ===
   const generateSmartTitle = (text) => {
@@ -107,16 +129,22 @@ const ScenarioPrompt = () => {
       }
 
       // === Generate Flow from AI ===
-      const genRes = await fetch("http://127.0.0.1:5000/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ story: description, psych_seed: 42 }),
-      });
+// === Generate Flow from AI ===
+const genRes = await fetch("http://127.0.0.1:5000/generate", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ story: description, psych_seed: 42 }),
+});
 
-      const genData = await genRes.json();
-      if (!genRes.ok) throw new Error(genData.error || "AI generation failed");
+const genData = await genRes.json();
+console.log("🧪 Raw backend response:", genData);
 
-      const flowData = transformFlowData(genData);
+if (!genRes.ok) throw new Error(genData.error || "AI generation failed");
+
+// ✅ Declare flowData before using it
+const flowData = transformFlowData(genData);
+console.log("🧪 Transformed flowData:", flowData);
+
 
       const newScenario = {
         id: scenarioId,
@@ -130,15 +158,24 @@ const ScenarioPrompt = () => {
       };
 
       // Save to localStorage for ScenarioHistory
-      const existing = JSON.parse(localStorage.getItem("scenarios") || "[]");
-      const existingIndex = existing.findIndex((s) => s.id === scenarioId);
-      if (existingIndex >= 0) existing[existingIndex] = newScenario;
-      else existing.push(newScenario);
-      localStorage.setItem("scenarios", JSON.stringify(existing));
+     // Save small metadata in localStorage (lightweight)
+const existing = JSON.parse(localStorage.getItem("scenarios") || "[]");
+const existingIndex = existing.findIndex((s) => s.id === scenarioId);
+if (existingIndex >= 0) existing[existingIndex] = newScenario;
+else existing.push(newScenario);
+localStorage.setItem("scenarios", JSON.stringify(existing));
+localStorage.setItem("lastScenarioTitle", finalTitle);
+localStorage.setItem("lastScenarioId", scenarioId);
 
-      navigate("/editor", {
-        state: { flowData, scenarioTitle: newScenario.title, scenarioId },
-      });
+// 🧠 Save large flow data safely in IndexedDB
+await localforage.setItem("latestFlow", flowData);
+console.log("✅ Flow data cached in IndexedDB");
+
+// Navigate to editor
+navigate("/editor", {
+  state: { flowData, scenarioTitle: newScenario.title, scenarioId },
+});
+
     } catch (err) {
       console.error("Error generating scenario:", err);
       setError("Error: " + err.message);
