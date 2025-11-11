@@ -141,7 +141,6 @@ setCaseStudies(sortedScenarios);
     { name: 'Dashboard', path: '#', icon: <MdHome className="text-xl" /> },
     { name: 'Case Studies', path: '#', icon: <MdAssignment className="text-xl" /> },
     { name: 'Students Records', path: '#', icon: <MdPeople className="text-xl" /> },
-    { name: 'Tutorial', path: '#', icon: <MdLibraryBooks className="text-xl" /> },
     { name: 'Settings', path: '#', icon: <MdSettings className="text-xl" /> },
     { name: 'Logout', path: '#', icon: <MdLogout className="text-xl" /> },
   ];
