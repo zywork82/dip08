@@ -80,7 +80,11 @@ const SimulationInterface = () => {
   const [historyStack, setHistoryStack] = useState([]); // stack of previous scene nodeIds
   const [choicesLog, setChoicesLog] = useState([]); // {at, from, optionId, to}
   const [sceneStartTime, setSceneStartTime] = useState(null);
-  const [isAdmin] = useState(true); // ← replace with real auth check later
+
+  const [isAdmin, setIsAdmin] = useState(() => {
+    return localStorage.getItem('userRole') === 'admin';
+  });
+  
   const [panelMinimized, setPanelMinimized] = useState(false);
 
 
@@ -417,6 +421,7 @@ const SimulationInterface = () => {
           <button className="admin-action-buttons" disabled={atStart} onClick={goBack}>
             ⬅️ Back
           </button>
+          
           <button className="admin-action-buttons" onClick={restart}>
             🔄 Restart
           </button>
