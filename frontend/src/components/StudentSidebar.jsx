@@ -46,11 +46,8 @@ const StudentSidebar = () => {
         <button
           className="logout-button"
           onClick={() => {
-            // Optional: clear any auth/session storage here
-            // localStorage.removeItem('authToken'); // if you store a token
-            localStorage.removeItem('user');
-            localStorage.removeItem('userRole');
-            localStorage.removeItem('token');
+
+            localStorage.clear();
             navigate('/'); // redirect to login page
           }}
         >

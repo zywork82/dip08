@@ -434,20 +434,9 @@ const ReportInterface = () => {
       </button>
 
       <div style={{ marginTop: "2rem" }}>
-        <button
-          onClick={() => navigate("/simulation", { state: { scenarioId, flowData } })}
-          style={{
-            fontSize: "1.1rem",
-            padding: "0.8rem 1.5rem",
-            cursor: "pointer",
-            width: "200px",
-          }}
-        >
-          🔄 Play Again
-        </button>
+       
       </div>
     </div>
-</div>
   );
 };
 
