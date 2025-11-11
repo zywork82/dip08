@@ -54,11 +54,12 @@ const LoginPage = () => {
     } else {
       navigate("/settings"); // fallback
     }
+
   } catch (err) {
     console.error("Login failed:", err.message);
     toast.error(err.response?.data?.detail || "Login failed");
-  }
-};
+    }
+  };
 
 
   return (
