@@ -1,5 +1,5 @@
 import React from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
@@ -245,28 +245,33 @@ const ReportInterface = () => {
   const navigate = useNavigate();
   const { scenarioId, choicesLog = [], flowData } = location.state || {};
   const currentUser = JSON.parse(localStorage.getItem("user"));
+  const hasSaved = useRef(false);
 
   useEffect(() => {
-  const autoSaveReport = async () => {
-    const totalScore = radarScores.reduce((a, b) => a + b, 0) / radarScores.length;
+      if (hasSaved.current) return; // prevent duplicate runs
+    hasSaved.current = true;
 
-    await saveReportToDB({
-      user_id: currentUser?.id || "test_user",          // 🔁 Replace with actual user ID
-      scenario_id: scenarioId || "unknown_scenario",
-      score: totalScore.toFixed(2),
-      choices: data.map((entry) => ({
-        choice: entry.choice,
-        timeTaken: entry.timeTaken,
-        scores: entry.scores,
-      })),
-      time_taken: avgTime,
-    });
-  };
+    const autoSaveReport = async () => {
+      const totalScore = radarScores.reduce((a, b) => a + b, 0) / radarScores.length;
 
-  if (data.length) {
-    autoSaveReport(); // save automatically when report page loads
-  }
-}, []); // empty dependency array → runs once on mount
+      await saveReportToDB({
+        user_id: currentUser?.id || "Helen Wong",
+        scenario_id: scenarioId || "unknown_scenario",
+        score: totalScore.toFixed(2),
+        choices: data.map((entry) => ({
+          choice: entry.choice,
+          timeTaken: entry.timeTaken,
+          scores: entry.scores,
+        })),
+        time_taken: avgTime,
+      });
+    };
+
+    if (data.length) {
+      autoSaveReport();
+    }
+  }, []);
+
 
   // 🩹 Safety: if user comes here with no data
   if (!choicesLog.length) {
