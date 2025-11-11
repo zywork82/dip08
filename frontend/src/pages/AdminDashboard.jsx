@@ -55,15 +55,32 @@ useEffect(() => {
       const token = localStorage.getItem('token');
       console.log("🪪 Token being sent:", token);
 
-      const res = await axios.get('http://localhost:5000/admins/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      if (token)
+      {
+        const res = await axios.get('http://localhost:5000/admins/users', {
+        headers: { Authorization: `Bearer ${token}` },
+        });
 
-      console.log("✅ Users:", res.data);
-      setUsers(res.data); // store the user list in state
-    } catch (err) {
-      console.error("❌ Error fetching users:", err);
-    }
+        console.log("✅ Users:", res.data);
+        setUsers(res.data); // store the user list in state
+      }
+
+      else
+      {
+        // 2. --- THIS IS THE FIX ---
+        // Use the 'navigate' function directly.
+        console.log("No token found, redirecting to login.");
+        navigate('/'); // Or '/login' if that is your login route
+      }
+
+    } catch (err) {
+      console.error("❌ Error fetching users:", err);
+      // Optional: Also redirect if the token is invalid (auth error)
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        console.log("Token is invalid or expired, redirecting.");
+        navigate('/'); // Or '/login'
+      }
+    }
   };
 
   fetchData();
@@ -140,7 +157,7 @@ setCaseStudies(sortedScenarios);
   username: "Prof Andy",
   profileImage: profileImage, 
   role: "Admin"});
-
+  
   return (
     <div className="admin-page-container">
       <SharedSidebar navItems={adminNavItems} />
