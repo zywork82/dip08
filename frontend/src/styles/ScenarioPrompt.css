@@ -12,18 +12,15 @@
     height: 100vh;
     width: 100%;
    overflow-y: hidden;
+   position: fixed; /* stays in the viewport */
+    top: 0;          /* distance from top */
 
   }
 
-.header {
-width: 100%;
-height: 50px;
-}
+
 
 .scenario-prompt-container {
-  display: flex;
   flex-direction: column;
-  align-items: center;
   background-color: #ECECF8;
   min-height: 100vh;
   width: 100%;

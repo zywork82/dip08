@@ -94,14 +94,12 @@ useEffect(() => {
               }`}
               onClick={() => setActiveTab("accounts")}
             >
-              Accounts
             </span>
           </h2>
 
           {/* General Settings */}
           {activeTab === "general" && (
             <div className="general-container">
-              <h3>General</h3>
 
               {/* Language */}
               <div className="general-field">

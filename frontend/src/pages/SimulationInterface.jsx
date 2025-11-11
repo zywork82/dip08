@@ -2,7 +2,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import NavigationBar from "../components/SlimNavBar";
-import SharedHeader from "../components/SharedHeader";
 import "../styles/Global.css";
 import "../styles/SimulationInterface.css";
 import axios from "axios";
@@ -272,7 +271,6 @@ const SimulationInterface = () => {
       <div className="scene-editor-container">
         <NavigationBar />
         <div className="editor-container">
-          <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
           <h2>No scenario loaded</h2>
           <p>Try saving &amp; launching from the Scene Editor again.</p>
           <button
@@ -294,10 +292,7 @@ const SimulationInterface = () => {
     <div className="scene-editor-container">
       <NavigationBar />
       <div className="editor-container">
-        <div className="header">
-          <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
-        </div>
-
+        
         <div className="scenario-interface-layout" >
           {/* Main stage */}
           <div className="stage">

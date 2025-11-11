@@ -11,7 +11,7 @@ const [profile, setProfile] = useState({
   name: "",
   email: "",
   password: "***************",
-  profileImage: "https://placehold.co/100x100/E6E6FA/3f51b5?text=A", // default
+  profileImage: "https://placehold.co/100x100/E6E6FA/3f51b5?text=HW", // default
 });
 const [originalProfile, setOriginalProfile] = useState(profile);
 
@@ -25,7 +25,7 @@ useEffect(() => {
       password: "***************",
       profileImage:
         parsedUser.profileImage ||
-        "https://placehold.co/100x100/E6E6FA/3f51b5?text=A", // default if none in DB
+        "https://placehold.co/100x100/E6E6FA/3f51b5?text=HW", // default if none in DB
     });
     setOriginalProfile({
       name: parsedUser.name || "",
@@ -33,7 +33,7 @@ useEffect(() => {
       password: "***************",
       profileImage:
         parsedUser.profileImage ||
-        "https://placehold.co/100x100/E6E6FA/3f51b5?text=A",
+        "https://placehold.co/100x100/E6E6FA/3f51b5?text=HW",
     });
   }
 }, []);
@@ -74,7 +74,7 @@ useEffect(() => {
 
       {/* Main Content */}
       <div className="settings-main">
-        <SharedHeader />
+        <SharedHeader profileImage= 'https://placehold.co/100x100/E6E6FA/3f51b5?text=HW' />
 
         <div className="settings-body">
           {/* Tabs */}

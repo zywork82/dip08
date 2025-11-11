@@ -848,11 +848,6 @@ useEffect(() => {
       <NavigationBar />
       <div className="editor-container">
         <div className="header">
-          <SharedHeader
-            profileImage={profileImage}
-            userName="Prof Andy"
-            userRole="Administrator"
-          />
         </div>
         <div className="floating-toolbar">
   <button onClick={handleSaveAndPlay}>💾 Save & Play</button>

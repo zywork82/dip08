@@ -49,7 +49,7 @@ const StudentPage = () => {
    const [caseStudies, setCaseStudies] = useState([]);
   const [loadingCaseStudies, setLoadingCaseStudies] = useState(false);
   const [caseStudiesError, setCaseStudiesError] = useState(null);
-
+  const [caseStudiesData, setCaseStudiesData] = useState([]);
 
 
   // useEffect(() => {
@@ -58,10 +58,10 @@ const StudentPage = () => {
   //   if (storedUser) setStudent(storedUser);
   // }, []);
 
- const filteredScenarios = caseStudies.filter(s => {
-    if (activeTab === 'All') return true;
-    return s.status === activeTab;
-  });
+//  const filteredScenarios = caseStudies.filter(s => {
+//     if (activeTab === 'All') return true;
+//     return s.status === activeTab;
+//   });
 
   useEffect(() => {
   const fetchCaseStudies = async () => {
@@ -104,6 +104,14 @@ const StudentPage = () => {
 }, []);
 
 
+    // Filter based on tab
+  const filteredScenarios = caseStudies.filter(cs => {
+    if (activeTab === 'All') return cs.status === 'Published' || cs.status === 'Completed';
+    if (activeTab === 'Published') return cs.status === 'Published';
+    if (activeTab === 'In-Progress') return cs.status === 'In-Progress' || cs.status === 'Edit';
+    return false;
+  });
+
 
 
   return (
@@ -128,7 +136,7 @@ const StudentPage = () => {
               
               </div>
               <div className="scenario-tabs">
-                {['All', 'Completed', 'In-Progress'].map(tab => (
+                {['All'].map(tab => (
                   <span
                     key={tab}
                     className={`tab ${activeTab === tab ? 'active' : ''}`}
@@ -180,6 +188,6 @@ const StudentPage = () => {
       </main>
     </div>
   );
-};
+  }
 
 export default StudentPage;
