@@ -983,9 +983,16 @@ def generate_images_route():
     """
     body = request.get_json(silent=True) or {}
     keep_tmp_files = bool(body.get("tmp", False))
-    nodes = body.get("nodes", [])
+    # nodes = body.get("nodes", [])
+    # if not nodes:
+    #     return jsonify({"error": "No nodes provided"}), 400
+    nodes = [
+    n for n in (body.get("nodes") or [])
+    if (n.get("type") or n.get("data", {}).get("type")) in {"scenario", "ending"}
+]
+
     if not nodes:
-        return jsonify({"error": "No nodes provided"}), 400
+        return jsonify({"error": "No scenario nodes provided"}), 400
 
     TMP_DIR.mkdir(parents=True, exist_ok=True)
 
