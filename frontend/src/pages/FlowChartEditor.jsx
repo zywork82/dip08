@@ -311,6 +311,19 @@ const passedScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario"
 //     }
 //   })();
 // }, []);
+
+// 🧠 Keep scenario title persistent
+useEffect(() => {
+  if (!scenarioTitle || scenarioTitle === "Untitled Scenario") {
+    const storedTitle =
+      location.state?.scenarioTitle ||
+      localStorage.getItem("lastScenarioTitle") ||
+      "Untitled Scenario";
+    setScenarioTitle(storedTitle);
+    console.log("📌 Restored scenario title:", storedTitle);
+  }
+}, []);
+
   useEffect(() => {
     const handleKey = (e) => {
       const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -535,7 +548,7 @@ if (openOptions.length > 0) {
 
 const payload = {
   id: scenarioId,
-  title: scenarioTitle,
+  title: scenarioTitle || localStorage.getItem("lastScenarioTitle") || "Untitled Scenario",
   nodes: cleanedNodes,
   edges,
   startNodeId: preferredStart,
@@ -545,7 +558,7 @@ const payload = {
   try {
     setIsSaving(true);
     console.log("📦 Nodes before filter:", nodes.length);
-const cleanedNodes = filterDisconnectedNodes(nodes, edges);
+
 console.log("📦 Nodes after filter:", cleanedNodes.length);
 console.log("🚀 Sending payload to backend:");
 console.log(JSON.stringify(payload, null, 2));
@@ -800,13 +813,26 @@ const generateImages = useCallback(async () => {
   if (!savedFlow) return alert("❌ Failed to save before generating images.");
 
   const layoutedNodes = getLayoutedNodes(savedFlow.nodes, savedFlow.edges);
-  const nodesForApi = layoutedNodes
-    .filter((n) => !n.data?.b64image)
-    .map((n) => ({
-      id: n.id,
-      data_description: n.data?.data_description || n.data?.scene || "",
-    }));
+  // const nodesForApi = layoutedNodes
+  //   .filter((n) => !n.data?.b64image)
+  //   .map((n) => ({
+  //     id: n.id,
+  //     data_description: n.data?.data_description || n.data?.scene || "",
+  //   }));
 
+const nodesForApi = layoutedNodes
+  .filter(
+    (n) =>
+      ["scenario", "ending"].includes(n.type) &&        // ✅ backend filter match
+      (!n.data?.b64image || n.data?.b64image === "")
+  )
+  .map((n) => ({
+    id: n.id,
+    type: n.type,                                       // ✅ include type
+    data_description:
+      n.data?.data_description?.trim() || n.data?.scene?.trim() || "",
+  }))
+  .filter((n) => n.data_description.length > 0);         // ✅ avoid empty desc
 
   if (nodesForApi.length === 0) {
     alert("All nodes already have images — nothing to generate!");
@@ -827,6 +853,8 @@ const generateImages = useCallback(async () => {
   }, 1000);
 
   try {
+    console.log("[IMG] sending", nodesForApi.length, "nodes:", nodesForApi.map(n => n.id));
+
     const res = await fetch("http://127.0.0.1:5000/generate_images", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -869,7 +897,7 @@ const newNodes = await Promise.all(
           node_id: n.id,
           b64image: `data:image/png;base64,${b64}`,
         }),
-      });
+      });if (!uploadRes.ok) throw new Error(`Upload failed (${uploadRes.status})`);
       const uploadData = await uploadRes.json();
       const imageUrl = `http://127.0.0.1:5000${uploadData.url}`;
 
@@ -914,7 +942,7 @@ const newNodes = await Promise.all(
   const tracedEdges = traceMode
     ? edges.map((e) => ({
         ...e,
-        style: { stroke: e.source === selectedNodeId ? "#ff0072" : "#999", strokeWidth: 2 },
+        style: { stroke: e.source === selectedNodeId ? "#ff0072" : "#999", strokeWidth: 4 },
       }))
     : edges;
 
