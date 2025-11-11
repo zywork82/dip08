@@ -84,6 +84,14 @@ const suppressResizeObserverError = (error) => {
   // For all other errors, log them as normal
   console.error(error);
 };
+// Silence harmless ResizeObserver loop errors
+const resizeObserverErr = /(ResizeObserver loop completed|ResizeObserver loop limit exceeded)/i;
+window.addEventListener("error", (e) => {
+  if (resizeObserverErr.test(e.message)) {
+    e.stopImmediatePropagation();
+  }
+});
+
 
 // Apply the suppression function globally in the browser's window context
 // This will only work in development (non-production) environments.
