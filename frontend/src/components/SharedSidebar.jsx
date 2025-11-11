@@ -50,8 +50,8 @@ const SharedSidebar = () => {
 
             localStorage.clear();
             navigate('/'); // redirect to login page
-          }}
-        >
+          }} title="Logout">
+
           <FaSignOutAlt />
         </button>
       </div>
