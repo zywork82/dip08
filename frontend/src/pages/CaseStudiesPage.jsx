@@ -152,16 +152,17 @@ const filteredCaseStudies = caseStudiesData.filter((cs) => {
     const status = (cs.status || "").toLowerCase();
 
     // Show Edit button if it's editable (draft/in-progress/edit)
-    if (["in-progress", "edit", "draft"].includes(status)) {
-      return (
-        <button
-          className="edit-button"
-          onClick={() => handleOpenScenario(cs)}
-        >
-          ✏️ Edit
-        </button>
-      );
-    }
+    if (["in-progress", "edit", "draft", "flowchart", "image", "flow chart"].includes(status)) {
+  return (
+    <button
+      className="edit-button"
+      onClick={() => handleOpenScenario(cs)}
+    >
+      ✏️ Edit
+    </button>
+  );
+}
+
 
     // Otherwise, show status badge only
     return (
