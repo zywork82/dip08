@@ -10,7 +10,7 @@ export function getLayoutedNodes(nodes, edges) {
   dagreGraph.setGraph({
     rankdir: "TB", // Top → Bottom
     ranksep: 200, // vertical gap between levels
-    nodesep: 360, // horizontal gap between columns
+    nodesep: 600, // horizontal gap between columns
     ranker: "tight-tree", // 👈 preserves column-per-branch
     marginx: 60,
     marginy: 40,

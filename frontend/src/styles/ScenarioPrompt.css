@@ -93,7 +93,16 @@ margin-top: 0px;
   resize: vertical;
   font-size: 18px;
 }
-
+.tier-level-dropdown{
+  margin-left: 20px;
+  margin-right: 20px;
+  padding: 10px;
+  border-radius: 12px;
+  background-color: #575ACB;
+border-style: none;
+  font-weight: 600;
+  color: white;
+}
 .description-input-container{
   width: 100%;
 }
