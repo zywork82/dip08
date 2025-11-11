@@ -2,6 +2,16 @@ from flask import Blueprint, request, jsonify
 from db import db
 from datetime import datetime
 from bson import ObjectId
+import os, time
+from flask import send_from_directory
+from PIL import Image
+import base64
+from io import BytesIO
+from pathlib import Path
+
+# Temporary image directory for AI-generated previews
+TEMP_IMG_DIR = "temp_images"
+os.makedirs(TEMP_IMG_DIR, exist_ok=True)
 
 
 scenarios_bp = Blueprint("scenarios", __name__, url_prefix="/scenarios")
@@ -42,6 +52,9 @@ def scenarios_root():
                 s["_id"] = str(s["_id"])
                 if "lastEdited" in s:
                     s["lastEdited"] = s["lastEdited"][:10]
+                if "status" not in s:
+                    s["status"] = "draft"
+
             return jsonify(scenarios)
         except Exception as e:
             return jsonify({"success": False, "error": str(e)}), 500
@@ -50,10 +63,18 @@ def scenarios_root():
 # =========================================================
 # ✅ Save Flow (upsert nodes with full image support)
 # =========================================================
-@scenarios_bp.route("/saveFlow", methods=["POST"])
+@scenarios_bp.route("/saveFlow", methods=["POST", "OPTIONS"])
 def save_flow():
+    if request.method == "OPTIONS":
+        return '', 200
+
     try:
-        flow = request.get_json() or {}
+        # ✅ Always parse JSON safely
+        flow = request.get_json(force=True, silent=False)
+        if not flow:
+            print("⚠️ No JSON payload received.")
+            return jsonify({"success": False, "error": "No JSON payload"}), 400
+
         now = datetime.utcnow()
         scenario_id = flow.get("id")
 
@@ -66,16 +87,33 @@ def save_flow():
             except (InvalidId, TypeError):
                 return False
 
-        # --- Prepare main scenario document ---
+        # --- Determine scenario status automatically ---
+        raw_status = (flow.get("status") or "").lower()
+        has_images = any(
+            (n.get("data", {}).get("b64image") or n.get("data", {}).get("imageUrl"))
+            for n in (flow.get("nodes") or [])
+        )
+
+        if raw_status in ["published", "images", "flowchart", "draft"]:
+            computed_status = raw_status
+        elif has_images:
+            computed_status = "images"
+        elif flow.get("nodes"):
+            computed_status = "flowchart"
+        else:
+            computed_status = "draft"
+
         scenario_doc = {
-            "title": flow.get("title", "Untitled Scenario").strip(),  # ✅ always update title
-            "status": flow.get("status", "Edit"),
+            "title": flow.get("title", "Untitled Scenario").strip(),
+            "status": computed_status,
             "image": flow.get("image"),
             "lastEdited": now.isoformat(),
             "startNodeId": flow.get("startNodeId"),
         }
 
-        # --- Determine if we are updating or creating ---
+        print(f"🧩 Auto-detected status for '{scenario_doc['title']}': {computed_status}")
+
+        # --- Upsert scenario document ---
         if scenario_id and is_valid_objectid(scenario_id):
             result = db.scenarios.update_one(
                 {"_id": ObjectId(scenario_id)},
@@ -96,17 +134,21 @@ def save_flow():
                 scenario_oid = db.scenarios.insert_one(scenario_doc).inserted_id
 
         # =========================================================
-        # 🧩 FIX 1: Convert node dict → list (frontend sends object)
+        # ✅ Parse nodes properly (fix indentation)
         # =========================================================
         nodes = flow.get("nodes", [])
         if isinstance(nodes, dict):
             nodes = list(nodes.values())
 
         saved_nodes = []
-        for node in nodes:
-            raw_data = node.get("data", {}) or {}
 
-          # 🧩 Safe image extraction (avoid IndexError on empty lists)
+        for node in nodes:
+            raw_data = node.get("data", {})
+            if isinstance(raw_data, str):
+                raw_data = {"data_description": raw_data}
+            elif not isinstance(raw_data, dict):
+                raw_data = {}
+
             gen_imgs = raw_data.get("generatedImages") or []
             first_img = gen_imgs[0] if len(gen_imgs) > 0 else ""
 
@@ -115,12 +157,10 @@ def save_flow():
                 "options": raw_data.get("options", node.get("options", [])),
                 "next": raw_data.get("next", node.get("next", None)),
                 "scene": raw_data.get("scene", ""),
-                # ✅ Preserve images if already set
                 "b64image": raw_data.get("b64image", ""),
                 "imageUrl": raw_data.get("imageUrl", ""),
-                "generatedImages": raw_data.get("generatedImages", []),
+                "generatedImages": gen_imgs,
             }
-
 
             node_doc = {
                 "id": str(node.get("id")).strip(),
@@ -128,21 +168,15 @@ def save_flow():
                 "data": formatted_data,
                 "psych_dimensions": node.get("psych_dimensions", ""),
                 "position": node.get("position", {}),
-                "scenarioId": scenario_oid
+                "scenarioId": ObjectId(scenario_oid)
             }
 
             db.scenarioNodes.update_one(
-                {"id": node_doc["id"], "scenarioId": scenario_oid},
+                {"id": node_doc["id"], "scenarioId": ObjectId(scenario_oid)},
                 {"$set": node_doc},
                 upsert=True
             )
             saved_nodes.append(node_doc)
-
-        for n in saved_nodes:
-            if "_id" in n:
-                n["_id"] = str(n["_id"])
-            if isinstance(n.get("scenarioId"), ObjectId):
-                n["scenarioId"] = str(n["scenarioId"])
 
         print(f"✅ Saved {len(saved_nodes)} nodes for scenario {scenario_oid}")
 
@@ -152,17 +186,16 @@ def save_flow():
             "nodesSaved": len(saved_nodes),
             "edgesSaved": len(flow.get('edges', [])),
             "scenarioId": str(scenario_oid),
-            "savedNodes": saved_nodes,
-            "updatedTitle": scenario_doc["title"],  # ✅ new field for frontend sync
         }), 200
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print("❌ Error saving flow:", e)
         return jsonify({"success": False, "error": str(e)}), 500
+    
+    
 
-# =========================================================
-# ✅ Update a Single Node Image (for Regenerate button)
-# =========================================================
 # =========================================================
 # ✅ Update a Single Node Image (Generate 3 Variations)
 # =========================================================
@@ -247,19 +280,84 @@ def update_image():
             "error": f"Backend error during image regeneration: {str(e)}"
         }), 500
 
+# =========================================================
+# 🖼 Upload temp image (base64 → file → URL)
+# =========================================================
+@scenarios_bp.route("/uploadTempImage", methods=["POST"])
+def upload_temp_image():
+    try:
+        data = request.get_json(silent=True) or {}
+        node_id = data.get("node_id")
+        b64image = data.get("b64image")
+
+        if not node_id or not b64image:
+            return jsonify({"success": False, "error": "Missing node_id or b64image"}), 400
+
+        # Decode base64 and save to /temp_images
+        img_bytes = base64.b64decode(b64image.split(",")[-1])
+        img = Image.open(BytesIO(img_bytes))
+        filename = f"{node_id}.png"
+        filepath = os.path.join(TEMP_IMG_DIR, filename)
+        img.save(filepath, "PNG")
+
+        url = f"/scenarios/temp/{filename}"
+        print(f"🖼 Temp image saved for node {node_id}: {url}")
+
+        return jsonify({"success": True, "url": url}), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print("❌ Error saving temp image:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# =========================================================
+# 🖼 Serve temp images (used in SceneEditor)
+# =========================================================
+@scenarios_bp.route("/temp/<filename>")
+def serve_temp_image(filename):
+    """Serve images from the temp_images folder"""
+    return send_from_directory(TEMP_IMG_DIR, filename)
 
 # =========================================================
 # ✅ Get full flow (ReactFlow-ready, returns images)
 # =========================================================
 @scenarios_bp.route("/getFlow/<scenario_id>", methods=["GET"])
 def get_flow(scenario_id):
+    from bson import ObjectId
+    from bson.errors import InvalidId
+    print(f"📩 [getFlow] Incoming scenario ID: {scenario_id}")
+
     try:
-        scenario = db.scenarios.find_one({"_id": ObjectId(scenario_id)})
+        # ✅ Handle both valid ObjectId and string IDs
+        try:
+            query_id = ObjectId(scenario_id)
+            print("✅ Parsed as valid ObjectId")
+        except InvalidId:
+            print("⚠️ Invalid ObjectId format, using string comparison")
+            query_id = scenario_id
+
+        scenario = db.scenarios.find_one({"_id": query_id})
         if not scenario:
+            print("❌ Scenario not found in database.")
             return jsonify({"error": "Scenario not found"}), 404
 
-        # 🧩 Fetch nodes for scenario
-        nodes = list(db.scenarioNodes.find({"scenarioId": ObjectId(scenario_id)}))
+        # ✅ Fetch nodes
+        print("📥 Fetching nodes for scenario...")
+        # 🧩 FIX — handle both ObjectId and string type
+        nodes = list(
+            db.scenarioNodes.find({
+                "$or": [
+                    {"scenarioId": query_id},
+                    {"scenarioId": str(query_id)}
+                ]
+            })
+        )
+        print(f"✅ Retrieved {len(nodes)} nodes from DB (string/ObjectId tolerant)")
+
+        print(f"✅ Retrieved {len(nodes)} nodes from DB")
+
         edges = []
 
         for n in nodes:
@@ -269,7 +367,6 @@ def get_flow(scenario_id):
             elif not isinstance(data_field, dict):
                 data_field = {}
 
-            # ✅ Ensure defaults exist even if missing
             data_field.setdefault("data_description", "")
             data_field.setdefault("options", [])
             data_field.setdefault("next", None)
@@ -280,20 +377,8 @@ def get_flow(scenario_id):
 
             n["data"] = data_field
 
-
-            # 🧩 FIX 2: Always read options from n["data"]
-            n["data"] = {
-                "data_description": data_field.get("data_description", ""),
-                "options": data_field.get("options", []),
-                "next": data_field.get("next", None),
-                "scene": data_field.get("scene", ""),
-                "b64image": data_field.get("b64image", ""),
-                "imageUrl": data_field.get("imageUrl", ""),
-                "generatedImages": data_field.get("generatedImages", []),
-            }
-
-            # --- Build edges safely ---
-            for opt_id in n["data"]["options"]:
+            # edges
+            for opt_id in data_field.get("options", []):
                 edges.append({
                     "id": f"e-{n['id']}-{opt_id}",
                     "source": n["id"],
@@ -301,39 +386,39 @@ def get_flow(scenario_id):
                     "type": "smoothstep",
                     "animated": True
                 })
-
-            if n["data"]["next"]:
+            if data_field.get("next"):
                 edges.append({
-                    "id": f"e-{n['id']}-{n['data']['next']}",
+                    "id": f"e-{n['id']}-{data_field['next']}",
                     "source": n["id"],
-                    "target": n["data"]["next"],
+                    "target": data_field["next"],
                     "type": "smoothstep",
                     "animated": True
                 })
 
             n["_id"] = str(n["_id"])
             n["scenarioId"] = str(n["scenarioId"])
-
-        # 🧩 FIX 3: Normalize all node IDs as strings
-        for n in nodes:
             n["id"] = str(n["id"]).strip()
 
         flow_data = {
             "id": str(scenario["_id"]),
             "title": scenario.get("title"),
             "description": scenario.get("description"),
-            "status": scenario.get("status"),
+            "status": (scenario.get("status") or "draft").lower(),
             "image": scenario.get("image"),
             "startNodeId": scenario.get("startNodeId"),
             "nodes": nodes,
             "edges": edges,
         }
 
+        print(f"✅ Returning flow data for '{flow_data['title']}' ({len(nodes)} nodes)")
         return jsonify(flow_data), 200
 
     except Exception as e:
-        print("Error in get_flow:", e)
+        import traceback
+        traceback.print_exc()
+        print("❌ Error in get_flow:", e)
         return jsonify({"error": str(e)}), 500
+
 
 @scenarios_bp.route("/delete/<scenario_id>", methods=["DELETE"])
 def delete_scenario(scenario_id):
@@ -360,3 +445,79 @@ def delete_scenario(scenario_id):
     except Exception as e:
         print("❌ Error deleting scenario:", e)
         return jsonify({"success": False, "error": str(e)}), 500
+# =========================================================
+# ✅ Update Scenario Status (Draft → Flowchart → Images → Published)
+# =========================================================
+@scenarios_bp.route("/updateStatus/<scenario_id>", methods=["PATCH"])
+def update_status(scenario_id):
+    """
+    Allows frontend to update the scenario status as user progresses:
+      - 'draft'       : flow generated but unsaved
+      - 'flowchart'   : flowchart saved but no images yet
+      - 'images'      : images generated in SceneEditor
+      - 'published'   : finalized simulation ready for trainees
+    """
+    try:
+        data = request.get_json() or {}
+        new_status = (data.get("status") or "").lower()
+
+        if not new_status:
+            return jsonify({"success": False, "error": "Missing 'status' field"}), 400
+
+        # ✅ Validate ID
+        if not ObjectId.is_valid(scenario_id):
+            return jsonify({"success": False, "error": "Invalid scenario ID"}), 400
+
+        now = datetime.utcnow().isoformat()
+
+        result = db.scenarios.update_one(
+            {"_id": ObjectId(scenario_id)},
+            {"$set": {"status": new_status, "lastEdited": now}}
+        )
+
+        if result.matched_count == 0:
+            return jsonify({"success": False, "error": "Scenario not found"}), 404
+
+        print(f"✅ Updated scenario {scenario_id} → status = {new_status}")
+
+        return jsonify({
+            "success": True,
+            "scenarioId": scenario_id,
+            "newStatus": new_status
+        }), 200
+
+    except Exception as e:
+        print("❌ Error updating scenario status:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+@scenarios_bp.route("/rename/<id>", methods=["POST"])
+def rename_scenario(id):
+    try:
+        data = request.get_json()
+        new_title = data.get("title")
+
+        if not new_title:
+            return jsonify({"success": False, "error": "Missing title"}), 400
+
+        result = db.scenarios.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": {"title": new_title, "lastEdited": datetime.utcnow().isoformat()}}
+        )
+
+        if result.modified_count == 0:
+            return jsonify({"success": False, "error": "Scenario not found"}), 404
+
+        return jsonify({"success": True, "title": new_title})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@scenarios_bp.before_app_request
+def cleanup_old_temp_images():
+    TMP_DIR = Path("scenarios/temp_images")
+    now = time.time()
+    for f in TMP_DIR.glob("*.png"):
+        if now - f.stat().st_mtime > 60 * 60 * 24:  # older than 24h
+            try:
+                os.remove(f)
+                print(f"🧹 Removed old temp image: {f.name}")
+            except Exception:
+                pass

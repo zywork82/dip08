@@ -1,4 +1,4 @@
-import os, json, textwrap, time, re, random, base64
+import os, json, textwrap, time, re, random, base64, concurrent.futures
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from io import BytesIO
@@ -13,10 +13,13 @@ from scenarios import scenarios_bp as scenarios_router
 from signup import signup_router
 from analytics import analytics_bp
 from login import login_bp
-
+from concurrent.futures import ThreadPoolExecutor
 from users import users_bp
 
 from admins import admin_bp
+
+
+
 # =========================
 # Load environment
 # =========================
@@ -82,6 +85,7 @@ app.register_blueprint(users_bp)
 app.register_blueprint(admin_bp)
 
 app.register_blueprint(analytics_bp)
+
 
 # =========================
 # Small helpers
@@ -464,6 +468,87 @@ def fill_content_for_nodes(story, node_ids, aspect_map, mode="action"):
 
 #     return result
 
+def generate_story_endings(story: str) -> Dict[str, Dict[str, str]]:
+    """
+    Use OpenAI to create 3 story-specific endings:
+    - E1 = best-case outcome
+    - E2 = mixed / partial recovery
+    - E3 = worst-case / escalation
+
+    Returns:
+    {
+      "E1": {"title": "...", "description": "..."},
+      "E2": {...},
+      "E3": {...}
+    }
+    """
+    if not OPENAI_API_KEY:
+        return {}
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    sys_msg = (
+        "You design final outcomes for a branching training simulation.\n"
+        "- E1: clearly the best-case resolution.\n"
+        "- E2: mixed / partial recovery.\n"
+        "- E3: worst-case escalation.\n"
+        "- Titles <= 60 chars, descriptions <= 200 chars.\n"
+        "- Do NOT use bullet points. No line breaks inside each field.\n"
+        "- Keep it consistent with the scenario's storyline.\n"
+    )
+
+    usr = textwrap.dedent(f"""
+    Scenario background:
+
+    {story}
+
+    Create 3 distinct final outcomes (best, mixed, worst) that make
+    sense for this scenario and could plausibly follow from different
+    decision paths.
+
+    Return ONLY valid JSON in this exact format:
+
+    {{
+      "E1": {{
+        "title": "Best-case outcome title",
+        "description": "Best-case outcome summary."
+      }},
+      "E2": {{
+        "title": "Mixed outcome title",
+        "description": "Mixed outcome summary."
+      }},
+      "E3": {{
+        "title": "Worst-case outcome title",
+        "description": "Worst-case outcome summary."
+      }}
+    }}
+    """)
+
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": sys_msg},
+                {"role": "user",  "content": usr},
+            ],
+            temperature=0.5,
+        )
+        raw = resp.choices[0].message.content or ""
+        js = _extract_json_block(raw)
+        data = json.loads(js)
+
+        out = {}
+        for eid in ["E1", "E2", "E3"]:
+            v = data.get(eid, {}) or {}
+            out[eid] = {
+                "title": _as_str(v.get("title", "")).strip()[:60] or eid,
+                "description": _as_str(v.get("description", "")).strip()[:200],
+            }
+        return out
+    except Exception as e:
+        print("[ending-gen] Error generating endings:", e)
+        return {}
+
 def apply_content(model, content_map):
     id2node = {n["id"]: n for n in model["nodes"]}
     for nid, c in content_map.items():
@@ -478,13 +563,11 @@ def apply_content(model, content_map):
 # =========================
 # Flatten for frontend
 # =========================
-def build_flat_with_hubs(model, aspect_map):
+def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
     """
-    PROTOTYPE VERSION (2-tier)
-    - 101 (root) → 101A/101B/101C → 201/202/203
-    - 201/202/203 each → 3 options (A/B/C) → endings (E1/E2/E3)
+    Flattens hierarchical AI skeleton into a clean branching structure:
+    SCENARIO (101) -> OPTION (101A/B/C) -> SCENARIO (201/202/203) -> ...
     """
-
     nodes = model["nodes"]
     edges = model["edges"]
     by_id, children, parents = _build_maps(nodes, edges)
@@ -508,119 +591,141 @@ def build_flat_with_hubs(model, aspect_map):
         return int(num_part) // 100 if num_part else 0
 
     def next_hub_id(hub_id: str, idx: int) -> str:
-        # 101 -> 201/202/203 depending on index
-        return f"{hub_bucket(hub_id) + 1}0{idx + 1}"
+        # example: 101 → 201, 201 → 301, etc.
+        return f"{hub_bucket(hub_id)+1}0{idx+1}"
 
-    def _s(x): return _as_str(x).strip()
+    def get_text(n):
+        return _as_str(n.get("text", "")).strip()
 
-    # def merged_desc(n):
-    #     t = _s(n.get("text", ""))
-    #     r = _s(n.get("narrative", ""))
-    #     return f"{t}\n\n{r}" if t and r else (t or r or "Choose your next step.")
+    def get_narr(n):
+        return _as_str(n.get("narrative", "")).strip()
 
-    def merged_desc(n, node_type):
-        t = _s(n.get("text", ""))
-        r = _s(n.get("narrative", ""))
+    def merge_fields(a, b):
+        if a and b:
+            return f"{a}\n\n{b}"
+        return a or b
 
-        if node_type == "scenario":
-            # Scenario nodes should show only the resulting situation (narrative)
-            return r or t or "The situation progresses."
+    def clean_psych(val):
+        v = _as_str(val).strip().strip("[]\"' ")
+        return v
 
-        if node_type == "option":
-            # Option nodes show only the action
-            return t or "Choose an action."
-
-        # Endings & fallback
-        return r or t or "Outcome."
-
-    def expl_field(n, default_msg="Reflect on the implications of this decision."):
-        e = _s(n.get("data_explanation", ""))
-        return e or default_msg
-
-    def clean_psych(v):
-        return _as_str(v).strip().strip("[]\"' ")
-
-    result = {}
+    result: Dict[str, Any] = {}
 
     ROOT_ORIG = "scenario" if "scenario" in by_id else nodes[0]["id"]
     ROOT_HUB_ID = "101"
 
-    # =========================================================
-    # 🧩 Recursive builder
-    # =========================================================
-    def build(hub_id: str, origin_id: str, depth: int = 1):
-        origin = by_id.get(origin_id, {})
-        kid_ids = children.get(origin_id, [])[:3]  # up to 3 children
-        option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(kid_ids))]
+    def build(hub_id: str, hub_origin_id: str):
+        origin_node = by_id.get(hub_origin_id, {})
+        child_ids = children.get(hub_origin_id, [])[:3]
+        if not child_ids:
+            # fallback, but normally skeleton already defines children
+            child_ids = [f"{hub_origin_id}_child_{i}" for i in range(3)]
+        option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(child_ids))]
 
-        # --- Hub node (Scenario) ---
+        # --- SCENARIO node ---
+        merged_text = merge_fields(get_text(origin_node), get_narr(origin_node)) or "Choose your next step."
         result[hub_id] = {
             "id": hub_id,
             "type": "scenario",
             "position": "",
-            "data_description": merged_desc(origin,"scenario"),
-            "data_explanation": expl_field(origin),
+            "data_description": merged_text,
             "options": option_ids,
-            "psych_dimensions": clean_psych(aspect_map.get(origin_id, "")),
+            "psych_dimensions": clean_psych(aspect_map.get(hub_origin_id, "")),
         }
 
-        # --- Option nodes ---
-        for i, child_orig_id in enumerate(kid_ids):
-            child = by_id.get(child_orig_id, {})
-            opt_id = option_ids[i]
+        # --- OPTION nodes ---
+        for i, child_orig_id in enumerate(child_ids):
+            opt_id = fmt_opt_id(hub_id, letters[i])
+            child_node = by_id.get(child_orig_id, {})
+            grandkids = children.get(child_orig_id, [])
 
-            # If this is the first hub (101 → 201/202/203)
-            if depth == 1:
-                next_hub = next_hub_id(hub_id, i)  # e.g. 201/202/203
-                result[opt_id] = {
-                    "id": opt_id,
-                    "type": "option",
-                    "position": "",
-                    "data_description": merged_desc(child, "option"),
-                    "data_explanation": "Proceed to the next scenario phase.",
-                    "options": [],
-                    "next": next_hub,
-                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
-                }
+            # check if this path can continue deeper
+            non_ending_grandkids = [g for g in grandkids if by_id.get(g, {}).get("type") != "ending"]
 
-                # recursively create the next hub (second tier)
-                build(next_hub, child_orig_id, depth + 1)
-
-            # If this is the second hub (201/202/203 → endings)
+            if not non_ending_grandkids:
+                next_target = pick_ending_id()
             else:
-                eid = pick_ending_id()
-                result[opt_id] = {
-                    "id": opt_id,
-                    "type": "option",
-                    "position": "",
-                    "data_description": merged_desc(child,"option"),
-                    "data_explanation": "Your decision leads to this outcome.",
-                    "options": [],
-                    "next": eid,
-                    "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
-                }
+                next_target = next_hub_id(hub_id, i)
+                build(next_target, child_orig_id)
 
-    # Build root
-    build(ROOT_HUB_ID, ROOT_ORIG, depth=1)
+            merged_child_text = merge_fields(get_text(child_node), get_narr(child_node))
+            if not merged_child_text:
+                merged_child_text = (
+                    "Your decision guides the next phase." if non_ending_grandkids
+                    else "This choice concludes the scenario."
+                )
 
-    # --- Endings (same as before) ---
-    ending_map = {
-        "E1": ("✅ Successful Resolution", "The crisis is fully resolved, and relationships or goals are restored."),
-        "E2": ("⚖️ Partial Recovery", "Some improvement achieved, but challenges or reputational impacts remain."),
-        "E3": ("⚠️ Escalation", "The situation worsens and requires further intervention or external involvement."),
+            result[opt_id] = {
+                "id": opt_id,
+                "type": "option",
+                "position": "",
+                "data_description": merged_child_text,
+                "options": [],
+                "next": next_target,
+                "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
+            }
+
+    # --- Build from root ---
+    build(ROOT_HUB_ID, ROOT_ORIG)
+
+    # --- Default endings (generic) ---
+    default_ending_map = {
+        "E1": (
+            "✅ Successful Resolution",
+            "The crisis is fully resolved, and relationships or goals are restored."
+        ),
+        "E2": (
+            "⚖️ Partial Recovery",
+            "Some improvement achieved, but challenges or reputational impacts remain."
+        ),
+        "E3": (
+            "⚠️ Escalation",
+            "The situation worsens and requires further intervention or external involvement."
+        ),
     }
-    for e, (title, desc) in ending_map.items():
+
+    # Merge story-specific overrides with defaults
+    merged_ending_map: Dict[str, Dict[str, str]] = {}
+    for eid, (fallback_title, fallback_desc) in default_ending_map.items():
+        if ending_overrides and eid in ending_overrides:
+            custom = ending_overrides[eid] or {}
+            title = _as_str(custom.get("title", fallback_title)).strip() or fallback_title
+            desc = _as_str(custom.get("description", fallback_desc)).strip() or fallback_desc
+        else:
+            title, desc = fallback_title, fallback_desc
+
+        merged_ending_map[eid] = {
+            "title": title,
+            "description": desc,
+        }
+
+    # Create ending nodes
+    for e in ENDING_IDS:
+        em = merged_ending_map[e]
         result[e] = {
             "id": e,
             "type": "ending",
             "position": "",
-            "data_description": title,
-            "data_explanation": desc,
+            "data_description": f"{em['title']}\n\n{em['description']}",
             "options": [],
             "psych_dimensions": clean_psych(aspect_map.get(e, "")),
         }
 
+    # Safety: any option without targets goes to an ending
+    for node in list(result.values()):
+        if node["type"] == "option":
+            next_id = node.get("next", "")
+            has_targets = bool(node.get("options")) and any(
+                o in result for o in node.get("options", [])
+            )
+            if not next_id and not has_targets:
+                fallback = pick_ending_id()
+                node["next"] = fallback
+                print(f"[auto-fix] Option {node['id']} had no next; linking to {fallback}")
+
     return result
+
+
 
 
 
@@ -672,6 +777,13 @@ def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
         return False
 
     try:
+        def task():
+            model = genai.GenerativeModel(GEMINI_IMAGE_MODEL)
+            return model.generate_content(prompt)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(task)
+            response = future.result(timeout=15)  # ⏳ timeout after 15s
         model = genai.GenerativeModel(GEMINI_IMAGE_MODEL)
         response = model.generate_content(prompt)
 
@@ -718,6 +830,7 @@ def _file_to_b64(path: Path) -> str:
 @app.get("/health")
 def health():
     return {"ok": True}
+
 @app.post("/generate")
 def generate():
     body = request.get_json(silent=True) or {}
@@ -736,7 +849,7 @@ def generate():
     filename = body.get("filename") or f"flow_{int(time.time())}.json"
 
     try:
-        # 1. Build raw branching structure
+        # 1. Build raw branching structure (depth controlled by tier_level)
         model = build_full_skeleton(story, tier_level=tier_level)
 
         # 2. Assign psychological dimensions
@@ -744,37 +857,32 @@ def generate():
 
         # 3. Identify *option* vs *scenario-state* nodes
         option_node_ids = [n["id"] for n in model["nodes"] if n.get("type") == "option"]
-        scenario_state_ids = [
+        scenario_node_ids = [
             n["id"] for n in model["nodes"]
             if n.get("type") == "scenario" and n["id"] != "scenario"
         ]
 
-        # # 4. Generate content separately for clarity
-        # opt_map = fill_content_for_nodes(story, option_node_ids, aspect_map, mode="action")
-        # state_map = fill_content_for_nodes(story, scenario_state_ids, aspect_map, mode="state")
+        # 4. Generate content separately for clarity
+        #    - actions for OPTION nodes
+        #    - state descriptions for SCENARIO nodes
+        option_content = fill_content_for_nodes(
+            story, option_node_ids, aspect_map, mode="action"
+        )
+        scenario_content = fill_content_for_nodes(
+            story, scenario_node_ids, aspect_map, mode="state"
+        )
 
-        # node_content_map = {**opt_map, **state_map}
-
-        # # 5. Merge content back in
-        # model = apply_content(model, node_content_map)
-        option_node_ids = [n["id"] for n in model["nodes"] if n.get("type") == "option"]
-        scenario_node_ids = [n["id"] for n in model["nodes"] if n.get("type") == "scenario" and n["id"] != "scenario"]
-
-        # Generate action text for OPTION nodes
-        option_content = fill_content_for_nodes(story, option_node_ids, aspect_map, mode="action")
-
-        # Generate state descriptions for SCENARIO nodes
-        scenario_content = fill_content_for_nodes(story, scenario_node_ids, aspect_map, mode="state")
-
-        # Combine
+        # 5. Merge AI content back into the model
         model = apply_content(model, {**option_content, **scenario_content})
 
+        # 6. Generate story-specific endings (E1/E2/E3)
+        ending_overrides = generate_story_endings(story)
 
-        # 6. Convert to flattened hub form
-        flat = build_flat_with_hubs(model, aspect_map)
+        # 7. Convert to flattened hub form (with custom endings)
+        flat = build_flat_with_hubs(model, aspect_map, ending_overrides=ending_overrides)
         flat["startNodeId"] = "101"
 
-        # 7. Optional download response
+        # 8. Optional download response
         if download_flag:
             payload = json.dumps(flat, indent=2, ensure_ascii=False)
             resp = make_response(payload)
@@ -788,6 +896,7 @@ def generate():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
 
 # @app.post("/generate")
 # def generate():
@@ -859,10 +968,10 @@ def generate():
 #         traceback.print_exc()
 #         return jsonify({"error": str(e)}), 500
 
-
 @app.post("/generate_images")
 def generate_images_route():
     """
+    Generate multiple images in parallel using threads.
     Body:
     {
       "tmp": true,
@@ -875,40 +984,82 @@ def generate_images_route():
     body = request.get_json(silent=True) or {}
     keep_tmp_files = bool(body.get("tmp", False))
     nodes = body.get("nodes", [])
-
     if not nodes:
         return jsonify({"error": "No nodes provided"}), 400
 
-    results = []
+    TMP_DIR.mkdir(parents=True, exist_ok=True)
 
-    for node in nodes:
+    def gen_one(node):
         nid = _as_str(node.get("id", "")).strip()
         desc = _as_str(node.get("data_description", "")).strip()
         if not nid or not desc:
-            continue
+            return None
+        try:
+            out_path = TMP_DIR / f"{nid}.png"
+            _generate_single_image_file(desc, out_path)
+            img_b64 = _file_to_b64(out_path)
+            if not keep_tmp_files:
+                out_path.unlink(missing_ok=True)
+            print(f"[image-gen] ✅ done {nid}")
+            return {"id": nid, "data_description": desc, "image_b64": img_b64}
+        except Exception as e:
+            print(f"[image-gen] ❌ failed {nid}: {e}")
+            return {"id": nid, "error": str(e), "image_b64": ""}
 
-        print(f"[image-gen] generating for {nid}")
+    # ✅ Run Gemini image generations in parallel threads (limit = 3)
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        results = list(executor.map(gen_one, nodes))
 
-        TMP_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = TMP_DIR / f"{nid}.png"
-        _generate_single_image_file(desc, out_path)
+    return jsonify({"images": [r for r in results if r]})
+# @app.post("/generate_images")
+# def generate_images_route():
+#     """
+#     Body:
+#     {
+#       "tmp": true,
+#       "nodes": [
+#         { "id": "101", "data_description": "..." },
+#         ...
+#       ]
+#     }
+#     """
+#     body = request.get_json(silent=True) or {}
+#     keep_tmp_files = bool(body.get("tmp", False))
+#     nodes = body.get("nodes", [])
 
-        img_b64 = _file_to_b64(out_path)
+#     if not nodes:
+#         return jsonify({"error": "No nodes provided"}), 400
 
-        if not keep_tmp_files:
-            try:
-                out_path.unlink()
-                print(f"[image-gen] Deleted {out_path} after encoding (tmp=false)")
-            except Exception as e:
-                print(f"[image-gen] WARN could not delete {out_path}: {e}")
+#     results = []
 
-        results.append({
-            "id": nid,
-            "data_description": desc,
-            "image_b64": img_b64
-        })
+#     for node in nodes:
+#         nid = _as_str(node.get("id", "")).strip()
+#         desc = _as_str(node.get("data_description", "")).strip()
+#         if not nid or not desc:
+#             continue
 
-    return jsonify({"images": results})
+#         print(f"[image-gen] generating for {nid}")
+
+#         TMP_DIR.mkdir(parents=True, exist_ok=True)
+#         out_path = TMP_DIR / f"{nid}.png"
+#         _generate_single_image_file(desc, out_path)
+
+#         img_b64 = _file_to_b64(out_path)
+
+#         if not keep_tmp_files:
+#             try:
+#                 out_path.unlink()
+#                 print(f"[image-gen] Deleted {out_path} after encoding (tmp=false)")
+#             except Exception as e:
+#                 print(f"[image-gen] WARN could not delete {out_path}: {e}")
+
+#         results.append({
+#             "id": nid,
+#             "data_description": desc,
+#             "image_b64": img_b64
+#         })
+
+#     return jsonify({"images": results})
 
 @app.delete("/tmp")
 def clear_tmp():
@@ -980,9 +1131,8 @@ def suggestions():
 
 
 if __name__ == "__main__":
-    # You can switch to "0.0.0.0" if you want LAN access
-    print("🚀 Backend server starting...")
+    print("🚀 Backend server starting with threaded mode...")
     from datetime import datetime
     print(f"✅ Flask backend running properly at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("🌐 Visit: http://127.0.0.1:5000/")
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=True, threaded=True)

@@ -16,7 +16,7 @@ import {
   convertFrontendToBackend,
   convertBackendToFrontend,
 } from "../utils/flowConverter";
-
+import { saveActiveFlow } from "../utils/sharedCache";
 
 import localforage from "localforage";
 import { getLayoutedNodes, centerSiblings } from "../utils/autoLayout";
@@ -907,18 +907,17 @@ const handleSaveAndPlay = async () => {
     //   b64image = n.data.b64image || "";
     // }
 
-    let b64image = "";
-let imageUrl = "";
+let b64image = "";
+let imageUrl = n.data.imageUrl || "";
 
-if (n.data.imageUrl?.startsWith("data:image/")) {
-  // ✅ direct base64 generated image
-  b64image = n.data.imageUrl.split(",")[1];
+if (imageUrl.startsWith("data:image/")) {
+  // convert base64 inline → to b64image for save
+  b64image = imageUrl.split(",")[1];
+  imageUrl = ""; // remove inline b64 to save space
 } else if (n.data.b64image) {
-  // ✅ fallback if already stored
   b64image = n.data.b64image;
-} else {
-  console.warn(`⚠️ No image data found for node ${n.id}`);
 }
+
 
     return {
       ...n,
@@ -1095,13 +1094,18 @@ useEffect(() => {
   </button>
 
   <button
-    onClick={() => {
-      const lightweightFlow = getLightweightFlow(nodes, edges);
-      navigate("/editor", { state: { scenarioId, flowData: lightweightFlow } });
-    }}
-  >
-    🗺️ Back to Flow
-  </button>
+  onClick={async () => {
+    const lightweightFlow = getLightweightFlow(nodes, edges);
+    await saveActiveFlow({
+      scenarioId,
+      flowData: lightweightFlow,
+      lastEdited: Date.now(),
+    });
+    navigate("/editor");
+  }}
+>
+  🗺️ Back to Flow
+</button>
 </div>
 
 
