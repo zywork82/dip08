@@ -48,6 +48,9 @@ const SharedSidebar = () => {
           className="logout-button"
           onClick={() => {
             // Optional: clear any auth/session storage here
+            localStorage.removeItem('user');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('token');
             // localStorage.removeItem('authToken'); // if you store a token
             navigate('/'); // redirect to login page
           }}
