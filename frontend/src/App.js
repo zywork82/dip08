@@ -118,7 +118,7 @@ window.addEventListener('error', suppressResizeObserverError);
       <Route path="/simulation" element={<SimulationInterface />} />
       <Route path="/flowchart" element={<Navigate to="/editor" replace />} />
       <Route path="/student-case-studies" element={<StudentCaseStudies />} />
-      <Route path="/my-records" element={<StudentRecords />} />
+      {/* <Route path="/my-records" element={<StudentRecords />} /> */}
       <Route path="/student-settings" element={<StudentSettings />} /> 
       
 
@@ -187,33 +187,48 @@ function App() {
   };
   
   if (localStorage.getItem('userRole') !== null) {
-    return (
-    <HashRouter>
-      {/* Draggable Nav Bar */}
-      <nav ref={navRef} className="test-nav-bar" onMouseDown={handleMouseDown} style={{ left: position.x, top: position.y }}>
-        <div className="nav-handle">Drag to move</div>
-        <ul>
-            {/* Your Links */}
-            <li><Link to="/student">Home</Link></li>
-            <li><Link to="/editor">Editor</Link></li>
-            <li><Link to="/scenario">Scenario</Link></li>
-            <li><Link to="/scene-editor">SceneEditor</Link></li>
-            <li><Link to="/admin">Admin Dashboard</Link></li>
-            <li><Link to="/student">Student Page</Link></li>
-            {/* <li><Link to="/scenarioInterface">Scenario Interface</Link></li> */}
-            <li><Link to="/simulation">Simulation</Link></li>
-            <li><Link to="/signup">Signup</Link></li>
-        </ul>
-      </nav>
+    if (localStorage.getItem('userRole') === 'admin')
+    {
+      return (
+        <HashRouter>
+        {/* Draggable Nav Bar */}
+        <nav ref={navRef} className="test-nav-bar" onMouseDown={handleMouseDown} style={{ left: position.x, top: position.y }}>
+          <div className="nav-handle">Drag to move</div>
+          <ul>
+              {/* Your Links */}
+              <li><Link to="/admin">Admin Dashboard</Link></li>
+              <li><Link to="/editor">Editor</Link></li>
+              <li><Link to="/scenario">Scenario</Link></li>
+              <li><Link to="/scene-editor">SceneEditor</Link></li>
+              {/* <li><Link to="/scenarioInterface">Scenario Interface</Link></li> */}
+              <li><Link to="/simulation">Simulation</Link></li>
+          </ul>
+        </nav>
 
-      {/* Main content */}
-      <div className="main-content-wrapper">
+        {/* Main content */}
+        <div className="main-content-wrapper">
 
-        <AppContent />
-      </div>
-    </HashRouter>
+          <AppContent />
+        </div>
+      </HashRouter>
+      );
+    }
+
+    else {
+      return (
+        <HashRouter>
+          
+
+          {/* Main content */}
+          <div className="main-content-wrapper">
+
+            <AppContent />
+          </div>
+        </HashRouter>
+      
+      );
+    }
     
-    );
   }
 
   else {
@@ -225,13 +240,6 @@ function App() {
         <ul>
             {/* Your Links */}
             <li><Link to="/">Login</Link></li>
-            <li><Link to="/editor">Editor</Link></li>
-            <li><Link to="/scenario">Scenario</Link></li>
-            <li><Link to="/scene-editor">SceneEditor</Link></li>
-            <li><Link to="/admin">Admin Dashboard</Link></li>
-            <li><Link to="/student">Student Page</Link></li>
-            {/* <li><Link to="/scenarioInterface">Scenario Interface</Link></li> */}
-            <li><Link to="/simulation">Simulation</Link></li>
             <li><Link to="/signup">Signup</Link></li>
         </ul>
       </nav>

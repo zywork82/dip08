@@ -415,10 +415,10 @@ const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
             ) : isEnd ? (
               <div>
                 <strong>Scenario complete.</strong>
-                <div>
-                  <button className="action-buttons" onClick={restart}>🔁 Restart</button>
+                <div class="completeScenario_box">
+                  <button className="option-end-actions" onClick={restart}>🔁 Restart</button>
                   <button
-                    className="action-buttons"
+                    className="option-end-actions"
                     onClick={() =>
                       navigate("/report", { state: { scenarioId, choicesLog, flowData } })
                     }

@@ -12,8 +12,8 @@ const StudentSidebar = () => {
   const navItems = [
     { name: 'Dashboard', path: '/student', icon: <FaHome /> },
     { name: 'Case Studies', path: '/student-case-studies', icon: <FaFolder /> },
-    { name: 'My Records', path: '/my-records', icon: <FaChalkboardTeacher /> },
-    { name: 'Tutorial', path: '/tutorial', icon: <FaLaptop /> },
+    // { name: 'My Records', path: '/my-records', icon: <FaChalkboardTeacher /> },
+    // { name: 'Tutorial', path: '/tutorial', icon: <FaLaptop /> },
     { name: 'Settings', path: '/student-settings', icon: <FaCog /> }
   ];
 

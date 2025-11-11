@@ -14,7 +14,6 @@ const SharedSidebar = () => {
     { name: 'Case Studies', path: '/case-studies', icon: <FaFolder /> },
     { name: 'Trainer Team', path: '/trainer-team', icon: <FaUsers /> },
     { name: 'Trainee Records', path: '/trainee-records', icon: <FaChalkboardTeacher /> },
-    { name: 'Tutorial', path: '/tutorial', icon: <FaLaptop /> },
     { name: 'Settings', path: '/settings', icon: <FaCog /> }
   ];
 
