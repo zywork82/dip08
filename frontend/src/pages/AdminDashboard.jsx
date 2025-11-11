@@ -172,7 +172,9 @@ setCaseStudies(sortedScenarios);
                         title={scenario.title}
                         lastEdited={scenario.lastEdited}
                         status={scenario.status}
-                        image={scenario.image}
+                        // image={scenario.image}
+                        image={scenario.image || `https://placehold.co/600x400/3f51b5/FFFFFF?text=${encodeURIComponent(scenario.title || "Case Study")}`}
+
                         scenarioId={scenario._id} // ✅ pass the full object here
                       />
                     </div>

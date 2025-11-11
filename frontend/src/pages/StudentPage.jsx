@@ -151,7 +151,7 @@ const StudentPage = () => {
                     title={scenario.title}
                     lastEdited={scenario.lastEdited}
                     status={scenario.status}
-                    image={scenario.image}
+                    image={scenario.image || `https://placehold.co/600x400/3f51b5/FFFFFF?text=${encodeURIComponent(scenario.title || "Case Study")}`}
                     scenarioId={scenario._id || scenario.id} // fallback
                   />
                 </div>
