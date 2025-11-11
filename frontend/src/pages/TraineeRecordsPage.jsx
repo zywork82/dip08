@@ -3,6 +3,7 @@ import { FaSearch, FaRedo, FaTimes, FaDownload } from 'react-icons/fa';
 import SharedSidebar from '../components/SharedSidebar.jsx';
 import SharedHeader from '../components/SharedHeader';
 import TraineeReportModal from '../components/TraineeReportModal.jsx';
+import '../styles/TraineeRecordsPage.css';
 
 const storedUser = {
   id: "test_user",
@@ -235,13 +236,13 @@ useEffect(() => {
           <tr>
             <th style={thStyle}>User ID</th>
             <th style={thStyle}>Case Study</th>
-            <th style={thStyle}>Date</th>
+            <th style={thStyle}>Date Completed</th>
             <th style={thStyle}>Report</th>
           </tr>
         </thead>
         <tbody>
           {sortedTrainees.map((trainee) => (
-            <tr key={trainee._id}>
+            <tr key={trainee._id} class="trainee-record">
               <td style={tdStyle}>{trainee.user_id || "unknown_user"}</td>
               <td style={tdStyle}>{scenarios[trainee.scenario_id] || trainee.scenario_id}</td>
               <td style={tdStyle}>{new Date(trainee.created_at).toLocaleDateString()}</td>

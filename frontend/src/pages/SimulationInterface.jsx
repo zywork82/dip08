@@ -319,7 +319,7 @@ const SimulationInterface = () => {
       <div className="scene-editor-container">
         <NavigationBar />
         <div className="editor-container">
-          <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
+          {/* <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" /> */}
           {isAdmin && flowData?.status === "published" && (
   <div style={{ textAlign: "right", margin: "0.5rem 1rem" }}>
     <button
@@ -364,11 +364,11 @@ const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
       <NavigationBar />
       <div className="editor-container">
         <div className="header">
-        <SharedHeader
+        {/* <SharedHeader
   profileImage={storedUser.profileImage || profileImage}
   userName={storedUser.name || "Guest"}
   userRole={storedUser.role || "Trainee"}
-/>
+/> */}
         </div>
 
         <div className="scenario-interface-layout" >
@@ -411,7 +411,7 @@ const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
                   </button>
                 ))}
               </div>
-            ) : isEnd ? (
+            ) : isEnd && isAdmin? (
               <div>
                 <strong>Scenario complete.</strong>
                 <div class="completeScenario_box">
@@ -426,7 +426,19 @@ const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
                   </button>
                 </div>
               </div>
-            ) : null}
+            ) : <div>
+              <strong>Scenario complete.</strong>
+                <div class="completeScenario_box">
+                  <button
+                    className="option-end-actions"
+                    onClick={() =>
+                      navigate("/report", { state: { scenarioId, choicesLog, flowData } })
+                    }
+                  >
+                    📊 View Report
+                  </button>
+                </div>
+              </div>}
           </div>
   </motion.div>
 </AnimatePresence>

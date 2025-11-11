@@ -95,6 +95,10 @@
   color: #333;
 }
 
+.trainee-record:hover {
+  background-color:#fffda1;
+}
+
 .report-link {
   color: #5B50A7;
   cursor: pointer;
