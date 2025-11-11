@@ -81,7 +81,7 @@ const SimulationInterface = () => {
   const [choicesLog, setChoicesLog] = useState([]); // {at, from, optionId, to}
   const [sceneStartTime, setSceneStartTime] = useState(null);
   const [isAdmin] = useState(true); // ← replace with real auth check later
-const [panelMinimized, setPanelMinimized] = useState(false);
+  const [panelMinimized, setPanelMinimized] = useState(false);
 
 
   const profileImage = "https://placehold.co/40x40/E6E6FA/3f51b5?text=Prof+A";
