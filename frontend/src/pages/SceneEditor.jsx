@@ -16,6 +16,8 @@ import {
   convertFrontendToBackend,
   convertBackendToFrontend,
 } from "../utils/flowConverter";
+
+
 import localforage from "localforage";
 import { getLayoutedNodes, centerSiblings } from "../utils/autoLayout";
 
@@ -98,6 +100,24 @@ const mergeCachedNodes = (oldNodes, newNodes) => {
   return Array.from(map.values());
 };
 
+// ✅ Helper to update scenario status in backend
+async function updateScenarioStatus(scenarioId, newStatus) {
+  try {
+    const res = await fetch(`http://127.0.0.1:5000/scenarios/updateStatus/${scenarioId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to update status");
+    console.log(`🟢 Scenario ${scenarioId} status updated → ${newStatus}`);
+    return true;
+  } catch (err) {
+    console.error("❌ Failed to update scenario status:", err);
+    return false;
+  }
+}
 
           // ===============================
 // 🧩 Helper: Validate image quality
@@ -387,154 +407,239 @@ const handleAutoLayout = () => {
   layouted = centerSiblings(layouted, edges);
   setNodes(layouted);
 };
-
- const handleReprompt = async (nodeId, prompt) => {
-  // 🛑 Abort early if user has pressed Stop
-  if (stopGeneration) {
-    console.warn(`🛑 handleReprompt() aborted before start for node ${nodeId}`);
-    return;
-  }
-
-  const node = nodes.find((n) => n.id === nodeId);
-  if (!node) {
-    console.warn(`⚠️ Node ${nodeId} not found in state.`);
-    return;
-  }
-
-  if (node.data.loadingImages) {
-    console.log(`⚠️ Skipping duplicate generation for node ${nodeId}`);
-    return;
-  }
-
-  // Mark as loading
-  setNodes((nds) =>
-    nds.map((n) =>
-      n.id === nodeId
-        ? { ...n, data: { ...n.data, loadingImages: true, failedImage: false } }
-        : n
-    )
+const handleReprompt = async (nodeId, prompt) => {
+  if (stopGeneration) return;
+  setNodes(nds =>
+    nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, loadingImages: true } } : n)
   );
 
   try {
-    // 🧩 Fetch request to backend
     const res = await fetch("http://127.0.0.1:5000/scenarios/updateImage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nodeId,
-        description: `Training Scenario Visualization:
-"${prompt}"
-Create a realistic, cinematic-style image fitting a professional decision-making context. 
-Show human emotion subtly. Avoid text or labels.`,
-      }),
+      body: JSON.stringify({ nodeId, description: `Training Scenario Visualization:
+  "${prompt}"
+  Create a realistic, cinematic-style image fitting a professional decision-making context. 
+  Show human emotion subtly. Avoid text or labels.`,
+}),
     });
-
-    // 🛑 If user pressed stop while waiting for backend
-    if (stopGeneration) {
-      console.warn(`🛑 Generation interrupted mid-request for node ${nodeId}`);
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === nodeId
-            ? { ...n, data: { ...n.data, loadingImages: false } }
-            : n
-        )
-      );
-      return;
-    }
-
     const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || "Backend error during image regeneration");
+    if (!res.ok || !data.success) throw new Error(data.error || "Failed to generate");
+
+    // upload first image only
+    let imageUrl = "";
+    const img = data.images?.[0];
+    if (img?.startsWith("data:image")) {
+      const upload = await fetch("http://127.0.0.1:5000/scenarios/uploadTempImage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ node_id: nodeId, b64image: img }),
+      });
+      const upData = await upload.json();
+      imageUrl = upData.url?.startsWith("http")
+        ? upData.url
+        : `http://127.0.0.1:5000${upData.url}`;
     }
 
-    // 🧩 Normalize images (string or object)
-    const images = (data.images || [])
-      .map((img) =>
-        typeof img === "string"
-          ? `data:image/png;base64,${img}`
-          : img?.image_b64
-          ? `data:image/png;base64,${img.image_b64}`
-          : null
-      )
-      .filter(Boolean);
-
-    if (stopGeneration) {
-      console.warn(`🛑 Generation canceled after response for node ${nodeId}`);
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === nodeId
-            ? { ...n, data: { ...n.data, loadingImages: false } }
-            : n
-        )
-      );
-      return;
-    }
-
-    if (images.length === 0) {
-      console.warn(`⚠️ No images returned for node ${nodeId}`);
-      throw new Error("No images returned from backend");
-    }
-
-    // ✅ Update node with all new images
-    setNodes((nds) =>
-      nds.map((n) =>
+    setNodes(nds =>
+      nds.map(n =>
         n.id === nodeId
           ? {
               ...n,
               data: {
                 ...n.data,
-                imageUrl: images[0],
-                generatedImages: [
-                  ...images,
-                  ...(n.data.generatedImages || []),
-                ].slice(0, 5),
+                imageUrl,
+                generatedImages: [imageUrl, ...(n.data.generatedImages || [])].slice(0, 5),
                 loadingImages: false,
-                failedImage: false,
               },
             }
           : n
       )
     );
-
-    console.log(`✅ Added ${images.length} new images for node ${nodeId}`);
-
-    // 💾 Cache updated node (skip if stop was pressed)
-    if (!stopGeneration) {
-      await saveNodesToCache([
-        {
-          ...node,
-          data: {
-            ...node.data,
-            imageUrl: images[0],
-            generatedImages: images,
-          },
-        },
-      ]);
-    }
   } catch (err) {
-    if (stopGeneration) {
-      console.warn(`🛑 handleReprompt() caught stop signal for node ${nodeId}`);
-    } else {
-      console.error("❌ handleReprompt error:", err);
-    }
-
-    // Ensure node isn't stuck in loading state
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.id === nodeId
-          ? {
-              ...n,
-              data: {
-                ...n.data,
-                loadingImages: false,
-                failedImage: !stopGeneration, // mark failed only if real error
-              },
-            }
-          : n
-      )
+    console.error("Reprompt error:", err);
+    setNodes(nds =>
+      nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, loadingImages: false, failedImage: true } } : n)
     );
   }
 };
+
+//  const handleReprompt = async (nodeId, prompt) => {
+//   // 🛑 Abort early if user has pressed Stop
+//   stopGeneration = false; // ✅ reset before starting
+//   if (stopGeneration) {
+//     console.warn(`🛑 handleReprompt() aborted before start for node ${nodeId}`);
+//     return;
+//   }
+
+//   const node = nodes.find((n) => n.id === nodeId);
+//   if (!node) {
+//     console.warn(`⚠️ Node ${nodeId} not found in state.`);
+//     return;
+//   }
+
+//   if (node.data.loadingImages) {
+//     console.log(`⚠️ Skipping duplicate generation for node ${nodeId}`);
+//     return;
+//   }
+
+//   // Mark as loading
+//   setNodes((nds) =>
+//     nds.map((n) =>
+//       n.id === nodeId
+//         ? { ...n, data: { ...n.data, loadingImages: true, failedImage: false } }
+//         : n
+//     )
+//   );
+
+//   try {
+//     // 🧩 Fetch request to backend
+//     const res = await fetch("http://127.0.0.1:5000/scenarios/updateImage", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({
+//         nodeId,
+//         description: `Training Scenario Visualization:
+// "${prompt}"
+// Create a realistic, cinematic-style image fitting a professional decision-making context. 
+// Show human emotion subtly. Avoid text or labels.`,
+  //       }),
+  //     });
+
+//     // 🛑 If user pressed stop while waiting for backend
+//     if (stopGeneration) {
+//       console.warn(`🛑 Generation interrupted mid-request for node ${nodeId}`);
+//       setNodes((nds) =>
+//         nds.map((n) =>
+//           n.id === nodeId
+//             ? { ...n, data: { ...n.data, loadingImages: false } }
+//             : n
+//         )
+//       );
+//       return;
+//     }
+
+//     const data = await res.json();
+//     if (!res.ok || !data.success) {
+//       throw new Error(data.error || "Backend error during image regeneration");
+//     }
+
+//     // 🧩 Normalize images (string or object)
+//     const images = (data.images || [])
+//       .map((img) =>
+//         typeof img === "string"
+//           ? `data:image/png;base64,${img}`
+//           : img?.image_b64
+//           ? `data:image/png;base64,${img.image_b64}`
+//           : null
+//       )
+//       .filter(Boolean);
+// // =====================================================
+// // ✅ Step: Upload the first image to backend temp storage
+// // =====================================================
+// let imageUrl = images[0] || "";
+// try {
+//   if (imageUrl && imageUrl.startsWith("data:image/")) {
+//     const uploadResp = await fetch("http://127.0.0.1:5000/scenarios/uploadTempImage", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({
+//         node_id: nodeId,
+//         b64image: imageUrl,
+//       }),
+//     });
+//     const uploadData = await uploadResp.json();
+//     if (uploadData.success && uploadData.url) {
+//     imageUrl = uploadData.url.startsWith("http")
+//   ? uploadData.url
+//   : `http://127.0.0.1:5000${uploadData.url}`;
+// // 🖼 use the lightweight URL instead of b64
+//       console.log(`🖼 Temp image uploaded: ${uploadData.url}`);
+//     } else {
+//       console.warn("⚠️ Temp upload failed, keeping base64 inline:", uploadData);
+//     }
+//   }
+// } catch (uploadErr) {
+//   console.warn("⚠️ Temp upload request failed:", uploadErr);
+// }
+
+//     if (stopGeneration) {
+//       console.warn(`🛑 Generation canceled after response for node ${nodeId}`);
+//       setNodes((nds) =>
+//         nds.map((n) =>
+//           n.id === nodeId
+//             ? { ...n, data: { ...n.data, loadingImages: false } }
+//             : n
+//         )
+//       );
+//       return;
+//     }
+
+//     if (images.length === 0) {
+//       console.warn(`⚠️ No images returned for node ${nodeId}`);
+//       throw new Error("No images returned from backend");
+//     }
+
+//     // ✅ Update node with all new images
+//     setNodes((nds) =>
+//       nds.map((n) =>
+//         n.id === nodeId
+//           ? {
+//               ...n,
+//               data: {
+//                 ...n.data,
+//                 imageUrl: imageUrl,
+//                 generatedImages: [
+//                   ...images,
+//                   ...(n.data.generatedImages || []),
+//                 ].slice(0, 5),
+//                 loadingImages: false,
+//                 failedImage: false,
+//               },
+//             }
+//           : n
+//       )
+//     );
+
+//     console.log(`✅ Added ${images.length} new images for node ${nodeId}`);
+
+//     // 💾 Cache updated node (skip if stop was pressed)
+//     if (!stopGeneration) {
+//       await saveNodesToCache([
+//         {
+//           ...node,
+//           data: {
+//             ...node.data,
+//             imageUrl: imageUrl,
+//             generatedImages: images,
+//           },
+//         },
+//       ]);
+//     }
+//   } catch (err) {
+//     if (stopGeneration) {
+//       console.warn(`🛑 handleReprompt() caught stop signal for node ${nodeId}`);
+//     } else {
+//       console.error("❌ handleReprompt error:", err);
+//     }
+
+//     // Ensure node isn't stuck in loading state
+//     setNodes((nds) =>
+//       nds.map((n) =>
+//         n.id === nodeId
+//           ? {
+//               ...n,
+//               data: {
+//                 ...n.data,
+//                 loadingImages: false,
+//                 failedImage: !stopGeneration, // mark failed only if real error
+//               },
+//             }
+//           : n
+//       )
+//     );
+//   }
+// };
 
 
   // Select preferred image
@@ -553,30 +658,37 @@ const autoGenerateImagesForAll = async (nodesList) => {
     return;
   }
   AUTO_GEN_RUNNING = true;
-  setLoadingOverlay(true);
+  setLoadingOverlay(false);
   stopGeneration = false;
 
-  for (const node of nodesList) {
-    if (stopGeneration) break;
-    const hasImages = node.data.generatedImages?.length > 0;
-    const failed = node.data.failedImage;
-    if (!hasImages && !failed) {
-      await handleReprompt(node.id, node.data.data_description);
-    }
-  }
+  // for (const node of nodesList) {
+  //   if (stopGeneration) break;
+  //   const hasImages = node.data.generatedImages?.length > 0;
+  //   const failed = node.data.failedImage;
+  //   if (!hasImages && !failed) {
+  //     await handleReprompt(node.id, node.data.data_description);
+  //   }
+  // }
+  const BATCH_SIZE = 3;
+for (let i = 0; i < nodesList.length; i += BATCH_SIZE) {
+  const batch = nodesList.slice(i, i + BATCH_SIZE);
+  await Promise.all(
+    batch.map((n) => handleReprompt(n.id, n.data.data_description))
+  );
+}
 
   AUTO_GEN_RUNNING = false;
   setLoadingOverlay(false);
 };
 
 
-
-  // Initial load
-  useEffect(() => {
+// Initial load
+// Initial load
+useEffect(() => {
   (async () => {
-    let flowData =
-      passedFlow || (await localforage.getItem("latestFlow"));
-          // 🧠 Try restoring cached images
+    let flowData = passedFlow || (await localforage.getItem("latestFlow"));
+
+    // 🧠 Try restoring cached images
     const cachedNodes = await loadNodesFromCache();
     if (cachedNodes.length > 0 && flowData?.nodes?.length) {
       console.log("🔄 Merging cached images into loaded nodes...");
@@ -595,6 +707,59 @@ const autoGenerateImagesForAll = async (nodesList) => {
       });
     }
 
+    // 🧩 NEW STEP: Upload any leftover base64 images to temp folder (with progress)
+    const uploadBase64Images = async (nodes) => {
+      const updatedNodes = [];
+      const base64Nodes = nodes.filter(
+        (n) => n.data?.imageUrl?.startsWith("data:image/")
+      );
+      const total = base64Nodes.length;
+
+      if (total > 0)
+        console.log(`🧠 Found ${total} cached base64 images → uploading...`);
+
+      let uploaded = 0;
+      for (const node of nodes) {
+        const imgUrl = node.data?.imageUrl || "";
+        if (imgUrl.startsWith("data:image/")) {
+          try {
+            const res = await fetch(
+              "http://127.0.0.1:5000/scenarios/uploadTempImage",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ node_id: node.id, b64image: imgUrl }),
+              }
+            );
+            const data = await res.json();
+            if (data.success && data.url) {
+              node.data.imageUrl = data.url;
+              uploaded++;
+
+              // Throttled progress display every 3 uploads
+              if (uploaded % 3 === 0 || uploaded === total) {
+                console.log(
+                  `📤 [Upload Progress] ${uploaded}/${total} converted → latest: ${data.url}`
+                );
+              }
+            }
+          } catch (err) {
+            console.warn(`⚠️ Upload failed for node ${node.id}:`, err);
+          }
+        }
+        updatedNodes.push(node);
+      }
+
+      if (total > 0)
+        console.log(`✅ Completed ${uploaded}/${total} base64 → temp image conversions`);
+      return updatedNodes;
+    };
+
+    if (flowData?.nodes?.length > 0) {
+      flowData.nodes = await uploadBase64Images(flowData.nodes);
+    }
+
+    // 🧩 continue with your existing logic
     if (!flowData) return;
 
     if (!flowData.nodes) {
@@ -623,7 +788,9 @@ const autoGenerateImagesForAll = async (nodesList) => {
     const nodesWithImages = layoutedNodes.filter(hasValidImage).length;
     const missingImages = layoutedNodes.filter((n) => !hasValidImage(n));
 
-    console.log(`🧩 Image status check → ${nodesWithImages}/${totalNodes} nodes have valid images.`);
+    console.log(
+      `🧩 Image status check → ${nodesWithImages}/${totalNodes} nodes have valid images.`
+    );
 
     if (missingImages.length > 0) {
       const trulyMissing = missingImages.filter(
@@ -631,19 +798,27 @@ const autoGenerateImagesForAll = async (nodesList) => {
       );
 
       if (trulyMissing.length > 0) {
-        console.warn(`🖼️ Auto-generating ${trulyMissing.length} *new* missing images...`);
-        setLoadingOverlay(true);
+        console.warn(
+          `🖼️ Auto-generating ${trulyMissing.length} *new* missing images...`
+        );
+        setLoadingOverlay(false);
         autoGenerateImagesForAll(trulyMissing).finally(() =>
           setLoadingOverlay(false)
         );
       } else {
-        console.log("✅ All nodes have stored base64 images. Skipping regeneration.");
+        console.log(
+          "✅ All nodes have stored base64 images. Skipping regeneration."
+        );
       }
     } else {
-      console.log("✅ All nodes already have valid images. Skipping generation.");
+      console.log(
+        "✅ All nodes already have valid images. Skipping generation."
+      );
     }
   })();
 }, [passedFlow]);
+
+
 
 // ===============================
 // ✅ Periodic check for missing images (safe + single interval)
@@ -723,15 +898,27 @@ const handleSaveAndPlay = async () => {
 
   // Step 3 — Clean node data
   const cleanNodes = nodes.map((n) => {
-    let imageUrl = n.data.imageUrl || "";
-    let b64image = "";
+    // let imageUrl = n.data.imageUrl || "";
+    // let b64image = "";
 
-    if (imageUrl.startsWith("data:image/")) {
-      b64image = imageUrl.split(",")[1];
-      imageUrl = "";
-    } else {
-      b64image = n.data.b64image || "";
-    }
+    // if (imageUrl.startsWith("data:image/")) {
+    //   b64image = imageUrl.split(",")[1];
+    // } else {
+    //   b64image = n.data.b64image || "";
+    // }
+
+    let b64image = "";
+let imageUrl = "";
+
+if (n.data.imageUrl?.startsWith("data:image/")) {
+  // ✅ direct base64 generated image
+  b64image = n.data.imageUrl.split(",")[1];
+} else if (n.data.b64image) {
+  // ✅ fallback if already stored
+  b64image = n.data.b64image;
+} else {
+  console.warn(`⚠️ No image data found for node ${n.id}`);
+}
 
     return {
       ...n,
@@ -747,24 +934,37 @@ const handleSaveAndPlay = async () => {
     };
   });
 
+
+
   console.log(`🧹 Step 3: Cleaned ${cleanNodes.length} nodes.`);
 
   // Step 4 — Prepare backend format
-  const flowToSaveBackend = {
-    nodes: convertFrontendToBackend(
-      Object.fromEntries(cleanNodes.map((n) => [n.id, n]))
-    ),
-    edges: updatedEdges,
-  };
+  // const flowToSaveBackend = {
+  //   nodes: convertFrontendToBackend(
+  //     Object.fromEntries(cleanNodes.map((n) => [n.id, n]))
+  //   ),
+  //   edges: updatedEdges,
+  // };
 
-  const updatedScenario = {
-    id: /^[0-9a-fA-F]{24}$/.test(scenarioId) ? scenarioId : null,
-    title: scenarioTitle || "Untitled Scenario",
-    description: "",
-    nodes: Object.values(flowToSaveBackend.nodes),
-    edges: flowToSaveBackend.edges || [],
-    lastEdited: new Date().toISOString(),
-  };
+  // const updatedScenario = {
+  //   id: /^[0-9a-fA-F]{24}$/.test(scenarioId) ? scenarioId : null,
+  //   title: scenarioTitle || "Untitled Scenario",
+  //   description: "",
+  //   nodes: Object.values(flowToSaveBackend.nodes),
+  //   edges: flowToSaveBackend.edges || [],
+  //   lastEdited: new Date().toISOString(),
+  // };
+// ✅ convertFrontendToBackend already returns an array
+const backendNodes = convertFrontendToBackend(cleanNodes);
+
+const updatedScenario = {
+  id: /^[0-9a-fA-F]{24}$/.test(scenarioId) ? scenarioId : null,
+  title: scenarioTitle || "Untitled Scenario",
+  description: "",
+  nodes: backendNodes, // <-- use directly
+  edges: updatedEdges,
+  lastEdited: new Date().toISOString(),
+};
 
   console.log("📤 Step 4: Prepared updatedScenario →", updatedScenario);
 
@@ -784,6 +984,16 @@ const handleSaveAndPlay = async () => {
     });
     return;
   }
+  console.table(
+  cleanNodes.map((n) => ({
+    id: n.id,
+    hasB64: !!n.data.b64image,
+    hasUrl: !!n.data.imageUrl,
+    urlSnippet: n.data.imageUrl?.slice(0, 40) || "none",
+     b64: n.data?.b64image ? "✅ yes" : "❌ no",
+  }))
+);
+
 
   // Step 5 — Send to backend
   try {
@@ -791,8 +1001,11 @@ const handleSaveAndPlay = async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updatedScenario),
+      
     });
+    await updateScenarioStatus(scenarioId, "images");
 
+    alert("✅ Images saved and scenario marked as 'images' stage!");
     const data = await res.json();
     console.log("📩 Step 5: Backend response →", data);
 
@@ -933,17 +1146,25 @@ useEffect(() => {
           <summary>🎨 Generated Variations</summary>
           {selectedNode.data.generatedImages?.length > 0 ? (
             <div className="image-carousel">
-              {selectedNode.data.generatedImages.map((imgUrl, i) => (
-                <div
-                  key={i}
-                  className={`image-thumb-wrapper ${
-                    imgUrl === selectedNode.data.imageUrl ? "selected" : ""
-                  }`}
-                  onClick={() => selectImageForNode(selectedNode.id, imgUrl)}
-                >
-                  <img src={imgUrl} alt={`Option ${i}`} className="image-thumb" />
-                </div>
-              ))}
+              {selectedNode.data.generatedImages.map((imgUrl, i) => {
+  if (!imgUrl) return null; // ✅ skip empty strings
+  return (
+    <div
+      key={i}
+      className={`image-thumb-wrapper ${
+        imgUrl === selectedNode.data.imageUrl ? "selected" : ""
+      }`}
+      onClick={() => selectImageForNode(selectedNode.id, imgUrl)}
+    >
+      <img
+        src={imgUrl || undefined}
+        alt={`Option ${i}`}
+        className="image-thumb"
+      />
+    </div>
+  );
+})}
+
             </div>
           ) : (
             <p className="sidebar-empty-text">
@@ -1012,41 +1233,59 @@ useEffect(() => {
         </div>
       </div>
 
-      {loadingOverlay && (
-  <div className="loading-overlay">
-    <div className="loading-box">
-      <div className="spinner"></div>
-      <p>Auto-generating missing images...</p>
-
-      <button
-        disabled={!loadingOverlay}
-        style={{
-          marginTop: 10,
-          backgroundColor: loadingOverlay ? "#c62828" : "#aaa",
-          color: "white",
-          cursor: loadingOverlay ? "pointer" : "not-allowed",
-          border: "none",
-          padding: "8px 16px",
-          borderRadius: "8px",
-        }}
-        onClick={() => {
-          stopGeneration = true;
-          setLoadingOverlay(false);
-          console.warn("🛑 Generation manually stopped by user.");
-
-          // 🔥 Notify backend to stop accepting new generations
-          fetch("http://127.0.0.1:5000/stop_generation", { method: "POST" })
-            .then(() => console.log("🧠 Stop signal sent to backend"))
-            .catch((err) => console.warn("⚠️ Backend stop request failed:", err));
-        }}
-      >
-        🛑 Stop Generation
-      </button>
-    </div>
+      {/* 🧭 Compact Floating Status Panel */}
+{loadingOverlay && (
+  <div
+    className="floating-status-box"
+    style={{
+      position: "fixed",
+      bottom: "20px",
+      right: "20px",
+      backgroundColor: "#1e1e2f",
+      color: "white",
+      padding: "10px 14px",
+      borderRadius: "12px",
+      boxShadow: "0 4px 10px rgba(0,0,0,0.4)",
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      zIndex: 2000,
+    }}
+  >
+    <div
+      style={{
+        width: "14px",
+        height: "14px",
+        border: "2px solid white",
+        borderTop: "2px solid #4CAF50",
+        borderRadius: "50%",
+        animation: "spin 1s linear infinite",
+      }}
+    />
+    <span>Generating images...</span>
+    <button
+      onClick={() => {
+        stopGeneration = true;
+        setLoadingOverlay(false);
+        console.warn("🛑 Generation manually stopped by user.");
+        fetch("http://127.0.0.1:5000/stop_generation", { method: "POST" })
+          .then(() => console.log("🧠 Stop signal sent to backend"))
+          .catch((err) => console.warn("⚠️ Backend stop request failed:", err));
+      }}
+      style={{
+        background: "#c62828",
+        color: "white",
+        border: "none",
+        borderRadius: "8px",
+        padding: "4px 10px",
+        cursor: "pointer",
+      }}
+    >
+      Stop
+    </button>
   </div>
 )}
 
-      
     </div>
   );
 };
