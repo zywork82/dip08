@@ -9,10 +9,14 @@ export function convertBackendToFrontend(backendFlow) {
 
   return nodesArray.map((node) => {
     const b64image = node.data?.b64image || node["b64 image"] || "";
-    const imageUrl =
-      b64image && !node.data?.imageUrl?.startsWith("data:")
-        ? `data:image/png;base64,${b64image}`
-        : node.data?.imageUrl || "";
+   const imageUrl =
+  node.data?.imageUrl?.startsWith("http")
+    ? node.data.imageUrl
+    : b64image
+    ? `data:image/png;base64,${b64image}`
+    : node.data?.imageUrl || "";
+
+
 
     return {
       id: node.id,
@@ -66,18 +70,26 @@ export function convertFrontendToBackend(frontendFlow) {
  * Helper: build a backend flow object from ReactFlow node/edge arrays
  */
 export function buildFlowObject(nodes, edges) {
-  return nodes.map((n) => ({
-    id: n.id,
-    type: n.type || "scenario",
-    position: n.position || { x: 0, y: 0 },
-    data: {
-      data_description: n.data?.data_description || "",
-      options: n.data?.options || [],
-      next: n.data?.next || null,
-      scene: n.data?.scene || "",
-      b64image: n.data?.b64image || "",
-      imageUrl: n.data?.imageUrl || "",
-      generatedImages: n.data?.generatedImages || [],
-    },
-  }));
+  return {
+    nodes: nodes.map((n) => ({
+      id: n.id,
+      type: n.type || "scenario",
+      position: n.position || { x: 0, y: 0 },
+      data: {
+        data_description: n.data?.data_description || "",
+        options: n.data?.options || [],
+        next: n.data?.next || null,
+        scene: n.data?.scene || "",
+        b64image: n.data?.b64image || "",
+        imageUrl: n.data?.imageUrl || "",
+        generatedImages: n.data?.generatedImages || [],
+      },
+    })),
+    edges: (edges || []).map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: e.type || "smoothstep",
+    })),
+  };
 }

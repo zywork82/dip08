@@ -29,6 +29,8 @@ const LoginPage = () => {
     console.log("Login response:", response.data);
 
     const { access_token, user } = response.data;
+    // ✅ Determine admin status safely from backend
+    const isAdmin = user.isAdmin || user.role.toLowerCase() === "administrator";
 
     const userData = {
       username: user.username,

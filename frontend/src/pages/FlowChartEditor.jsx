@@ -18,9 +18,9 @@ import "reactflow/dist/style.css";
 
 import localforage from "localforage";
 import { getLayoutedNodes, centerSiblings } from "../utils/autoLayout";
-
+// import { saveActiveFlow } from "../utils/sharedCache";
 import { normalizeFlow } from "../utils/flowNormaliser";
-
+// import { loadActiveFlow } from "../utils/sharedCache";
 import SharedHeader from "../components/SharedHeader";
 import NavigationBar from "../components/SlimNavBar";
 import { sampleNodes, sampleAiSuggestions, sampleEdges } from "../data/sampleAiFlow";
@@ -145,19 +145,19 @@ const filterLetteredNodes = (nodes) => {
 
 
 
-// === Remove unconnected group nodes (like 202, 301) ===
+// === Keep all meaningful nodes (only remove totally empty or orphaned placeholders) ===
 const filterDisconnectedNodes = (nodes, edges) => {
   if (!Array.isArray(nodes) || !Array.isArray(edges)) return nodes;
 
   const filtered = nodes.filter((n) => {
     const id = n.id?.toString() || "";
-    const isGroupNode = /^\d+$/.test(id);
-    const isEndingNode = /^E\d+$/i.test(id); // ✅ mark endings like E1, E2, E3
-    const hasOptions = Array.isArray(n.data?.options) && n.data.options.length > 0;
+    const isEndingNode = /^E\d+$/i.test(id);
+    const hasDescription = (n.data?.data_description || "").trim().length > 0;
     const hasConnections = edges.some((e) => e.source === id || e.target === id);
+    const hasOptions = Array.isArray(n.data?.options) && n.data.options.length > 0;
 
-    // 🧠 Keep ending nodes, group nodes that are connected, or have options
-    return isEndingNode || !isGroupNode || hasOptions || hasConnections;
+    // ✅ Keep if it’s an ending, connected, or actually written (non-empty description)
+    return isEndingNode || hasConnections || hasOptions || hasDescription;
   });
 
   const removed = nodes.length - filtered.length;
@@ -165,6 +165,8 @@ const filterDisconnectedNodes = (nodes, edges) => {
 
   return filtered;
 };
+
+
 
 
 // // === Duplicate detection ===
@@ -232,16 +234,21 @@ const FlowChartEditor = () => {
   const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
   const initialScenarioId = location.state?.scenarioId || location.state?.flowData?._id ||localStorage.getItem("lastScenarioId") || null;
   const [scenarioId, setScenarioId] = useState(initialScenarioId);
+  // ✅ Extract from navigation state FIRST
+const passedFlow = location.state?.flowData || null;
+const passedScenarioId = location.state?.scenarioId || null;
+const passedScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario";
+
   const [traceMode] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [debugOpen, setDebugOpen] = useState(false);
 
  
 
-  // ✅ Extract from navigation state FIRST
-  const passedFlow = location.state?.flowData || null;
-  const passedScenarioId = location.state?.scenarioId || null;
-  const passedScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario";
+  // // ✅ Extract from navigation state FIRST
+  // const passedFlow = location.state?.flowData || null;
+  // const passedScenarioId = location.state?.scenarioId || null;
+  // const passedScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario";
 
   // ✅ Then safely initialize your state using those
   const [scenarioTitle, setScenarioTitle] = useState(passedScenarioTitle);
@@ -293,7 +300,17 @@ const FlowChartEditor = () => {
       console.log("🔁 Redo executed");
     }
   }, [redoStack, nodes, edges]);
-
+// useEffect(() => {
+//   (async () => {
+//     const cached = await loadActiveFlow();
+//     if (cached) {
+//       setScenarioId(cached.scenarioId || null);
+//       setNodes(cached.flowData.nodes || []);
+//       setEdges(cached.flowData.edges || []);
+//       console.log("🔁 Restored flow from shared cache");
+//     }
+//   })();
+// }, []);
   useEffect(() => {
     const handleKey = (e) => {
       const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -527,6 +544,12 @@ const payload = {
 
   try {
     setIsSaving(true);
+    console.log("📦 Nodes before filter:", nodes.length);
+const cleanedNodes = filterDisconnectedNodes(nodes, edges);
+console.log("📦 Nodes after filter:", cleanedNodes.length);
+console.log("🚀 Sending payload to backend:");
+console.log(JSON.stringify(payload, null, 2));
+
     const res = await fetch("http://127.0.0.1:5000/scenarios/saveFlow", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -549,87 +572,87 @@ const payload = {
   }
 }, [nodes, edges, scenarioTitle, scenarioId]);
 
-// === Initial Load ===
-useEffect(() => {
-  const loadFlow = async () => {
-    try {
-      const passedFlow = location.state?.flowData || null;
+// // === Initial Load ===
+// useEffect(() => {
+//   const loadFlow = async () => {
+//     try {
+//       const passedFlow = location.state?.flowData || null;
 
-      console.log("🎯 Loading flow - scenarioId:", scenarioId);
-      console.log("🎯 passedFlow:", passedFlow ? "Object" : "null");
+//       console.log("🎯 Loading flow - scenarioId:", scenarioId);
+//       console.log("🎯 passedFlow:", passedFlow ? "Object" : "null");
 
-     // 1) Highest priority: flow passed via navigation
-if (passedFlow) {
-  const hasNodes =
-    Array.isArray(passedFlow.nodes) ||
-    (passedFlow.nodes && Object.keys(passedFlow.nodes).length > 0);
+//      // 1) Highest priority: flow passed via navigation
+// if (passedFlow) {
+//   const hasNodes =
+//     Array.isArray(passedFlow.nodes) ||
+//     (passedFlow.nodes && Object.keys(passedFlow.nodes).length > 0);
 
-  if (hasNodes) {
-    console.log("✅ Passed flow contains nodes — normalizing directly.");
-    const flow = normalizeFlow(passedFlow);
-    setNodes(getLayoutedNodes(flow.nodes, flow.edges));
-    setEdges(flow.edges);
-    if (flow.id) setScenarioId(flow.id);
-    return;
-  } else {
-    console.warn("⚠️ Passed flow has no nodes — will fetch full flow from backend instead.");
-  }
-}
+//   if (hasNodes) {
+//     console.log("✅ Passed flow contains nodes — normalizing directly.");
+//     const flow = normalizeFlow(passedFlow);
+//     setNodes(getLayoutedNodes(flow.nodes, flow.edges));
+//     setEdges(flow.edges);
+//     if (flow.id) setScenarioId(flow.id);
+//     return;
+//   } else {
+//     console.warn("⚠️ Passed flow has no nodes — will fetch full flow from backend instead.");
+//   }
+// }
 
-      // 2) Next: fetch from backend using scenarioId
-      if (scenarioId) {
-        const res = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${scenarioId}`);
-        if (!res.ok) throw new Error(`Backend fetch failed: ${res.status}`);
-        const data = await res.json();
+//       // 2) Next: fetch from backend using scenarioId
+//       if (scenarioId) {
+//         const res = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${scenarioId}`);
+//         if (!res.ok) throw new Error(`Backend fetch failed: ${res.status}`);
+//         const data = await res.json();
 
-        const flow = normalizeFlow(data, {
-          defaultType: "scenario",
-          typeAlias: { endScenario: "ending" },
-        });
+//         const flow = normalizeFlow(data, {
+//           defaultType: "scenario",
+//           typeAlias: { endScenario: "ending" },
+//         });
 
-        setNodes(getLayoutedNodes(flow.nodes, flow.edges));
-        setEdges(flow.edges);
-        console.log("✅ Loaded from backend:", flow.nodes.length, "nodes");
-        return;
-      }
+//         setNodes(getLayoutedNodes(flow.nodes, flow.edges));
+//         setEdges(flow.edges);
+//         console.log("✅ Loaded from backend:", flow.nodes.length, "nodes");
+//         return;
+//       }
 
-      // 3) Fallback: IndexedDB (localforage)
-      const cached = await localforage.getItem("latestFlow");
-      if (cached) {
-        const flow = normalizeFlow(cached, {
-          defaultType: "scenario",
-          typeAlias: { endScenario: "ending" },
-        });
+//       // 3) Fallback: IndexedDB (localforage)
+//       const cached = await localforage.getItem("latestFlow");
+//       if (cached) {
+//         const flow = normalizeFlow(cached, {
+//           defaultType: "scenario",
+//           typeAlias: { endScenario: "ending" },
+//         });
 
-        setNodes(getLayoutedNodes(flow.nodes, flow.edges));
-        setEdges(flow.edges);
-        console.log("✅ Loaded from IndexedDB:", flow.nodes.length, "nodes");
-        return;
-      }
+//         setNodes(getLayoutedNodes(flow.nodes, flow.edges));
+//         setEdges(flow.edges);
+//         console.log("✅ Loaded from IndexedDB:", flow.nodes.length, "nodes");
+//         return;
+//       }
 
-      // 4) Final fallback: samples
-      console.warn("⚠️ No flow found — loading sample flow");
-      const sampleFlow = normalizeFlow(
-        { nodes: Object.values(sampleNodes), edges: sampleEdges },
-        { defaultType: "scenario", typeAlias: { endScenario: "ending" } }
-      );
-      setNodes(getLayoutedNodes(sampleFlow.nodes, sampleFlow.edges));
-      setEdges(sampleFlow.edges);
-    } catch (err) {
-      console.error("❌ Error during flow load:", err);
-      // safe fallback: samples
-      const sampleFlow = normalizeFlow(
-        { nodes: Object.values(sampleNodes), edges: sampleEdges },
-        { defaultType: "scenario", typeAlias: { endScenario: "ending" } }
-      );
-      setNodes(getLayoutedNodes(sampleFlow.nodes, sampleFlow.edges));
-      setEdges(sampleFlow.edges);
-    }
-  };
+//       // 4) Final fallback: samples
+//       console.warn("⚠️ No flow found — loading sample flow");
+//       const sampleFlow = normalizeFlow(
+//         { nodes: Object.values(sampleNodes), edges: sampleEdges },
+//         { defaultType: "scenario", typeAlias: { endScenario: "ending" } }
+//       );
+//       setNodes(getLayoutedNodes(sampleFlow.nodes, sampleFlow.edges));
+//       setEdges(sampleFlow.edges);
+//     } catch (err) {
+//       console.error("❌ Error during flow load:", err);
+//       // safe fallback: samples
+//       const sampleFlow = normalizeFlow(
+//         { nodes: Object.values(sampleNodes), edges: sampleEdges },
+//         { defaultType: "scenario", typeAlias: { endScenario: "ending" } }
+//       );
+//       setNodes(getLayoutedNodes(sampleFlow.nodes, sampleFlow.edges));
+//       setEdges(sampleFlow.edges);
+//     }
+//   };
 
-  loadFlow();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []); 
+//   loadFlow();
+//   // eslint-disable-next-line react-hooks/exhaustive-deps
+// }, []); 
 
 
 useEffect(() => {
@@ -784,6 +807,7 @@ const generateImages = useCallback(async () => {
       data_description: n.data?.data_description || n.data?.scene || "",
     }));
 
+
   if (nodesForApi.length === 0) {
     alert("All nodes already have images — nothing to generate!");
     return;
@@ -818,16 +842,51 @@ const generateImages = useCallback(async () => {
     // ✅ All done
     setGenerationProgress({ current: nodesForApi.length, total: nodesForApi.length });
 
-    const newNodes = layoutedNodes.map((n) => {
-      const match = data.images.find((img) => img.id === n.id);
-      const imageUrl = match
-        ? `data:image/png;base64,${match.image_b64}`
-        : n.data?.b64image || "";
+    // const newNodes = layoutedNodes.map((n) => {
+    //   const match = data.images.find((img) => img.id === n.id);
+    //   const imageUrl = match
+    //     ? `data:image/png;base64,${match.image_b64}`
+    //     : n.data?.b64image || "";
+    //   return {
+    //     ...n,
+    //     data: { ...n.data, imageUrl, b64image: match?.image_b64 || n.data?.b64image || "" },
+    //   };
+    // });
+const newNodes = await Promise.all(
+  layoutedNodes.map(async (n) => {
+    const match = data.images.find((img) => img.id === n.id);
+    if (!match) return n;
+
+    const b64 = match.image_b64;
+    if (!b64) return n;
+
+    // 🖼️ Upload to temp storage
+    try {
+      const uploadRes = await fetch("http://127.0.0.1:5000/scenarios/uploadTempImage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          node_id: n.id,
+          b64image: `data:image/png;base64,${b64}`,
+        }),
+      });
+      const uploadData = await uploadRes.json();
+      const imageUrl = `http://127.0.0.1:5000${uploadData.url}`;
+
       return {
         ...n,
-        data: { ...n.data, imageUrl, b64image: match?.image_b64 || n.data?.b64image || "" },
+        data: {
+          ...n.data,
+          imageUrl,
+          b64image: "", // 🧹 remove inline base64 to save space
+        },
       };
-    });
+    } catch (e) {
+      console.error(`❌ Temp upload failed for ${n.id}:`, e);
+      return n;
+    }
+  })
+);
 
     const sanitizedNodes = newNodes.map((n) => ({
       ...n,
@@ -835,7 +894,7 @@ const generateImages = useCallback(async () => {
         Object.entries(n.data || {}).filter(([_, v]) => typeof v !== "function")
       ),
     }));
-
+// await saveActiveFlow({ scenarioId, flowData: { ...savedFlow, nodes: sanitizedNodes } });
     // Slight delay so user sees 100% before navigation
     setTimeout(() => {
       navigate("/scene-editor", {

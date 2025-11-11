@@ -58,6 +58,8 @@ def login():
         return jsonify({"error": "Incorrect role selected"}), 403
 
     token = create_access_token(str(db_user["_id"]))
+    # ✅ Check if this user is an admin
+    is_admin = db_user["role"].lower() == "administrator"
    
     return jsonify({
         "access_token": token,
@@ -67,6 +69,7 @@ def login():
             "username": db_user["username"],
             "email": db_user["email"],
             "role": db_user["role"],
+             "isAdmin": is_admin,   
         },
     }), 200
 

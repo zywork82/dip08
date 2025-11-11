@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom'; // ✅ import this
 
 const CaseStudyCard = ({ title, lastEdited, status, image, onGoClick, scenarioId }) => {
-  console.log("📦 Props received:", { title, scenarioId }); // should now show a valid ID
+  // console.log("📦 Props received:", { title, scenarioId }); // should now show a valid ID
   const navigate = useNavigate(); // ✅ initialize navigate
   const isCompleted = status === 'Completed';
   const buttonClass = isCompleted ? 'case-study-btn completed' : 'case-study-btn in-progress';
@@ -20,12 +20,27 @@ const CaseStudyCard = ({ title, lastEdited, status, image, onGoClick, scenarioId
       return;
     }
 
-    navigate("/scene-editor", { state: { flowData, scenarioId } });
+    // ✅ Route user based on scenario status
+    const currentStatus = (flowData.status || "").toLowerCase();
+    console.log("🧭 Scenario status:", currentStatus);
+
+    if (["draft", "flowchart"].includes(currentStatus)) {
+      navigate("/editor", { state: { flowData, scenarioId } });
+    } else if (currentStatus === "images") {
+      navigate("/scene-editor", { state: { flowData, scenarioId } });
+    } else if (currentStatus === "published") {
+      navigate("/simulation", { state: { flowData, scenarioId } });
+    } else {
+      alert("⚠️ Unknown scenario status — opening FlowChartEditor by default.");
+      navigate("/editor", { state: { flowData, scenarioId } });
+    }
+
   } catch (err) {
     console.error("Error opening scenario:", err);
     alert("⚠️ Failed to load scenario. Please try again.");
   }
 };
+
   return (
     <div className="case-study-card" onClick={handleOpenScenario}>
       <div className="case-study-image">
@@ -35,19 +50,32 @@ const CaseStudyCard = ({ title, lastEdited, status, image, onGoClick, scenarioId
       <div className="case-study-info">
         <h3 className="case-study-title">{title}</h3>
         <p className="case-study-date">Last edited on {lastEdited}</p>
-        <button
-          className={buttonClass}
-          onClick={(e) => {
-             e.stopPropagation(); // prevent parent click
-            if (!scenarioId) {
-              console.error("❌ scenarioId is missing!");
-              return;
-            }
-            handleOpenScenario();
-          }}
-        >
-          {isCompleted ? 'Completed' : 'Go'}
-        </button>
+    <p
+  className="case-study-status"
+  style={{
+    color:
+      (status || "").toLowerCase() === "published" ? "#4CAF50" :
+      (status || "").toLowerCase() === "images" ? "#FF9800" :
+      (status || "").toLowerCase() === "flowchart" ? "#2196F3" :
+      "#9E9E9E",
+  }}
+>
+  {(status || "draft").toUpperCase()}
+</p>
+<button
+  className={buttonClass}
+  onClick={(e) => {
+    e.stopPropagation();
+    handleOpenScenario();
+  }}
+>
+  {status === "draft" ? "Build Flow" :
+   status === "flowchart" ? "Add Images" :
+   status === "images" ? "Play Test" :
+   status === "published" ? "View" :
+   "Go"}
+</button>
+
       </div>
 	
     </div>
