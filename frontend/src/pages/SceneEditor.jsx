@@ -669,13 +669,23 @@ const autoGenerateImagesForAll = async (nodesList) => {
   //     await handleReprompt(node.id, node.data.data_description);
   //   }
   // }
-  const BATCH_SIZE = 3;
+//   const BATCH_SIZE = 3;
+// for (let i = 0; i < nodesList.length; i += BATCH_SIZE) {
+//   const batch = nodesList.slice(i, i + BATCH_SIZE);
+//   await Promise.all(
+//     batch.map((n) => handleReprompt(n.id, n.data.data_description))
+//   );
+// }
+const BATCH_SIZE = 3;
 for (let i = 0; i < nodesList.length; i += BATCH_SIZE) {
-  const batch = nodesList.slice(i, i + BATCH_SIZE);
+  const batch = nodesList
+    .slice(i, i + BATCH_SIZE)
+    .filter((n) => ["scenario", "ending"].includes(n.type)); // ✅ only these
   await Promise.all(
     batch.map((n) => handleReprompt(n.id, n.data.data_description))
   );
 }
+
 
   AUTO_GEN_RUNNING = false;
   setLoadingOverlay(false);
@@ -786,7 +796,11 @@ useEffect(() => {
     // 🧠 Diagnostic check for image completeness
     const totalNodes = layoutedNodes.length;
     const nodesWithImages = layoutedNodes.filter(hasValidImage).length;
-    const missingImages = layoutedNodes.filter((n) => !hasValidImage(n));
+    const missingImages = layoutedNodes.filter(
+  (n) =>
+    ["scenario", "ending"].includes(n.type) && !hasValidImage(n)
+);
+
 
     console.log(
       `🧩 Image status check → ${nodesWithImages}/${totalNodes} nodes have valid images.`
@@ -830,12 +844,14 @@ useEffect(() => {
   hasStartedAutoCheck.current = true;
 
   const checkAndGenerate = () => {
-    const missing = nodes.filter(
-      (n) =>
-        (!n.data?.imageUrl || n.data.imageUrl.length < 200) &&
-        !n.data.loadingImages &&
-        !n.data.failedImage
-    );
+ const missing = nodes.filter(
+  (n) =>
+    ["scenario", "ending"].includes(n.type) &&
+    (!n.data?.imageUrl || n.data.imageUrl.length < 200) &&
+    !n.data.loadingImages &&
+    !n.data.failedImage
+);
+
 
     if (missing.length > 0) {
       console.log(
@@ -1079,7 +1095,11 @@ useEffect(() => {
 
   <button
     onClick={() => {
-      const missing = nodes.filter((n) => !hasValidImage(n));
+     const missing = nodes.filter(
+  (n) =>
+    ["scenario", "ending"].includes(n.type) && !hasValidImage(n)
+);
+
       if (missing.length === 0) {
         alert("✅ All nodes already have valid images!");
         return;
