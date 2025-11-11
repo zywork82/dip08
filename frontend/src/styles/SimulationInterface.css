@@ -95,8 +95,7 @@ width: 100%;
   align-items: center;
   background-color: #b6b6db;
   width: 140vh;
-  max-height: 400px;
-  height: 250px;
+  height: fit-content;
   border-radius: 12px;
   padding: 15px;
   gap: 12px;
@@ -143,12 +142,20 @@ font-size: 1rem;
 
 .action-buttons{
   height:fit-content;
+  max-width: 300px;
+  font-size:20px;
+  padding:20px;
+  margin: 10px;
 }
 
 .options-grid {
   display: grid;
   gap: 120px;
   grid-template-columns: repeat(3, 1fr);
+}
+
+.completeScenario_box {
+  display:flex;
 }
 
 .option-end-card {
@@ -161,10 +168,13 @@ font-size: 1rem;
 
 .option-end-actions {
   margin-top: 12px;
-  display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  padding: 10px;
+  margin: 20px;
+  width:300px;
+  text-align: center;
 }
+
 .admin-panel button.action-buttons {
   font-size: 0.85rem;
   padding: 0.4rem 0.8rem;
