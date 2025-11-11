@@ -107,7 +107,7 @@ useEffect(() => {
         <SharedHeader profileImage={profileImage} userName={userName} userEmail={userEmail} />
         <div className="page-body">
           <div className="case-studies-section">
-            <div className="banner">
+            {/* <div className="banner">
               <div style={{ lineHeight: 1.5 }}>
                 <span style={{ fontSize: '1rem', fontWeight: 400 }}>New to Deciwise?</span>
                 <br />
@@ -115,7 +115,7 @@ useEffect(() => {
                   <span className="banner-text">Begin your Tutorial</span>
                 </a>
               </div>
-            </div>
+            </div> */}
 
             <div className="header-row">
               <h2 className="page-title">Case Studies</h2>
