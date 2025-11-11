@@ -319,7 +319,7 @@ const SimulationInterface = () => {
       <div className="scene-editor-container">
         <NavigationBar />
         <div className="editor-container">
-          <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
+          {/* <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" /> */}
           {isAdmin && flowData?.status === "published" && (
   <div style={{ textAlign: "right", margin: "0.5rem 1rem" }}>
     <button
@@ -364,11 +364,11 @@ const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
       <NavigationBar />
       <div className="editor-container">
         <div className="header">
-        <SharedHeader
+        {/* <SharedHeader
   profileImage={storedUser.profileImage || profileImage}
   userName={storedUser.name || "Guest"}
   userRole={storedUser.role || "Trainee"}
-/>
+/> */}
         </div>
 
         <div className="scenario-interface-layout" >

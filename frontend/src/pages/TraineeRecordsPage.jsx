@@ -5,8 +5,8 @@ import SharedHeader from '../components/SharedHeader';
 import TraineeReportModal from '../components/TraineeReportModal.jsx';
 
 const storedUser = {
-  id: "test_user",
-  name: "Test User",
+  id: "Helen Wong",
+  name: "Helen Wong",
   email: "test@example.com"
 };
 
@@ -51,7 +51,7 @@ useEffect(() => {
 
   const fetchRecords = async () => {
     try {
-      const res = await fetch(`http://127.0.0.1:5000/api/analytics/${storedUser.id}`);
+      const res = await fetch(`http://127.0.0.1:5000/api/analytics`);
       const data = await res.json();
       console.log("Trainee records:", data); // <-- add this
       setRecords(data);

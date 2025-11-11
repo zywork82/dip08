@@ -71,6 +71,7 @@
 .case-studies-section {
   display: flex;
   flex-direction: column;
+  overflow:auto
 }
 
 .case-studies-header {
