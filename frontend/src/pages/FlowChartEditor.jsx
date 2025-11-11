@@ -190,6 +190,7 @@ const standardizeNodeData = (node) => {
     return {
       ...node,
       data: {
+        type: node.type,
         data_description: node.data.data_description || "",
         options: node.data.options || [],
         next: node.data.next || null,
@@ -253,6 +254,12 @@ const passedScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario"
   // ✅ Then safely initialize your state using those
   const [scenarioTitle, setScenarioTitle] = useState(passedScenarioTitle);
   const [scenarioIdState, setScenarioIdState] = useState(passedScenarioId);
+useEffect(() => {
+  if (passedScenarioTitle && passedScenarioTitle !== scenarioTitle) {
+    setScenarioTitle(passedScenarioTitle);
+    localStorage.setItem("lastScenarioTitle", passedScenarioTitle);
+  }
+}, [passedScenarioTitle]);
 
   // You can also use backendFlow if you like:
   const backendFlow = passedFlow;
@@ -455,42 +462,55 @@ useEffect(() => {
   }, []);
 
   const handleDrop = useCallback(
-    (event) => {
-      event.preventDefault();
-      if (!reactFlowInstance || !reactFlowWrapper.current) return;
+  (event) => {
+    event.preventDefault();
+    if (!reactFlowInstance || !reactFlowWrapper.current) return;
 
-      const bounds = reactFlowWrapper.current.getBoundingClientRect();
-      let data;
-      try {
-        data = JSON.parse(event.dataTransfer.getData("application/reactflow"));
-      } catch {
-        const type = event.dataTransfer.getData("application/reactflow");
-        if (!type) return;
-        data = { nodeType: type, data_description: `New ${type}` };
-      }
+    const bounds = reactFlowWrapper.current.getBoundingClientRect();
 
-      const position = reactFlowInstance.project({
-        x: event.clientX - bounds.left,
-        y: event.clientY - bounds.top,
-      });
-      const id = `${data.nodeType}_${Math.random().toString(36).substr(2, 6)}_${Date.now()}`;
-      saveHistorySnapshot();
-      const newNode = standardizeNodeData({
-        id,
-        type: data.nodeType,
-        position,
-        data: {
-          data_description: data.data_description || `New ${data.nodeType}`,
-          options: [],
-          next: null,
-          scene: "",
-          b64image: "",
-        },
-      });
-      setNodes((nds) => [...nds, newNode]);
-    },
-    [reactFlowInstance, saveHistorySnapshot]
-  );
+    let payload;
+    try {
+      payload = JSON.parse(event.dataTransfer.getData("application/reactflow"));
+    } catch {
+      return; // invalid drag data
+    }
+
+    // ✅ Normalize field: convert nodeType → type if needed
+    const nodeType = payload.type || payload.nodeType || "option";
+
+    // ✅ Use existing data_description if available
+    const data_description =
+      payload.data?.data_description ||
+      payload.data_description ||
+      `New ${nodeType}`;
+
+    const position = reactFlowInstance.project({
+      x: event.clientX - bounds.left,
+      y: event.clientY - bounds.top,
+    });
+
+    const id = `${nodeType}_${Date.now()}`;
+
+    saveHistorySnapshot();
+
+    const newNode = standardizeNodeData({
+      id,
+      type: nodeType,          // ✅ correct field name for ReactFlow
+      position,
+      data: {
+        data_description,      // ✅ preserve AI suggestion text
+        scene: "",
+        options: [],
+        next: null,
+        b64image: "",
+      },
+    });
+
+    setNodes((nds) => [...nds, newNode]);
+  },
+  [reactFlowInstance, saveHistorySnapshot]
+);
+
 // === Auto Layout (with cleanup of disconnected nodes) ===
 const autoLayout = () => {
   saveHistorySnapshot();
@@ -585,196 +605,177 @@ console.log(JSON.stringify(payload, null, 2));
   }
 }, [nodes, edges, scenarioTitle, scenarioId]);
 
-// // === Initial Load ===
-// useEffect(() => {
-//   const loadFlow = async () => {
-//     try {
-//       const passedFlow = location.state?.flowData || null;
-
-//       console.log("🎯 Loading flow - scenarioId:", scenarioId);
-//       console.log("🎯 passedFlow:", passedFlow ? "Object" : "null");
-
-//      // 1) Highest priority: flow passed via navigation
-// if (passedFlow) {
-//   const hasNodes =
-//     Array.isArray(passedFlow.nodes) ||
-//     (passedFlow.nodes && Object.keys(passedFlow.nodes).length > 0);
-
-//   if (hasNodes) {
-//     console.log("✅ Passed flow contains nodes — normalizing directly.");
-//     const flow = normalizeFlow(passedFlow);
-//     setNodes(getLayoutedNodes(flow.nodes, flow.edges));
-//     setEdges(flow.edges);
-//     if (flow.id) setScenarioId(flow.id);
-//     return;
-//   } else {
-//     console.warn("⚠️ Passed flow has no nodes — will fetch full flow from backend instead.");
-//   }
-// }
-
-//       // 2) Next: fetch from backend using scenarioId
-//       if (scenarioId) {
-//         const res = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${scenarioId}`);
-//         if (!res.ok) throw new Error(`Backend fetch failed: ${res.status}`);
-//         const data = await res.json();
-
-//         const flow = normalizeFlow(data, {
-//           defaultType: "scenario",
-//           typeAlias: { endScenario: "ending" },
-//         });
-
-//         setNodes(getLayoutedNodes(flow.nodes, flow.edges));
-//         setEdges(flow.edges);
-//         console.log("✅ Loaded from backend:", flow.nodes.length, "nodes");
-//         return;
-//       }
-
-//       // 3) Fallback: IndexedDB (localforage)
-//       const cached = await localforage.getItem("latestFlow");
-//       if (cached) {
-//         const flow = normalizeFlow(cached, {
-//           defaultType: "scenario",
-//           typeAlias: { endScenario: "ending" },
-//         });
-
-//         setNodes(getLayoutedNodes(flow.nodes, flow.edges));
-//         setEdges(flow.edges);
-//         console.log("✅ Loaded from IndexedDB:", flow.nodes.length, "nodes");
-//         return;
-//       }
-
-//       // 4) Final fallback: samples
-//       console.warn("⚠️ No flow found — loading sample flow");
-//       const sampleFlow = normalizeFlow(
-//         { nodes: Object.values(sampleNodes), edges: sampleEdges },
-//         { defaultType: "scenario", typeAlias: { endScenario: "ending" } }
-//       );
-//       setNodes(getLayoutedNodes(sampleFlow.nodes, sampleFlow.edges));
-//       setEdges(sampleFlow.edges);
-//     } catch (err) {
-//       console.error("❌ Error during flow load:", err);
-//       // safe fallback: samples
-//       const sampleFlow = normalizeFlow(
-//         { nodes: Object.values(sampleNodes), edges: sampleEdges },
-//         { defaultType: "scenario", typeAlias: { endScenario: "ending" } }
-//       );
-//       setNodes(getLayoutedNodes(sampleFlow.nodes, sampleFlow.edges));
-//       setEdges(sampleFlow.edges);
-//     }
-//   };
-
-//   loadFlow();
-//   // eslint-disable-next-line react-hooks/exhaustive-deps
-// }, []); 
-
-
+// === Initial Load ===
 useEffect(() => {
   const loadFlow = async () => {
     try {
-       const currentScenarioId =    scenarioId || location.state?.flowData?._id || localStorage.getItem("lastScenarioId");
-console.log("🎯 Loading flow - scenarioId:", currentScenarioId);
- console.log("🎯 passedFlow:", passedFlow);
-console.log("🎯 backendFlow:", backendFlow);
-      // ✅ Priority 1: Use passed flow from navigation
-      if (passedFlow) {
-        console.log("✅ Loading from passedFlow");
-        const stdNodes = Array.isArray(passedFlow.nodes) 
-          ? passedFlow.nodes 
-          : Object.values(passedFlow).filter(n => n.id); // Handle object format
-        
-        const normalizedNodes = stdNodes.map(standardizeNodeData);
-        const rawEdges = passedFlow.edges || generateEdgesFromNodes(normalizedNodes);
-        
-        const layoutedNodes = getLayoutedNodes(normalizedNodes, rawEdges);
-        setNodes(layoutedNodes);
-        setEdges(rawEdges);
-        
-        console.log("✅ Loaded nodes:", layoutedNodes.length);
-        console.log("✅ Loaded edges:", rawEdges.length);
-        return;
-      }
+      const passedFlow = location.state?.flowData || null;
 
-      // ✅ Priority 2: Fetch from backend if scenarioId exists
-      if (currentScenarioId) {      console.log("🌐 Fetching from backend:", currentScenarioId);  const res = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${currentScenarioId}`);
-        
-        if (!res.ok) {
-          console.error("❌ Backend fetch failed:", res.status);
-          throw new Error("Failed to fetch scenario flow");
-        }
-        
-        const data = await res.json();
-        console.log("✅ Backend data received:", data);
+      console.log("🎯 Loading flow - scenarioId:", scenarioId);
+      console.log("🎯 passedFlow:", passedFlow ? "Object" : "null");
 
-        // Handle both array and object formats
-        const nodesData = Array.isArray(data.nodes) 
-          ? data.nodes 
-          : Object.values(data.nodes || data);
-        
-        const stdNodes = nodesData
-          .filter(n => n && n.id) // Remove null/undefined entries
-          .map(standardizeNodeData);
-        
-        const rawEdges = data.edges || generateEdgesFromNodes(stdNodes);
-        const layoutedNodes = getLayoutedNodes(stdNodes, rawEdges);
-        
-        setNodes(layoutedNodes);
-        setEdges(rawEdges);
-        
-        console.log("✅ Loaded from backend - nodes:", layoutedNodes.length);
-        return;
-      }
+     // 1) Highest priority: flow passed via navigation
+if (passedFlow) {
+  const hasNodes =
+    Array.isArray(passedFlow.nodes) ||
+    (passedFlow.nodes && Object.keys(passedFlow.nodes).length > 0);
 
-      // ✅ Priority 3: Try IndexedDB (localforage)
-
-      
-const cachedFlow = await localforage.getItem("latestFlow");
-if (cachedFlow) {
-  console.log("📦 Loading from IndexedDB (latestFlow)");
-
-  const nodesData = Array.isArray(cachedFlow.nodes)
-    ? cachedFlow.nodes
-    : Object.values(cachedFlow.nodes || cachedFlow);
-
-  const stdNodes = nodesData
-    .filter((n) => n && n.id)
-    .map(standardizeNodeData);
-
-  const rawEdges = cachedFlow.edges || generateEdgesFromNodes(stdNodes);
-  const layoutedNodes = getLayoutedNodes(stdNodes, rawEdges);
-
-  setNodes(layoutedNodes);
-  setEdges(rawEdges);
-
-  console.log("✅ Loaded from IndexedDB - nodes:", layoutedNodes.length);
-  return;
+  if (hasNodes) {
+    console.log("✅ Passed flow contains nodes — normalizing directly.");
+    const flow = normalizeFlow(passedFlow);
+    setNodes(getLayoutedNodes(flow.nodes, flow.edges));
+    setEdges(flow.edges);
+    if (flow.id) setScenarioId(flow.id);
+    return;
+  } else {
+    console.warn("⚠️ Passed flow has no nodes — will fetch full flow from backend instead.");
+  }
 }
 
+      // 2) Next: fetch from backend using scenarioId
+      if (scenarioId) {
+        const res = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${scenarioId}`);
+        if (!res.ok) throw new Error(`Backend fetch failed: ${res.status}`);
+        const data = await res.json();
 
+        const flow = normalizeFlow(data, {
+          defaultType: "scenario",
+          typeAlias: { endScenario: "ending" },
+        });
 
-      // ✅ Priority 4: Fallback to sample flow
-      console.warn("⚠️ No flow found - loading sample flow");
-      const initNodes = Object.values(sampleNodes).map(standardizeNodeData);
-      const initEdges = sampleEdges?.length ? sampleEdges : generateEdgesFromNodes(initNodes);
-      
-      const layoutedNodes = getLayoutedNodes(initNodes, initEdges);
-      setNodes(layoutedNodes);
-      setEdges(initEdges);
-      
-      console.log("✅ Loaded sample flow - nodes:", layoutedNodes.length);
+        setNodes(getLayoutedNodes(flow.nodes, flow.edges));
+        setEdges(flow.edges);
+        console.log("✅ Loaded from backend:", flow.nodes.length, "nodes");
+        return;
+      }
 
+      // 3) Fallback: IndexedDB (localforage)
+      const cached = await localforage.getItem("latestFlow");
+      if (cached) {
+        const flow = normalizeFlow(cached, {
+          defaultType: "scenario",
+          typeAlias: { endScenario: "ending" },
+        });
+
+        setNodes(getLayoutedNodes(flow.nodes, flow.edges));
+        setEdges(flow.edges);
+        console.log("✅ Loaded from IndexedDB:", flow.nodes.length, "nodes");
+        return;
+      }
+
+      // 4) Final fallback: samples
+      console.warn("⚠️ No flow found — loading sample flow");
+      const sampleFlow = normalizeFlow(
+        { nodes: Object.values(sampleNodes), edges: sampleEdges },
+        { defaultType: "scenario", typeAlias: { endScenario: "ending" } }
+      );
+      setNodes(getLayoutedNodes(sampleFlow.nodes, sampleFlow.edges));
+      setEdges(sampleFlow.edges);
     } catch (err) {
       console.error("❌ Error during flow load:", err);
-      
-      // Fallback to sample on error
-      const initNodes = Object.values(sampleNodes).map(standardizeNodeData);
-      const initEdges = sampleEdges?.length ? sampleEdges : generateEdgesFromNodes(initNodes);
-      setNodes(getLayoutedNodes(initNodes, initEdges));
-      setEdges(initEdges);
+      // safe fallback: samples
+      const sampleFlow = normalizeFlow(
+        { nodes: Object.values(sampleNodes), edges: sampleEdges },
+        { defaultType: "scenario", typeAlias: { endScenario: "ending" } }
+      );
+      setNodes(getLayoutedNodes(sampleFlow.nodes, sampleFlow.edges));
+      setEdges(sampleFlow.edges);
     }
   };
 
   loadFlow();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []); 
+
+
+// useEffect(() => {
+//   const loadFlow = async () => {
+//     try {
+//       const currentScenarioId =
+//         scenarioId ||
+//         location.state?.flowData?._id ||
+//         localStorage.getItem("lastScenarioId");
+
+//       console.log("🎯 Loading flow - scenarioId:", currentScenarioId);
+
+//       // 🧹 Cache validation
+//       const cachedFlow = await localforage.getItem("latestFlow");
+//       const cachedId = cachedFlow?.id || localStorage.getItem("lastScenarioId");
+//       if (cachedFlow && cachedId !== currentScenarioId) {
+//         console.warn("🧹 Clearing mismatched cache (different scenario)");
+//         await localforage.removeItem("latestFlow");
+//       }
+
+//       // ✅ Priority 1: Use passed flow from navigation
+//       if (passedFlow && passedFlow._id === currentScenarioId) {
+//         console.log("✅ Loading from passedFlow for same scenario");
+//         const stdNodes = Array.isArray(passedFlow.nodes)
+//           ? passedFlow.nodes
+//           : Object.values(passedFlow).filter((n) => n.id);
+
+//         const normalizedNodes = stdNodes.map(standardizeNodeData);
+//         const rawEdges = passedFlow.edges || generateEdgesFromNodes(normalizedNodes);
+//         const layoutedNodes = getLayoutedNodes(normalizedNodes, rawEdges);
+
+//         setNodes(layoutedNodes);
+//         setEdges(rawEdges);
+//         console.log("✅ Loaded nodes:", layoutedNodes.length);
+//         console.log("✅ Loaded edges:", rawEdges.length);
+//         return;
+//       }
+
+//       // ✅ Priority 2: Fetch from backend
+//       if (currentScenarioId) {
+//         console.log("🌐 Fetching from backend:", currentScenarioId);
+//         const res = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${currentScenarioId}`);
+//         if (!res.ok) throw new Error(`Backend fetch failed: ${res.status}`);
+//         const data = await res.json();
+//         console.log("✅ Backend data received:", data);
+
+//         const nodesData = Array.isArray(data.nodes)
+//           ? data.nodes
+//           : Object.values(data.nodes || data);
+//         const stdNodes = nodesData.filter((n) => n && n.id).map(standardizeNodeData);
+//         const rawEdges = data.edges || generateEdgesFromNodes(stdNodes);
+//         const layoutedNodes = getLayoutedNodes(stdNodes, rawEdges);
+
+//         setNodes(layoutedNodes);
+//         setEdges(rawEdges);
+//         console.log("✅ Loaded from backend - nodes:", layoutedNodes.length);
+//         return;
+//       }
+
+//       // ✅ Priority 3: Load cached flow (only if matches)
+//       if (cachedFlow && cachedId === currentScenarioId) {
+//         console.log("📦 Loading from IndexedDB (matching latestFlow)");
+//         const nodesData = Array.isArray(cachedFlow.nodes)
+//           ? cachedFlow.nodes
+//           : Object.values(cachedFlow.nodes || cachedFlow);
+
+//         const stdNodes = nodesData.filter((n) => n && n.id).map(standardizeNodeData);
+//         const rawEdges = cachedFlow.edges || generateEdgesFromNodes(stdNodes);
+//         const layoutedNodes = getLayoutedNodes(stdNodes, rawEdges);
+
+//         setNodes(layoutedNodes);
+//         setEdges(rawEdges);
+//         console.log("✅ Loaded from IndexedDB - nodes:", layoutedNodes.length);
+//         return;
+//       }
+
+//       // ✅ Fallback: sample flow
+//       console.warn("⚠️ No valid flow found - loading sample flow");
+//       const initNodes = Object.values(sampleNodes).map(standardizeNodeData);
+//       const initEdges = sampleEdges?.length ? sampleEdges : generateEdgesFromNodes(initNodes);
+//       const layoutedNodes = getLayoutedNodes(initNodes, initEdges);
+//       setNodes(layoutedNodes);
+//       setEdges(initEdges);
+//     } catch (err) {
+//       console.error("❌ Error during flow load:", err);
+//     }
+//   };
+
+//   loadFlow();
+// }, [scenarioId]); // 👈 trigger reload whenever scenarioId changes
 
 
 // === Auto-center & cinematic zoom (ONLY on initial load) ===
@@ -813,6 +814,18 @@ const generateImages = useCallback(async () => {
   if (!savedFlow) return alert("❌ Failed to save before generating images.");
 
   const layoutedNodes = getLayoutedNodes(savedFlow.nodes, savedFlow.edges);
+  const nodesForApi = layoutedNodes
+  .filter(
+    (n) =>
+      ["scenario", "ending"].includes(n.type) && // only generate for relevant nodes
+      (n.data?.data_description || n.data?.scene)?.trim().length > 0
+  )
+  .map((n) => ({
+    id: n.id,
+    type: n.type, // ✅ include node type
+    data_description: n.data?.data_description || n.data?.scene,
+  }));
+
   // const nodesForApi = layoutedNodes
   //   .filter((n) => !n.data?.b64image)
   //   .map((n) => ({
@@ -820,19 +833,19 @@ const generateImages = useCallback(async () => {
   //     data_description: n.data?.data_description || n.data?.scene || "",
   //   }));
 
-const nodesForApi = layoutedNodes
-  .filter(
-    (n) =>
-      ["scenario", "ending"].includes(n.type) &&        // ✅ backend filter match
-      (!n.data?.b64image || n.data?.b64image === "")
-  )
-  .map((n) => ({
-    id: n.id,
-    type: n.type,                                       // ✅ include type
-    data_description:
-      n.data?.data_description?.trim() || n.data?.scene?.trim() || "",
-  }))
-  .filter((n) => n.data_description.length > 0);         // ✅ avoid empty desc
+// const nodesForApi = layoutedNodes
+//   .filter(
+//     (n) =>
+//       ["scenario", "ending"].includes(n.type) &&        // ✅ backend filter match
+//       (!n.data?.b64image || n.data?.b64image === "")
+//   )
+//   .map((n) => ({
+//     id: n.id,
+//     type: n.type,                                       // ✅ include type
+//     data_description:
+//       n.data?.data_description?.trim() || n.data?.scene?.trim() || "",
+//   }))
+//   .filter((n) => n.data_description.length > 0);         // ✅ avoid empty desc
 
   if (nodesForApi.length === 0) {
     alert("All nodes already have images — nothing to generate!");
@@ -855,7 +868,8 @@ const nodesForApi = layoutedNodes
   try {
     console.log("[IMG] sending", nodesForApi.length, "nodes:", nodesForApi.map(n => n.id));
 
-    const res = await fetch("http://127.0.0.1:5000/generate_images", {
+    const res = await fetch("http://127.0.0.1:5000/scenarios/generate_images", {
+
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nodes: nodesForApi }),
@@ -959,7 +973,7 @@ const newNodes = await Promise.all(
             <EditorToolsSidebar
               scenarioTitle={scenarioTitle}
               setScenarioTitle={setScenarioTitle}
-              suggestions={sampleAiSuggestions}
+          
             />
            {/* 🧭 Floating Debugger Panel */}
 <div
