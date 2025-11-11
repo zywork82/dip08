@@ -2,19 +2,30 @@ from flask import Blueprint, request, jsonify
 from db import db
 from datetime import datetime
 from bson import ObjectId
+from bson.errors import InvalidId
 import os, time
 from flask import send_from_directory
 from PIL import Image
 import base64
 from io import BytesIO
 from pathlib import Path
-
-# Temporary image directory for AI-generated previews
-TEMP_IMG_DIR = "temp_images"
-os.makedirs(TEMP_IMG_DIR, exist_ok=True)
-
-
+from PIL import Image, ImageDraw
 scenarios_bp = Blueprint("scenarios", __name__, url_prefix="/scenarios")
+TMP_DIR = Path("scenarios/temp_images")
+TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+def _file_to_b64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+def _generate_single_image_file(prompt, out_path):
+    img = Image.new("RGB", (512, 512), (245, 245, 245))
+    draw = ImageDraw.Draw(img)
+    draw.text((10, 10), "AI Image Placeholder", fill=(0, 0, 0))
+    img.save(out_path)
+
+
+
 
 @scenarios_bp.route("/", methods=["GET", "POST", "OPTIONS"])
 def scenarios_root():
@@ -206,8 +217,6 @@ def save_flow():
 # =========================================================
 @scenarios_bp.route("/updateImage", methods=["POST"])
 def update_image():
-    from app import TMP_DIR, _generate_single_image_file, _file_to_b64
-
     try:
         data = request.get_json(silent=True) or {}
         print("📩 Incoming updateImage payload:", data)
@@ -270,11 +279,13 @@ def update_image():
 
         print(f"✅ Regenerated and updated 3 images for node {node_id}")
         return jsonify({
-            "success": True,
-            "id": node_id,
-            "message": f"Generated {len(generated_images)} variations",
-            "images": [img.split(",")[1] for img in generated_images]
-        }), 200
+    "success": True,
+    "id": node_id,
+    "message": f"Generated {len(generated_images)} variations",
+        "images": generated_images
+
+}), 200
+
 
     except Exception as e:
         import traceback
@@ -297,18 +308,20 @@ def upload_temp_image():
 
         if not node_id or not b64image:
             return jsonify({"success": False, "error": "Missing node_id or b64image"}), 400
+        TMP_DIR.mkdir(parents=True, exist_ok=True)
 
         # Decode base64 and save to /temp_images
         img_bytes = base64.b64decode(b64image.split(",")[-1])
         img = Image.open(BytesIO(img_bytes))
         filename = f"{node_id}.png"
-        filepath = os.path.join(TEMP_IMG_DIR, filename)
+        filepath = os.path.join(TMP_DIR, filename)
         img.save(filepath, "PNG")
 
         url = f"/scenarios/temp/{filename}"
         print(f"🖼 Temp image saved for node {node_id}: {url}")
 
-        return jsonify({"success": True, "url": url}), 200
+        return jsonify({"success": True, "url": f"/scenarios/temp/{filename}"}), 200
+
 
     except Exception as e:
         import traceback
@@ -323,15 +336,13 @@ def upload_temp_image():
 @scenarios_bp.route("/temp/<filename>")
 def serve_temp_image(filename):
     """Serve images from the temp_images folder"""
-    return send_from_directory(TEMP_IMG_DIR, filename)
+    return send_from_directory(TMP_DIR, filename)
 
 # =========================================================
 # ✅ Get full flow (ReactFlow-ready, returns images)
 # =========================================================
 @scenarios_bp.route("/getFlow/<scenario_id>", methods=["GET"])
 def get_flow(scenario_id):
-    from bson import ObjectId
-    from bson.errors import InvalidId
     print(f"📩 [getFlow] Incoming scenario ID: {scenario_id}")
 
     try:
@@ -514,15 +525,13 @@ def rename_scenario(id):
         return jsonify({"success": True, "title": new_title})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-
 @scenarios_bp.before_app_request
 def cleanup_old_temp_images():
-    TMP_DIR = Path("scenarios/temp_images")
     now = time.time()
     for f in TMP_DIR.glob("*.png"):
-        if now - f.stat().st_mtime > 60 * 60 * 24:  # older than 24h
+        if now - f.stat().st_mtime > 60 * 60 * 24:
             try:
-                os.remove(f)
+                f.unlink()
                 print(f"🧹 Removed old temp image: {f.name}")
             except Exception:
                 pass
