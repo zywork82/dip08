@@ -121,7 +121,7 @@ const StudentPage = () => {
           </div>
           <div className="main-content-body">
             <div className="left-column">
-          <TutorialBanner />
+          {/* <TutorialBanner /> */}
  <div className="case-studies-section">
               <div className="section-header">
                 <h2>Case Studies</h2>
