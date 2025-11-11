@@ -8,15 +8,59 @@ import "../styles/SimulationInterface.css";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 // ========= Helpers =========
+// ✅ Helper to mark scenario as published
+async function updateScenarioStatus(scenarioId, newStatus) {
+  try {
+    const res = await fetch(`http://127.0.0.1:5000/scenarios/updateStatus/${scenarioId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to update status");
+    console.log(`🚀 Scenario ${scenarioId} → ${newStatus}`);
+    return true;
+  } catch (err) {
+    console.error("❌ Failed to update scenario status:", err);
+    return false;
+  }
+}
+
 const byId = (arr = []) => Object.fromEntries((arr || []).map((n) => [String(n.id), n]));
 
 // Prefer data.imageUrl (http or dataURL) else fallback to b64image
+// const getImageSrc = (node) => {
+//   const url = node?.data?.imageUrl || "";
+//   const b64 = node?.data?.b64image || "";
+//   if (url && (url.startsWith("http") || url.startsWith("data:image"))) return url;
+//   if (b64 && b64.length > 100) return `data:image/png;base64,${b64}`;
+//   return ""; // will render a placeholder
+// };
+// Prefer full URL, or auto-resolve relative Flask paths
 const getImageSrc = (node) => {
   const url = node?.data?.imageUrl || "";
   const b64 = node?.data?.b64image || "";
-  if (url && (url.startsWith("http") || url.startsWith("data:image"))) return url;
+
+  if (!url && !b64) return "";
+
+  // ✅ Case 1: already a valid data URL or absolute HTTP
+  if (url.startsWith("http") || url.startsWith("data:image")) return url;
+
+  // ✅ Case 2: relative backend path like "/scenarios/temp/xxxx.png"
+  if (url.startsWith("/scenarios/temp/")) {
+    return `http://127.0.0.1:5000${url}`;
+  }
+
+  // ✅ Case 3: stored filename only (fallback)
+  if (url.endsWith(".png")) {
+    return `http://127.0.0.1:5000/scenarios/temp/${url}`;
+  }
+
+  // ✅ Case 4: legacy base64 fallback
   if (b64 && b64.length > 100) return `data:image/png;base64,${b64}`;
-  return ""; // will render a placeholder
+
+  return "";
 };
 
 // Build edges if missing, based on your schema:
@@ -277,6 +321,28 @@ const SimulationInterface = () => {
         <NavigationBar />
         <div className="editor-container">
           <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
+          {isAdmin && flowData?.status === "published" && (
+  <div style={{ textAlign: "right", margin: "0.5rem 1rem" }}>
+    <button
+      className="admin-action-buttons"
+      style={{
+        backgroundColor: "#2196F3",
+        color: "#fff",
+        padding: "0.5rem 1rem",
+        borderRadius: "8px",
+        fontWeight: 600,
+      }}
+      onClick={() => {
+        if (window.confirm("Edit this published scenario? This will affect the live version.")) {
+          navigate("/scene-editor", { state: { scenarioId, flowData } });
+        }
+      }}
+    >
+      ✏️ Edit Scenario
+    </button>
+  </div>
+)}
+
           <h2>No scenario loaded</h2>
           <p>Try saving &amp; launching from the Scene Editor again.</p>
           <button
@@ -293,13 +359,17 @@ const SimulationInterface = () => {
   const imageSrc = getImageSrc(currentNode);
   const text = currentNode.data?.data_description || "(no description)";
   const atStart = historyStack.length === 0;
-
+const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   return (
     <div className="scene-editor-container">
       <NavigationBar />
       <div className="editor-container">
         <div className="header">
-          <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
+        <SharedHeader
+  profileImage={storedUser.profileImage || profileImage}
+  userName={storedUser.name || "Guest"}
+  userRole={storedUser.role || "Trainee"}
+/>
         </div>
 
         <div className="scenario-interface-layout" >
@@ -335,7 +405,7 @@ const SimulationInterface = () => {
                 {optionButtons.map((opt) => (
                   <button
                     key={opt.id}
-                    className="action-buttons"
+                    className="option-buttons"
                     onClick={() => goViaOption(currentNode.id, opt.id)}
                   >
                     {opt.label}
@@ -425,6 +495,24 @@ const SimulationInterface = () => {
           <button className="admin-action-buttons" onClick={restart}>
             🔄 Restart
           </button>
+          <button
+  className="admin-action-buttons"
+  style={{ backgroundColor: "#4CAF50", color: "#fff" }}
+  onClick={async () => {
+    if (!scenarioId) return alert("⚠️ No scenario ID found.");
+    const confirmed = window.confirm("Are you sure you want to publish this scenario?");
+    if (!confirmed) return;
+
+    const ok = await updateScenarioStatus(scenarioId, "published");
+    if (ok) {
+      alert("✅ Scenario published successfully!");
+      navigate("/admin"); // or wherever your admin home is
+    }
+  }}
+>
+  🚀 Publish Scenario
+</button>
+
         </div>
 
         {/* Run Log */}

@@ -50,10 +50,24 @@ useEffect(() => {
         const response = await fetch("http://127.0.0.1:5000/scenarios");
         if (!response.ok) throw new Error("Failed to load scenarios");
         const data = await response.json();
-        const sortedData = (Array.isArray(data) ? data : data.scenarios || [])
-  .sort((a, b) => new Date(b.lastEdited || 0) - new Date(a.lastEdited || 0));
+       const sortedData = (Array.isArray(data) ? data : data.scenarios || []).sort((a, b) => {
+  // 1️⃣ Prioritize Published > In-Progress/Edit > Draft
+  const order = { published: 3, "in-progress": 2, edit: 2, draft: 1 };
+  const statusA = (a.status || "").toLowerCase();
+  const statusB = (b.status || "").toLowerCase();
+  const rankA = order[statusA] || 0;
+  const rankB = order[statusB] || 0;
+
+  if (rankA !== rankB) return rankB - rankA; // Published first
+
+  // 2️⃣ Sort by lastEdited (newest first)
+  const dateA = new Date(a.lastEdited || a.createdAt || 0);
+  const dateB = new Date(b.lastEdited || b.createdAt || 0);
+  return dateB - dateA;
+});
 
 setCaseStudiesData(sortedData);
+
 
       } catch (error) {
         console.error("Error fetching case studies:", error);
@@ -70,15 +84,20 @@ setCaseStudiesData(sortedData);
   // === Open an existing scenario
   const handleOpenScenario = async (scenario) => {
     try {
+      console.log("🔍 Opening scenario:", scenario._id);
+
       const response = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${scenario._id}`);
       if (!response.ok) throw new Error("Scenario not found");
       const flowData = await response.json();
 
       if (!flowData || !flowData.nodes) {
         alert("No flow data found for this scenario.");
-        return;
-      }
+       
 
+        return; 
+        
+      }
+    console.log("📥 Response:", response);
       // ✅ Navigate based on status
       // if (scenario.status === "ImageReady") {
       //   navigate("/scene-editor", {
@@ -99,14 +118,19 @@ setCaseStudiesData(sortedData);
     }
   };
 
-  // === Filter tabs
-  const filteredCaseStudies = caseStudiesData.filter((cs) => {
-    if (activeTab === 'All') return true;
-    if (activeTab === 'Published') return cs.status === 'Published';
-    if (activeTab === 'In-Progress')
-      return cs.status === 'In-Progress' || cs.status === 'Edit';
-    return false;
-  });
+
+// === Filter tabs (case-insensitive + consistent with sorting)
+const filteredCaseStudies = caseStudiesData.filter((cs) => {
+  const status = (cs.status || "").toLowerCase();
+
+  if (activeTab === "All") return true;
+  if (activeTab === "Published") return status === "published";
+  if (activeTab === "In-Progress")
+    return status === "in-progress" || status === "edit";
+  if (activeTab === "Draft") return status === "draft";
+  return false;
+});
+
 
   // === Render case study cards
   const renderCaseStudies = () => {
@@ -124,21 +148,32 @@ setCaseStudiesData(sortedData);
                 <h3 className="card-title">{cs.title}</h3>
                 <p className="card-date">Last edited on {cs.lastEdited}</p>
                 <div className="card-footer">
-                  {cs.status === 'Edit' || cs.status === 'In-Progress' ? (
-                    <button
-                      className="edit-button"
-                      onClick={() => handleOpenScenario(cs)}
-                    >
-                      Edit
-                    </button>
-                  ) : (
-                    <span
-                      className={`status-badge status-${cs.status?.replace('-', '')}`}
-                    >
-                      {cs.status}
-                    </span>
-                  )}
-                </div>
+  {(() => {
+    const status = (cs.status || "").toLowerCase();
+
+    // Show Edit button if it's editable (draft/in-progress/edit)
+    if (["in-progress", "edit", "draft"].includes(status)) {
+      return (
+        <button
+          className="edit-button"
+          onClick={() => handleOpenScenario(cs)}
+        >
+          ✏️ Edit
+        </button>
+      );
+    }
+
+    // Otherwise, show status badge only
+    return (
+      <span
+        className={`status-badge status-${status.replace(/\s+/g, "-")}`}
+      >
+        {cs.status}
+      </span>
+    );
+  })()}
+</div>
+
               </div>
             </div>
           ))}
@@ -220,15 +255,16 @@ setCaseStudiesData(sortedData);
 
             <div className="tab-container">
               <div className="tabs">
-                {['All', 'Published', 'In-Progress'].map((tab) => (
-                  <div
-                    key={tab}
-                    className={`tab ${activeTab === tab ? 'active' : ''}`}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {tab}
-                  </div>
-                ))}
+              {["All", "Published", "In-Progress", "Draft"].map((tab) => (
+  <div
+    key={tab}
+    className={`tab ${activeTab === tab ? "active" : ""}`}
+    onClick={() => setActiveTab(tab)}
+  >
+    {tab}
+  </div>
+))}
+
               </div>
               <div className="view-toggle">
                 <FaTh

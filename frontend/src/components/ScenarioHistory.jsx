@@ -37,14 +37,17 @@ const ScenarioHistory = () => {
   }, []);
 
   // === Click outside closes dropdown and rename ===
-  useEffect(() => {
-    const handleClickOutside = () => {
+ useEffect(() => {
+  const handleClickOutside = (e) => {
+    // Only close dropdowns if the click isn't inside the rename input
+    if (!e.target.closest(".rename-input")) {
       setMenuOpen(null);
       setEditingId(null);
-    };
-    window.addEventListener("click", handleClickOutside);
-    return () => window.removeEventListener("click", handleClickOutside);
-  }, []);
+    }
+  };
+  window.addEventListener("click", handleClickOutside);
+  return () => window.removeEventListener("click", handleClickOutside);
+}, []);
 
   // === Delete scenario ===
  const handleDelete = async (id) => {
@@ -96,6 +99,7 @@ const ScenarioHistory = () => {
       alert("Failed to load scenario from backend.");
     }
   };
+  
 
   // === Helper to generate edges ===
   const generateEdgesFromNodes = (nodes) => {
@@ -137,33 +141,30 @@ const ScenarioHistory = () => {
     setMenuOpen(null);
   };
 
-  const handleRenameSubmit = async (id) => {
-    if (!tempTitle.trim()) return;
+ const handleRenameSubmit = async (id) => {
+  if (!tempTitle.trim()) return;
+  setEditingId(null);
 
-    const updated = scenarios.map((s) =>
-      s.id === id ? { ...s, title: tempTitle } : s
-    );
-    setScenarios(updated);
-    setEditingId(null);
+  const updated = scenarios.map((s) =>
+    s.id === id ? { ...s, title: tempTitle } : s
+  );
+  setScenarios(updated);
+  localStorage.setItem("scenarios", JSON.stringify(updated));
 
-    localStorage.setItem("scenarios", JSON.stringify(updated));
+  try {
+    const res = await fetch(`http://127.0.0.1:5000/scenarios/rename/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: tempTitle }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Rename failed");
+    console.log("✅ Title updated:", data.title);
+  } catch (err) {
+    console.warn("⚠️ Rename saved locally, but failed on backend:", err);
+  }
+};
 
-    // Optional: update backend
-    try {
-      await fetch(`http://127.0.0.1:5000/scenarios/saveFlow`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id,
-          title: tempTitle,
-          status: "Edit",
-          lastEdited: new Date().toISOString(),
-        }),
-      });
-    } catch (err) {
-      console.warn("⚠️ Rename saved locally, but failed to update backend:", err);
-    }
-  };
 
   return (
     <div className="scenario-history">
@@ -180,21 +181,21 @@ const ScenarioHistory = () => {
             <li key={s.id} className="history-item" onClick={(e) => e.stopPropagation()}>
               <div className="text-content">
                 {editingId === s.id ? (
-                  <input
-                    className="rename-input"
-                    value={tempTitle}
-                    onChange={(e) => setTempTitle(e.target.value)}
-                    onBlur={() => handleRenameSubmit(s.id)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleRenameSubmit(s.id)
-                    }
-                    autoFocus
-                  />
-                ) : (
-                  <button className="history-title" onClick={() => handleOpen(s)}>
-                    {s.title || "Untitled Scenario"}
-                  </button>
-                )}
+  <input
+    className="rename-input"
+    value={tempTitle}
+    onChange={(e) => setTempTitle(e.target.value)}
+    onBlur={() => handleRenameSubmit(s.id)}
+    onKeyDown={(e) =>
+      e.key === "Enter" && handleRenameSubmit(s.id)
+    }
+    autoFocus
+  />
+) : (
+  <button className="history-title" onClick={() => handleOpen(s)}>
+    {s.title || "Untitled Scenario"}
+  </button>
+)}
 
                 {/* ⋯ dropdown menu */}
                 <div className="menu-container">
