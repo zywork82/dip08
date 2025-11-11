@@ -16,6 +16,7 @@ const ScenarioPrompt = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
+const [tierLevel, setTierLevel] = useState(2);
 
   // === Fake progress animation ===
   useEffect(() => {
@@ -133,7 +134,7 @@ const ScenarioPrompt = () => {
 const genRes = await fetch("http://127.0.0.1:5000/generate", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ story: description, psych_seed: 42 }),
+ body: JSON.stringify({ story: description, psych_seed: 42, tier_level: tierLevel }),
 });
 
 const genData = await genRes.json();
@@ -207,6 +208,23 @@ navigate("/editor", {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Name the scenario..."
               />
+              <div className="form-group">
+  <label htmlFor="tier-level">Scenario Depth (Tier Level):</label>
+  <select
+    id="tier-level"
+    value={tierLevel}
+    onChange={(e) => setTierLevel(Number(e.target.value))}
+    className="tier-level-dropdown"
+  >
+    <option value={2}>Level 2 — Simple (Short Scenario)</option>
+    <option value={3}>Level 3 — Moderate</option>
+    <option value={4}>Level 4 — Full Depth</option>
+  </select>
+  <small className="tier-hint">
+    Higher levels create deeper branching trees with more nodes.
+  </small>
+</div>
+
             </div>
 
             <div className="form-group">
