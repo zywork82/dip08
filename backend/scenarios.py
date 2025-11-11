@@ -10,20 +10,32 @@ import base64
 from io import BytesIO
 from pathlib import Path
 from PIL import Image, ImageDraw
+#rom app import _generate_single_image_file, _file_to_b64
+
+
 scenarios_bp = Blueprint("scenarios", __name__, url_prefix="/scenarios")
 TMP_DIR = Path("scenarios/temp_images")
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 
-def _file_to_b64(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
+# def _file_to_b64(path):
+#     with open(path, "rb") as f:
+#         return base64.b64encode(f.read()).decode("utf-8")
 
-def _generate_single_image_file(prompt, out_path):
-    img = Image.new("RGB", (512, 512), (245, 245, 245))
-    draw = ImageDraw.Draw(img)
-    draw.text((10, 10), "AI Image Placeholder", fill=(0, 0, 0))
-    img.save(out_path)
+# def _generate_single_image_file(prompt: str, file_path: Path, max_retries: int = 4, delay: float = 2.0) -> bool:
+#     # Create scenario folder if missing
+#     scenario_dir = TMP_DIR / str(scenario_id)
+#     scenario_dir.mkdir(parents=True, exist_ok=True)
 
+#     # Build output path
+#     out_path = scenario_dir / f"{filename}.png"
+
+#     # --- PLACEHOLDER IMAGE CREATION ---
+#     img = Image.new("RGB", (512, 512), (245, 245, 245))
+#     draw = ImageDraw.Draw(img)
+#     draw.text((10, 10), prompt[:40], fill=(0, 0, 0))  # show prompt as label
+#     img.save(out_path)
+
+#     return str(out_path)
 
 
 
@@ -211,18 +223,54 @@ def save_flow():
         return jsonify({"success": False, "error": str(e)}), 500
     
     
+@scenarios_bp.route("/generate_images", methods=["POST"])
+def generate_images():
+    from app import _generate_single_image_file, _file_to_b64  
+    """
+    Generate one Gemini image per node (used by FlowChartEditor "Generate Images" button).
+    Returns a list of {"id", "image_b64"} for all nodes.
+    """
+    try:
+        data = request.get_json(force=True) or {}
+        nodes = data.get("nodes", [])
+        results = []
+
+        for n in nodes:
+            node_id = n.get("id")
+            prompt = n.get("data_description", "")
+            if not node_id or not prompt.strip():
+                continue
+
+            file_path = TMP_DIR / f"{node_id}.png"
+
+            # ✅ Use your Gemini generator (with retries/fallback)
+            ok = _generate_single_image_file(prompt, file_path)
+
+            # ✅ Encode image for frontend
+            img_b64 = _file_to_b64(file_path)
+            results.append({"id": node_id, "image_b64": img_b64})
+
+        print(f"🎨 Generated {len(results)} node images via Gemini core.")
+        return jsonify({"images": results, "success": True}), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # =========================================================
 # ✅ Update a Single Node Image (Generate 3 Variations)
 # =========================================================
 @scenarios_bp.route("/updateImage", methods=["POST"])
 def update_image():
+    from app import _generate_single_image_file, _file_to_b64
     try:
         data = request.get_json(silent=True) or {}
         print("📩 Incoming updateImage payload:", data)
 
         node_id = data.get("nodeId") or data.get("id")
         description = data.get("description") or data.get("data_description")
+        scenario_id = str(data.get("scenario_id") or "global")
 
         if not node_id or not description:
             return jsonify({
@@ -230,39 +278,30 @@ def update_image():
                 "error": "Missing nodeId/id or description/data_description"
             }), 400
 
-        TMP_DIR.mkdir(parents=True, exist_ok=True)
-
-        # 🧠 Generate multiple image variations (3 total)
         generated_images = []
         for i in range(3):
-            out_path = TMP_DIR / f"{node_id}_regen_{i}.png"
-            _generate_single_image_file(description, out_path)
-            img_b64 = _file_to_b64(out_path)
+            # ✅ Use the utils function (auto saves in /temp_images/<scenario_id>)
+            url = _generate_single_image_file(description, scenario_id, f"{node_id}_regen_{i}")
+
+            # ✅ Build absolute path so we can b64 it for frontend
+            local_path = TMP_DIR / scenario_id / f"{node_id}_regen_{i}.png"
+            img_b64 = _file_to_b64(local_path)
             generated_images.append(f"data:image/png;base64,{img_b64}")
 
         print(f"📤 Sending images back to frontend: {len(generated_images)}")
 
-        # 🩹 Fetch node
+        # ✅ Update database
         node_doc = db.scenarioNodes.find_one({"id": node_id})
         if not node_doc:
             return jsonify({"success": False, "error": f"Node {node_id} not found"}), 404
 
-        # 🧹 Ensure 'data' field is a dictionary
         if isinstance(node_doc.get("data"), str):
             node_doc["data"] = {"data_description": node_doc["data"]}
-        if "data_description" not in node_doc["data"]:
-            node_doc["data"]["data_description"] = description
 
-        # 🧩 Merge and limit variations (keep latest 5)
-        existing_images = node_doc["data"].get("generatedImages", [])
-        existing_images.extend(generated_images)
-        existing_images = existing_images[-5:]
-
-        # 🧩 Update image info
         node_doc["data"].update({
             "b64image": generated_images[0].split(",")[1],
             "imageUrl": generated_images[0],
-            "generatedImages": existing_images
+            "generatedImages": generated_images[-5:],  # keep only last 5
         })
 
         db.scenarioNodes.update_one(
@@ -270,22 +309,14 @@ def update_image():
             {"$set": {"data": node_doc["data"]}}
         )
 
-        # 🧹 Clean up temp files
-        for i in range(3):
-            try:
-                (TMP_DIR / f"{node_id}_regen_{i}.png").unlink(missing_ok=True)
-            except Exception:
-                pass
+        print(f"✅ Regenerated and updated {len(generated_images)} images for node {node_id}")
 
-        print(f"✅ Regenerated and updated 3 images for node {node_id}")
         return jsonify({
-    "success": True,
-    "id": node_id,
-    "message": f"Generated {len(generated_images)} variations",
-        "images": generated_images
-
-}), 200
-
+            "success": True,
+            "id": node_id,
+            "images": generated_images,
+            "message": f"Generated {len(generated_images)} variations"
+        }), 200
 
     except Exception as e:
         import traceback
@@ -297,31 +328,46 @@ def update_image():
         }), 500
 
 # =========================================================
-# 🖼 Upload temp image (base64 → file → URL)
+# 🖼 Upload temp image (base64 → file → URL) [Per Scenario]
 # =========================================================
 @scenarios_bp.route("/uploadTempImage", methods=["POST"])
 def upload_temp_image():
     try:
         data = request.get_json(silent=True) or {}
         node_id = data.get("node_id")
+        scenario_id = str(data.get("scenario_id") or "global")
         b64image = data.get("b64image")
 
         if not node_id or not b64image:
             return jsonify({"success": False, "error": "Missing node_id or b64image"}), 400
-        TMP_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Decode base64 and save to /temp_images
-        img_bytes = base64.b64decode(b64image.split(",")[-1])
-        img = Image.open(BytesIO(img_bytes))
+        # ✅ Build scenario-specific directory: /temp_images/<scenario_id>/
+        scenario_dir = TMP_DIR / scenario_id
+        scenario_dir.mkdir(parents=True, exist_ok=True)
+
+        # ✅ Decode base64 string (handle potential data URLs)
+        try:
+            img_bytes = base64.b64decode(b64image.split(",")[-1])
+        except Exception:
+            return jsonify({"success": False, "error": "Invalid base64 data"}), 400
+
+        # ✅ Save image file
         filename = f"{node_id}.png"
-        filepath = os.path.join(TMP_DIR, filename)
-        img.save(filepath, "PNG")
+        filepath = scenario_dir / filename
 
-        url = f"/scenarios/temp/{filename}"
-        print(f"🖼 Temp image saved for node {node_id}: {url}")
+        with Image.open(BytesIO(img_bytes)) as img:
+            img.convert("RGBA").save(filepath, "PNG")
 
-        return jsonify({"success": True, "url": f"/scenarios/temp/{filename}"}), 200
+        # ✅ Build relative URL for frontend (served via Flask)
+        url = f"/scenarios/temp/{scenario_id}/{filename}"
+        print(f"🖼 Temp image saved → {filepath} ({url})")
 
+        return jsonify({
+            "success": True,
+            "url": url,
+            "node_id": node_id,
+            "scenario_id": scenario_id
+        }), 200
 
     except Exception as e:
         import traceback
@@ -330,13 +376,15 @@ def upload_temp_image():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# 🖼 Serve temp images (by scenario)
 # =========================================================
-# 🖼 Serve temp images (used in SceneEditor)
-# =========================================================
-@scenarios_bp.route("/temp/<filename>")
-def serve_temp_image(filename):
-    """Serve images from the temp_images folder"""
-    return send_from_directory(TMP_DIR, filename)
+@scenarios_bp.route("/temp/<scenario_id>/<filename>")
+def serve_temp_image(scenario_id, filename):
+    """Serve images from /temp_images/<scenario_id>/"""
+    scenario_dir = TMP_DIR / scenario_id
+    if not scenario_dir.exists():
+        return jsonify({"error": f"Scenario {scenario_id} not found"}), 404
+    return send_from_directory(scenario_dir, filename)
 
 # =========================================================
 # ✅ Get full flow (ReactFlow-ready, returns images)
@@ -451,7 +499,12 @@ def delete_scenario(scenario_id):
 
         # 🗑 delete all nodes linked to it
         deleted_nodes = db.scenarioNodes.delete_many({"scenarioId": scenario_oid})
-
+         # Delete corresponding temp image folder
+        scenario_folder = TMP_DIR / scenario_id
+        if scenario_folder.exists():
+            import shutil
+            shutil.rmtree(scenario_folder)
+            print(f"🧹 Deleted temp images for scenario {scenario_id}")
         return jsonify({
             "success": True,
             "scenarioDeleted": deleted_scenario.deleted_count,
@@ -461,6 +514,7 @@ def delete_scenario(scenario_id):
     except Exception as e:
         print("❌ Error deleting scenario:", e)
         return jsonify({"success": False, "error": str(e)}), 500
+    
 # =========================================================
 # ✅ Update Scenario Status (Draft → Flowchart → Images → Published)
 # =========================================================
@@ -528,10 +582,17 @@ def rename_scenario(id):
 @scenarios_bp.before_app_request
 def cleanup_old_temp_images():
     now = time.time()
-    for f in TMP_DIR.glob("*.png"):
-        if now - f.stat().st_mtime > 60 * 60 * 24:
-            try:
+    for f in TMP_DIR.rglob("*.png"):  # 🔁 recursive scan
+        try:
+            if now - f.stat().st_mtime > 60 * 60 * 24:  # older than 1 day
                 f.unlink()
-                print(f"🧹 Removed old temp image: {f.name}")
-            except Exception:
-                pass
+                print(f"🧹 Removed old temp image: {f}")
+        except Exception:
+            pass
+
+@scenarios_bp.route("/stop_generation", methods=["POST"])
+def stop_generation():
+    global AUTO_GEN_RUNNING
+    AUTO_GEN_RUNNING = False
+    print("🛑 Generation manually stopped from frontend.")
+    return jsonify({"success": True})

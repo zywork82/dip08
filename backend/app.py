@@ -9,14 +9,14 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import google.generativeai as genai
 from PIL import Image
-# from scenarios import scenarios_bp as scenarios_router
-# from signup import signup_router
-# from analytics import analytics_bp
-# from login import login_bp
+from scenarios import scenarios_bp as scenarios_router
+from signup import signup_router
+from analytics import analytics_bp
+from login import login_bp
 from concurrent.futures import ThreadPoolExecutor
-# from users import users_bp
+from users import users_bp
 
-# from admins import admin_bp
+from admins import admin_bp
 
 
 
@@ -70,21 +70,21 @@ PSYCH_SEED = os.getenv("PSYCH_SEED")
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-# app.register_blueprint(scenarios_router)
+app.register_blueprint(scenarios_router)
 
 
-# app.register_blueprint(signup_router)
+app.register_blueprint(signup_router)
 
 
-# app.register_blueprint(login_bp)
+app.register_blueprint(login_bp)
 
 
-# app.register_blueprint(users_bp)
+app.register_blueprint(users_bp)
 
 
-# app.register_blueprint(admin_bp)
+app.register_blueprint(admin_bp)
 
-# app.register_blueprint(analytics_bp)
+app.register_blueprint(analytics_bp)
 
 
 # =========================
