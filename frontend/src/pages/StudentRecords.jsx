@@ -1,27 +1,72 @@
 import React, { useState, useEffect } from 'react';
 import { FaSearch, FaRedo, FaTimes, FaDownload } from 'react-icons/fa';
-import { traineeData } from '../data/TraineeData.js';
 import StudentSidebar from '../components/StudentSidebar.jsx';
 import SharedHeader from '../components/SharedHeader';
 import TraineeReportModal from '../components/TraineeReportModal.jsx';
 
+const storedUser = {
+  id: "test_user",
+  name: "Test User",
+  email: "test@example.com"
+};
 
 const TraineeRecordsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sort, setSort] = useState('latest'); // default to latest
+  const [records, setRecords] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedTrainee, setSelectedTrainee] = useState(null);
   const [filters, setFilters] = useState({
     date: '',
     caseStudy: '',
     status: '',
   });
-  const [showModal, setShowModal] = useState(false);
-  const [selectedTrainee, setSelectedTrainee] = useState(null);
+
+ const [scenarios, setScenarios] = useState({}); // object, not array
+
+useEffect(() => {
+  const fetchScenarios = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:5000/scenarios'); // adjust endpoint if needed
+      const data = await res.json();
+      // Convert array of scenarios into a map: { id: title }
+      const scenarioMap = {};
+      data.forEach(scenario => {
+        scenarioMap[scenario._id] = scenario.title;
+      });
+      setScenarios(scenarioMap);
+      console.log("✅ Loaded scenarios:", scenarioMap);
+    } catch (err) {
+      console.error("❌ Failed to fetch scenarios:", err);
+    }
+  };
+  fetchScenarios();
+}, []);
+
+  useEffect(() => {
+  if (!storedUser) {
+    console.error("❌ No logged-in user found.");
+    return;
+  }
+
+  const fetchRecords = async () => {
+    try {
+      const res = await fetch(`http://127.0.0.1:5000/api/analytics/${storedUser.id}`);
+      const data = await res.json();
+      console.log("Trainee records:", data); // <-- add this
+      setRecords(data);
+      console.log("✅ Loaded trainee analytics:", data);
+    } catch (err) {
+      console.error("❌ Failed to fetch analytics:", err);
+    }
+  };
+
+  fetchRecords();
+}, []);
 
   // Filter
-  const filteredTrainees = traineeData.filter((trainee) => {
-    const matchesSearch = trainee.caseStudy
-      ?.toLowerCase()
-      .includes(searchQuery.toLowerCase());
+  const filteredTrainees = records.filter((trainee) => { 
+    const matchesSearch = trainee.scenario_id?.includes(searchQuery);
     const matchesDate = !filters.date || trainee.date === filters.date;
     const matchesCaseStudy = !filters.caseStudy || trainee.caseStudy === filters.caseStudy;
     const matchesStatus = !filters.status || trainee.status === filters.status;
@@ -32,8 +77,8 @@ const TraineeRecordsPage = () => {
   // Sort - apply on top of filteredTrainees
   const sortedTrainees = [...filteredTrainees].sort((a, b) => {
     // Parse dates into timestamps; fallback to 0 if invalid
-    const dateA = new Date(a.date).getTime() || 0;
-    const dateB = new Date(b.date).getTime() || 0;
+    const dateA = new Date(a.created_at).getTime() || 0;
+    const dateB = new Date(b.created_at).getTime() || 0;
 
     if (sort === 'latest') {
       return dateB - dateA; // newest first
@@ -44,22 +89,14 @@ const TraineeRecordsPage = () => {
     return 0;
   });
 
-
+  const handleViewReport = (trainee) => {
+  setSelectedTrainee(trainee);
+  setShowModal(true);
+};
   const resetFilters = () => {
     setFilters({ date: '', caseStudy: '', status: '' });
     setSearchQuery('');
   };
-
-  const handleViewReport = (trainee) => {
-    setSelectedTrainee(trainee);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedTrainee(null);
-  };
-
 
   const containerStyle = {
     display: 'flex',
@@ -191,21 +228,19 @@ const TraineeRecordsPage = () => {
           <table style={tableStyle}>
             <thead>
               <tr>
-                <th style={thStyle}>ID</th>
                 <th style={thStyle}>Case Study</th>
                 <th style={thStyle}>Date</th>
                 <th style={thStyle}>Report</th>
               </tr>
             </thead>
             <tbody>
-              {sortedTrainees.map((trainee) => (
-                <tr key={trainee.id}>
-                  <td style={tdStyle}>{trainee.id}</td>
-                  <td style={tdStyle}>{trainee.caseStudy}</td>
-                  <td style={tdStyle}>{trainee.date}</td>
-                  <td style={tdStyle}>
-                    <span style={linkStyle} onClick={() => handleViewReport(trainee)}>
-                      View
+               {sortedTrainees.map((trainee) => (
+                <tr key={trainee._id}>
+                  <td style={tdStyle}>{scenarios[trainee.scenario_id] || trainee.scenario_id}</td>
+                  <td style={tdStyle}>{new Date(trainee.created_at).toLocaleDateString()}</td> {/* created_at instead of date */}
+                <td style={tdStyle}>
+                  <span style={linkStyle} onClick={() => handleViewReport(trainee)}>
+                                View
                     </span>
                   </td>
                 </tr>
@@ -214,7 +249,15 @@ const TraineeRecordsPage = () => {
           </table>
         </div>
       </div>
-      {showModal && <TraineeReportModal trainee={selectedTrainee} onClose={handleCloseModal} />}
+      {showModal && selectedTrainee && (
+      <TraineeReportModal
+        trainee={selectedTrainee}
+        onClose={() => {
+          setShowModal(false);
+          setSelectedTrainee(null);
+        }}
+      />
+    )}
     </div>
   );
 };

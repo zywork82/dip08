@@ -17,6 +17,7 @@ import { Line, Radar } from "react-chartjs-2";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
+import StudentSidebar from "../components/StudentSidebar.jsx";
 
 ChartJS.register(
   CategoryScale,
@@ -243,13 +244,14 @@ const ReportInterface = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { scenarioId, choicesLog = [], flowData } = location.state || {};
+  const currentUser = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
   const autoSaveReport = async () => {
     const totalScore = radarScores.reduce((a, b) => a + b, 0) / radarScores.length;
 
     await saveReportToDB({
-      user_id: "test_user",             // 🔁 Replace with actual user ID
+      user_id: currentUser?.id || "test_user",          // 🔁 Replace with actual user ID
       scenario_id: scenarioId || "unknown_scenario",
       score: totalScore.toFixed(2),
       choices: data.map((entry) => ({
@@ -365,6 +367,7 @@ const ReportInterface = () => {
     });
 
     doc.save("Scenario_Report.pdf");
+    alert("Report saved successfully!");
   };
 
   const radarData = {
@@ -380,7 +383,9 @@ const ReportInterface = () => {
   };
 
   return (
-    <div style={{ padding: "2rem", textAlign: "center" }}>
+   <div style={{ display: "flex" }}>
+  <StudentSidebar />
+  <div style={{ flex: 1, padding: "2rem", textAlign: "center" }}>
       <div
         id="radar-for-pdf"
         style={{
@@ -422,6 +427,7 @@ const ReportInterface = () => {
           border: "none",
           borderRadius: "5px",
           cursor: "pointer",
+          width: "200px",
         }}
       >
         Download PDF 📄
@@ -434,12 +440,14 @@ const ReportInterface = () => {
             fontSize: "1.1rem",
             padding: "0.8rem 1.5rem",
             cursor: "pointer",
+            width: "200px",
           }}
         >
           🔄 Play Again
         </button>
       </div>
     </div>
+</div>
   );
 };
 
