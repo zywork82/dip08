@@ -29,12 +29,15 @@ const LoginPage = () => {
     console.log("Login response:", response.data);
 
     const { access_token, user } = response.data;
+    // ✅ Determine admin status safely from backend
+    const isAdmin = user.isAdmin || user.role.toLowerCase() === "administrator";
 
     // ✅ Store user info properly
     const userData = {
       name: user.username,
       email: user.email,
       role: user.role,
+      isAdmin: isAdmin,
       profileImage:
         user.profileImage ||
         "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg",
@@ -43,6 +46,7 @@ const LoginPage = () => {
     localStorage.setItem("token", access_token);
     localStorage.setItem("user", JSON.stringify(userData));
     localStorage.setItem("userRole", user.role);
+    localStorage.setItem("isAdmin", isAdmin ? "true" : "false");
 
     toast.success(`Welcome ${user.username}!`);
 
