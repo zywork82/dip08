@@ -23,48 +23,82 @@ const NavItem = ({ to, icon: Icon, label }) => {
 };
 
 const NavigationBar = () => {
-  return (
-    <div className="navigation-bar-container">
-      {/* Application Logo/Header (e.g., Chess Rook Icon) */}
-      <div className="app-logo">
-        {/* Placeholder for your chess rook image/SVG */}
-        <span role="img" aria-label="app logo">♟️</span>
-      </div>
+  if (localStorage.getItem('userRole') === 'admin')
+  {
+    return (
+      <div className="navigation-bar-container">
+        {/* Application Logo/Header (e.g., Chess Rook Icon) */}
+        <div className="app-logo">
+          {/* Placeholder for your chess rook image/SVG */}
+          <span role="img" aria-label="app logo">♟️</span>
+        </div>
 
-      {/* Main Navigation Items */}
-      <div className="nav-items-group main-nav">
-        <NavItem 
-          to="/" 
-          icon="🏠" // Home/Scenario Flow Editor
-          label="Scenario Editor"
-        />
-        <NavItem 
-          to="/scene-editor" 
-          icon="🖼️" // Scene/Image Editor
-          label="Scene Editor"
-        />
-        <NavItem 
-          to="/reporting" 
-          icon="📊" // Reporting/Analytics
-          label="Reporting"
-        />
-        <NavItem 
-          to="/users" 
-          icon="👥" // User Management
-          label="User Management"
-        />
-      </div>
+        {/* Main Navigation Items */}
+        <div className="nav-items-group main-nav">
+          <NavItem 
+            to="/admin" 
+            icon="🏠" // Home/Scenario Flow Editor
+            label="Admin Dashboard"
+          />
+          <NavItem 
+            to="/scene-editor" 
+            icon="🖼️" // Scene/Image Editor
+            label="Scene Editor"
+          />
+          {/* <NavItem 
+            to="/reporting" 
+            icon="📊" // Reporting/Analytics
+            label="Reporting"
+          /> */}
+          <NavItem 
+            to="/trainee-records" 
+            icon="👥" // User Management
+            label="User Management"
+          />
+        </div>
 
-      {/* Settings/Configuration Item */}
-      <div className="nav-items-group settings-nav">
-        <NavItem 
-          to="/settings" 
-          icon="⚙️" // Settings
-          label="Settings"
-        />
+        {/* Settings/Configuration Item */}
+        <div className="nav-items-group settings-nav">
+          <NavItem 
+            to="/settings" 
+            icon="⚙️" // Settings
+            label="Settings"
+          />
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  else 
+  {
+    return (
+      <div className="navigation-bar-container">
+        {/* Application Logo/Header (e.g., Chess Rook Icon) */}
+        <div className="app-logo">
+          {/* Placeholder for your chess rook image/SVG */}
+          <span role="img" aria-label="app logo">♟️</span>
+        </div>
+
+        {/* Main Navigation Items */}
+        <div className="nav-items-group main-nav">
+          <NavItem 
+            to="/student" 
+            icon="🏠" // Home/Scenario Flow Editor
+            label="Student Dashboard"
+          />
+        </div>
+
+        {/* Settings/Configuration Item */}
+        <div className="nav-items-group settings-nav">
+          <NavItem 
+            to="/settings" 
+            icon="⚙️" // Settings
+            label="Settings"
+          />
+        </div>
+      </div>
+    );
+  }
 };
 
 export default NavigationBar;

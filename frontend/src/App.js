@@ -118,7 +118,7 @@ window.addEventListener('error', suppressResizeObserverError);
       <Route path="/simulation" element={<SimulationInterface />} />
       <Route path="/flowchart" element={<Navigate to="/editor" replace />} />
       <Route path="/student-case-studies" element={<StudentCaseStudies />} />
-      <Route path="/my-records" element={<StudentRecords />} />
+      {/* <Route path="/my-records" element={<StudentRecords />} /> */}
       <Route path="/student-settings" element={<StudentSettings />} /> 
       
 
@@ -217,15 +217,7 @@ function App() {
     else {
       return (
         <HashRouter>
-          {/* Draggable Nav Bar */}
-          <nav ref={navRef} className="test-nav-bar" onMouseDown={handleMouseDown} style={{ left: position.x, top: position.y }}>
-            <div className="nav-handle">Drag to move</div>
-            <ul>
-                {/* Your Links */}
-                <li><Link to="/student">Home</Link></li>
-                {/* <li><Link to="/scenarioInterface">Scenario Interface</Link></li> */}
-            </ul>
-          </nav>
+          
 
           {/* Main content */}
           <div className="main-content-wrapper">
