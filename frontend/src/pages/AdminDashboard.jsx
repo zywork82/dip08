@@ -221,7 +221,7 @@ setCaseStudies(sortedScenarios);
             {/* Individual Statistics */}
             <div className="individual-statistics-section">
               <div className="section-header">
-                <h2>Individual Statistics</h2>
+                <h2>Statistics</h2>
               </div>
 
               {/* Hardcoded table */}

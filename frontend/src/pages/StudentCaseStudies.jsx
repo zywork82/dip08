@@ -26,21 +26,21 @@ const StudentCaseStudies = () => {
     || `https://placehold.co/100x100/E6E6FA/3f51b5?text=${getInitials(userName)}`;
 
 useEffect(() => {
-  const fetchAdmins = async () => {
+  const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token'); // JWT if needed
-      const response = await fetch('http://localhost:5000/admins/users', {
+      const response = await fetch('http://localhost:5000/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
       setCollaboratorsData(data || []);
     } catch (error) {
-      console.error('Error fetching admins:', error);
+      console.error('Error fetching users:', error);
       setCollaboratorsData([]); // fallback
     }
   };
 
-  fetchAdmins();
+  fetchUsers();
 }, []);
 
 
@@ -123,7 +123,7 @@ useEffect(() => {
 
             <div className="tab-container">
               <div className="tabs">
-                {['All', 'Completed', 'To Complete'].map((tab) => (
+                {['All'].map((tab) => (
                   <div
                     key={tab}
                     className={`tab ${activeTab === tab ? 'active' : ''}`}
@@ -150,27 +150,10 @@ useEffect(() => {
             {renderCaseStudies()}
           </div>
 
-          <div className="collaborator-section">
-            <h3 className="collaborator-title">Collaborator List</h3>
-            <div className="collaborator-list">
-              {collaboratorsData.map((admin, index) => (
-                <div key={index} className="collaborator-item">
-                  <div
-                    className="collaborator-avatar"
-                    style={{ backgroundColor: admin.color || '#5a466dff' }}
-                  >
-                    {getInitials(admin.username)}
-                  </div>
-                  <div className="collaborator-info">
-                    <span className="collaborator-name">{admin.username}</span>
-                  </div>
-                </div>
-              ))}
+          
             </div>
           </div>
         </div>
-      </div>
-    </div>
   );
 };
 export default StudentCaseStudies;

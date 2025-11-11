@@ -34,7 +34,7 @@
 
 .scene-image-wrapper {
   width: 100%;
- height: calc(100vh - 50px);
+ height: 100vh;
   min-height: 320px;
   overflow: hidden;
   background: #645b5b;

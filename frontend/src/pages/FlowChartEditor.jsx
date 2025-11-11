@@ -952,7 +952,6 @@ const newNodes = await Promise.all(
       <NavigationBar />
       <div className="editor-container">
         <div className="header">
-          <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
         </div>
 
         <div className="edit-container">
