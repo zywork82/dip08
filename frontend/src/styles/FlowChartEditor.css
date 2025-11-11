@@ -17,14 +17,10 @@
 
 .editor-container {
   display: flex;
-  flex-direction: column; /* header on top */
   height: 100%;
   width: 100%;
 }
 
-.header {
-  flex: 0 0 auto;
-}
 /* .shared-header {
   position: fixed;
   left: 12rem;

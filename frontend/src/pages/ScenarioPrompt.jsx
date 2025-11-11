@@ -189,7 +189,6 @@ navigate("/editor", {
       <NavigationBar />
       <div className="scenario-prompt-container">
         <div className="header">
-          <SharedHeader profileImage={profileImage} userName="Prof Andy" userRole="Administrator" />
         </div>
 
         <div className="scenario-prompt-content">
