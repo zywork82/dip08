@@ -437,6 +437,7 @@ const ReportInterface = () => {
        
       </div>
     </div>
+    </div>
   );
 };
 
