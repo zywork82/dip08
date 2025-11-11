@@ -30,20 +30,19 @@ const LoginPage = () => {
 
     const { access_token, user } = response.data;
 
-    // ✅ Store user info properly
     const userData = {
-      name: user.username,
+      username: user.username,
       email: user.email,
       role: user.role,
-      profileImage:
-        user.profileImage ||
-        "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg",
-    };
-
+      user_id: user.id, // ✅ this matches backend analytics
+      imageUrl:
+      user.profileImage ||
+    "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg",
+};
     localStorage.setItem("token", access_token);
     localStorage.setItem("user", JSON.stringify(userData));
     localStorage.setItem("userRole", user.role);
-
+    
     toast.success(`Welcome ${user.username}!`);
 
     // ✅ Navigate based on role
