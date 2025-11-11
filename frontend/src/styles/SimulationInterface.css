@@ -135,11 +135,16 @@ margin-bottom: 80px;
   display: flex;
   flex-direction: row;
   width: 400px;
-  height: auto;
+  height:auto;
 font-size: 1rem;
   line-height: normal;
   padding: 16px;
 }
+
+.action-buttons{
+  height:fit-content;
+}
+
 .options-grid {
   display: grid;
   gap: 120px;
