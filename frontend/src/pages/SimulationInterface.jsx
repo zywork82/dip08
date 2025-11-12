@@ -464,12 +464,14 @@ const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
       overflowY: "auto",
       transition: "all 0.3s ease",
       zIndex: 9999,
+      display:"flex",
+      justifyContent:"center",
+      alignItems:"center"
     }}
   >
     <div
       style={{
         display: "flex",
-        justifyContent: "space-between",
         alignItems: "center",
         marginBottom: "0.5rem",
       }}
@@ -513,12 +515,17 @@ const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
     if (!scenarioId) return alert("⚠️ No scenario ID found.");
     const confirmed = window.confirm("Are you sure you want to publish this scenario?");
     if (!confirmed) return;
+    
+    await fetch("http://127.0.0.1:5000/scenarios/saveFlow", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(flowData),
+});
+await updateScenarioStatus(scenarioId, "published");
 
-    const ok = await updateScenarioStatus(scenarioId, "published");
-    if (ok) {
       alert("✅ Scenario published successfully!");
       navigate("/admin"); // or wherever your admin home is
-    }
+    
   }}
 >
   🚀 Publish Scenario

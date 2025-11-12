@@ -1,4 +1,4 @@
-import os, json, textwrap, time, re, random, base64, concurrent.futures
+import os, json, textwrap, time, re, random, base64, concurrent.futures, time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from io import BytesIO
@@ -586,12 +586,10 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
         return f"{hub_id}_{letter}" if USE_UNDERSCORE else f"{hub_id}{letter}"
 
     def hub_bucket(hub_id: str) -> int:
-        # Safely extract numeric part
         num_part = "".join(ch for ch in str(hub_id) if ch.isdigit())
         return int(num_part) // 100 if num_part else 0
 
     def next_hub_id(hub_id: str, idx: int) -> str:
-        # example: 101 → 201, 201 → 301, etc.
         return f"{hub_bucket(hub_id)+1}0{idx+1}"
 
     def get_text(n):
@@ -600,10 +598,66 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
     def get_narr(n):
         return _as_str(n.get("narrative", "")).strip()
 
-    def merge_fields(a, b):
-        if a and b:
-            return f"{a}\n\n{b}"
-        return a or b
+    def make_question(base_text: str) -> str:
+        """
+        Convert a narrative sentence into a reflective question for scenario nodes.
+        """
+        if not base_text:
+            return "What will you do next?"
+        base_text = base_text.strip().rstrip(".!?")
+
+        # Simple heuristics
+        lower = base_text.lower()
+        if lower.startswith(("you ", "the team", "leadership", "staff")):
+            return f"How will you respond now that {base_text[0].lower() + base_text[1:]}?"
+        elif "situation" in lower:
+            return f"What should be your next move, given that {base_text}?"
+        elif len(base_text.split()) < 6:
+            return f"What happens next regarding {base_text.lower()}?"
+        else:
+            return f"How should you handle the fact that {base_text.lower()}?"
+
+    def root_intro_from_node(n):
+        """
+        For the very first node (101), show a clean introduction, not a question.
+        Strips 'Introduction:' and the first line label.
+        """
+        raw = get_text(n) or get_narr(n)
+        if not raw:
+            return "You are about to enter a scenario."
+
+        # Remove leading 'Introduction:' if present
+        tmp = raw.lstrip()
+        lower = tmp.lower()
+        if lower.startswith("introduction:"):
+            tmp = tmp[len("Introduction:"):].lstrip()
+
+        # If there is a newline, drop the first line (label) and keep the body
+        if "\n" in tmp:
+            _, rest = tmp.split("\n", 1)
+            tmp = rest.strip() or tmp.strip()
+
+        return tmp or raw
+
+    def merged_desc(n, node_type: str, is_root: bool = False):
+        """
+        - Root scenario: plain intro paragraph.
+        - Other scenarios: reflective question.
+        - Options: action text only.
+        """
+        t = get_text(n)
+        r = get_narr(n)
+
+        if node_type == "scenario":
+            if is_root:
+                return root_intro_from_node(n)
+            question = make_question(r or t)
+            return question
+
+        if node_type == "option":
+            return t or "Choose an action."
+
+        return r or t or "Outcome."
 
     def clean_psych(val):
         v = _as_str(val).strip().strip("[]\"' ")
@@ -618,17 +672,16 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
         origin_node = by_id.get(hub_origin_id, {})
         child_ids = children.get(hub_origin_id, [])[:3]
         if not child_ids:
-            # fallback, but normally skeleton already defines children
             child_ids = [f"{hub_origin_id}_child_{i}" for i in range(3)]
         option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(child_ids))]
 
         # --- SCENARIO node ---
-        merged_text = merge_fields(get_text(origin_node), get_narr(origin_node)) or "Choose your next step."
+        is_root = (hub_id == ROOT_HUB_ID and hub_origin_id == "scenario")
         result[hub_id] = {
             "id": hub_id,
             "type": "scenario",
             "position": "",
-            "data_description": merged_text,
+            "data_description": merged_desc(origin_node, "scenario", is_root=is_root),
             "options": option_ids,
             "psych_dimensions": clean_psych(aspect_map.get(hub_origin_id, "")),
         }
@@ -638,8 +691,6 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
             opt_id = fmt_opt_id(hub_id, letters[i])
             child_node = by_id.get(child_orig_id, {})
             grandkids = children.get(child_orig_id, [])
-
-            # check if this path can continue deeper
             non_ending_grandkids = [g for g in grandkids if by_id.get(g, {}).get("type") != "ending"]
 
             if not non_ending_grandkids:
@@ -648,18 +699,15 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
                 next_target = next_hub_id(hub_id, i)
                 build(next_target, child_orig_id)
 
-            merged_child_text = merge_fields(get_text(child_node), get_narr(child_node))
-            if not merged_child_text:
-                merged_child_text = (
-                    "Your decision guides the next phase." if non_ending_grandkids
-                    else "This choice concludes the scenario."
-                )
+            desc = merged_desc(child_node, "option")
+            if not desc:
+                desc = "Your decision guides the next phase." if non_ending_grandkids else "This choice concludes the scenario."
 
             result[opt_id] = {
                 "id": opt_id,
                 "type": "option",
                 "position": "",
-                "data_description": merged_child_text,
+                "data_description": desc,
                 "options": [],
                 "next": next_target,
                 "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
@@ -693,11 +741,7 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
             desc = _as_str(custom.get("description", fallback_desc)).strip() or fallback_desc
         else:
             title, desc = fallback_title, fallback_desc
-
-        merged_ending_map[eid] = {
-            "title": title,
-            "description": desc,
-        }
+        merged_ending_map[eid] = {"title": title, "description": desc}
 
     # Create ending nodes
     for e in ENDING_IDS:
@@ -706,27 +750,18 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
             "id": e,
             "type": "ending",
             "position": "",
-            "data_description": f"{em['title']}\n\n{em['description']}",
+            "data_description": em["description"],   # full outcome sentence
+            "data_explanation": em["title"],         # short label
             "options": [],
             "psych_dimensions": clean_psych(aspect_map.get(e, "")),
         }
 
-    # Safety: any option without targets goes to an ending
+    # Safety net: ensure every option leads somewhere
     for node in list(result.values()):
-        if node["type"] == "option":
-            next_id = node.get("next", "")
-            has_targets = bool(node.get("options")) and any(
-                o in result for o in node.get("options", [])
-            )
-            if not next_id and not has_targets:
-                fallback = pick_ending_id()
-                node["next"] = fallback
-                print(f"[auto-fix] Option {node['id']} had no next; linking to {fallback}")
+        if node["type"] == "option" and not node.get("next"):
+            node["next"] = pick_ending_id()
 
     return result
-
-
-
 
 
 # =========================
@@ -734,90 +769,104 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
 # =========================
 def _fallback_png_real_bytes() -> bytes:
     """
-    Make a valid transparent 1x1 PNG so we always return *some* image.
+    Fallback: generate a visible placeholder PNG (not 1x1).
+    This makes it obvious when Gemini didn't return a real image.
     """
-    img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    img = Image.new("RGB", (512, 320), (30, 30, 30))  # dark gray card
     buff = BytesIO()
     img.save(buff, format="PNG")
     return buff.getvalue()
 
 def _extract_first_image_bytes_from_gemini_response(response) -> Optional[bytes]:
     """
-    Extract the first inline image payload from Gemini response.
+    Extract the first inline image payload from a Gemini response.
+    Works for typical google-generativeai response structures.
     """
-    if not hasattr(response, "candidates") or not response.candidates:
+    try:
+        candidates = getattr(response, "candidates", []) or []
+        for cand in candidates:
+            content = getattr(cand, "content", None)
+            parts = getattr(content, "parts", None) if content else None
+            if not parts:
+                continue
+            for part in parts:
+                inline = getattr(part, "inline_data", None)
+                if not inline:
+                    continue
+                data = getattr(inline, "data", None)
+                if isinstance(data, str):
+                    # base64 string from Gemini
+                    return base64.b64decode(data)
+                if isinstance(data, (bytes, bytearray)):
+                    return bytes(data)
+        return None
+    except Exception as e:
+        print(f"[extract] ERROR parsing Gemini response: {e}")
         return None
 
-    cand = response.candidates[0]
-    if not hasattr(cand, "content") or not hasattr(cand.content, "parts"):
-        return None
-
-    for p in cand.content.parts:
-        if hasattr(p, "inline_data") and p.inline_data:
-            blob = p.inline_data.data
-            if isinstance(blob, str):
-                try:
-                    return base64.b64decode(blob)
-                except Exception:
-                    return None
-            elif isinstance(blob, bytes):
-                return blob
-    return None
-
-def _generate_single_image_file(prompt: str, file_path: Path) -> bool:
+def _generate_single_image_file(prompt: str, file_path: Path, max_retries: int = 4, delay: float = 2.0) -> bool:
     """
     Generate a PNG with Gemini for `prompt` and save to file_path.
+    Retries up to `max_retries` times only for that specific node.
+
+    Returns:
+        True  -> real image successfully generated
+        False -> fallback placeholder used
     """
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
     if not GEMINI_API_KEY:
         png_bytes = _fallback_png_real_bytes()
-        file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "wb") as f:
             f.write(png_bytes)
-        print(f"[image-gen] Saved fallback (no Gemini API key) {file_path}")
+        print(f"[image-gen] ❌ No GEMINI_API_KEY set, using fallback for {file_path.name}")
         return False
 
-    try:
-        def task():
+    # 🔑 Force a consistent, non-animated style for ALL nodes
+    style_prefix = (
+        "Cinematic, photorealistic photo, realistic lighting, high detail, "
+        "professional corporate / hospital environment, no text, not illustration, "
+        "not cartoon, not flat art. Scene description: "
+    )
+    styled_prompt = style_prefix + prompt
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"[image-gen] 🔁 Attempt {attempt}/{max_retries} for {file_path.name}")
+
             model = genai.GenerativeModel(GEMINI_IMAGE_MODEL)
-            return model.generate_content(prompt)
+            # Back to your original working call style
+            response = model.generate_content(styled_prompt)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(task)
-            response = future.result(timeout=15)  # ⏳ timeout after 15s
-        model = genai.GenerativeModel(GEMINI_IMAGE_MODEL)
-        response = model.generate_content(prompt)
+            raw_bytes = _extract_first_image_bytes_from_gemini_response(response)
+            if not raw_bytes:
+                raise RuntimeError("No inline image returned from Gemini")
 
-        raw_bytes = _extract_first_image_bytes_from_gemini_response(response)
-        if raw_bytes is None:
-            png_bytes = _fallback_png_real_bytes()
-            file_path.parent.mkdir(parents=True, exist_ok=True)
+            img = Image.open(BytesIO(raw_bytes))
+            img.load()
+
+            buff = BytesIO()
+            img.save(buff, format="PNG")
+            png_bytes = buff.getvalue()
+
             with open(file_path, "wb") as f:
                 f.write(png_bytes)
-            print(f"[image-gen] Saved fallback (no inline image) {file_path}")
-            return False
 
-        img = Image.open(BytesIO(raw_bytes))
-        img.load()
-        buff = BytesIO()
-        img.save(buff, format="PNG")
-        png_bytes = buff.getvalue()
+            print(f"[image-gen] ✅ Success after {attempt} tries for {file_path.name}")
+            return True
 
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(file_path, "wb") as f:
-            f.write(png_bytes)
+        except Exception as e:
+            print(f"[image-gen] ⚠️ Attempt {attempt} failed for {file_path.name}: {e}")
+            if attempt < max_retries:
+                time.sleep(delay)
 
-        print(f"[image-gen] Saved {file_path}")
-        return True
-    
+    # All retries failed → fallback
+    print(f"[image-gen] ❌ All {max_retries} attempts failed for {file_path.name}. Using fallback.")
+    png_bytes = _fallback_png_real_bytes()
+    with open(file_path, "wb") as f:
+        f.write(png_bytes)
+    return False
 
-    except Exception as e:
-        print(f"[image-gen] Error generating image: {e}")
-        png_bytes = _fallback_png_real_bytes()
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(file_path, "wb") as f:
-            f.write(png_bytes)
-        print(f"[image-gen] Saved fallback {file_path}")
-        return False
 
 def _file_to_b64(path: Path) -> str:
     with open(path, "rb") as f:
@@ -971,102 +1020,66 @@ def generate():
 @app.post("/generate_images")
 def generate_images_route():
     """
-    Generate multiple images in parallel using threads.
-    Body:
-    {
-      "tmp": true,
-      "nodes": [
-        { "id": "101", "data_description": "..." },
-        ...
-      ]
-    }
+    Generate images ONLY for nodes where type == 'scenario' or 'ending'.
+    Skip all other types completely — no Gemini call, no PNG, no entry in output.
     """
     body = request.get_json(silent=True) or {}
     keep_tmp_files = bool(body.get("tmp", False))
-    # nodes = body.get("nodes", [])
-    # if not nodes:
-    #     return jsonify({"error": "No nodes provided"}), 400
-    nodes = [
-    n for n in (body.get("nodes") or [])
-    if (n.get("type") or n.get("data", {}).get("type")) in {"scenario", "ending"}
-]
-
+    nodes = body.get("nodes", [])
     if not nodes:
-        return jsonify({"error": "No scenario nodes provided"}), 400
+        return jsonify({"error": "No nodes provided"}), 400
 
     TMP_DIR.mkdir(parents=True, exist_ok=True)
 
+    allowed_types = {"scenario", "ending"}  # ✅ only these types generate images
+
+    # Clean out existing tmp directory before generating
+    for f in TMP_DIR.glob("*.png"):
+        try:
+            f.unlink()
+        except Exception:
+            pass
+
     def gen_one(node):
         nid = _as_str(node.get("id", "")).strip()
+        node_type = _as_str(node.get("type", "")).lower().strip()
         desc = _as_str(node.get("data_description", "")).strip()
-        if not nid or not desc:
+
+        # 🚫 Hard skip anything not in allowed types
+        if node_type not in allowed_types:
+            print(f"[image-gen] ❌ Skipping {nid} (type={node_type}) — no file will be generated.")
             return None
+
+        if not nid or not desc:
+            print(f"[image-gen] ❌ Skipping node with missing id/description: {node}")
+            return None
+
         try:
             out_path = TMP_DIR / f"{nid}.png"
             _generate_single_image_file(desc, out_path)
             img_b64 = _file_to_b64(out_path)
+
             if not keep_tmp_files:
                 out_path.unlink(missing_ok=True)
-            print(f"[image-gen] ✅ done {nid}")
-            return {"id": nid, "data_description": desc, "image_b64": img_b64}
+
+            print(f"[image-gen] ✅ Generated image for {nid} ({node_type})")
+            return {
+                "id": nid,
+                "type": node_type,
+                "data_description": desc,
+                "image_b64": img_b64,
+            }
+
         except Exception as e:
-            print(f"[image-gen] ❌ failed {nid}: {e}")
-            return {"id": nid, "error": str(e), "image_b64": ""}
+            print(f"[image-gen] ⚠️ Error generating image for {nid}: {e}")
+            return None
 
-    # ✅ Run Gemini image generations in parallel threads (limit = 3)
     with ThreadPoolExecutor(max_workers=3) as executor:
-        results = list(executor.map(gen_one, nodes))
+        results = list(filter(None, executor.map(gen_one, nodes)))
 
-    return jsonify({"images": [r for r in results if r]})
-# @app.post("/generate_images")
-# def generate_images_route():
-#     """
-#     Body:
-#     {
-#       "tmp": true,
-#       "nodes": [
-#         { "id": "101", "data_description": "..." },
-#         ...
-#       ]
-#     }
-#     """
-#     body = request.get_json(silent=True) or {}
-#     keep_tmp_files = bool(body.get("tmp", False))
-#     nodes = body.get("nodes", [])
+    print(f"[image-gen] ✅ Done. Generated {len(results)} valid images.")
+    return jsonify({"images": results})
 
-#     if not nodes:
-#         return jsonify({"error": "No nodes provided"}), 400
-
-#     results = []
-
-#     for node in nodes:
-#         nid = _as_str(node.get("id", "")).strip()
-#         desc = _as_str(node.get("data_description", "")).strip()
-#         if not nid or not desc:
-#             continue
-
-#         print(f"[image-gen] generating for {nid}")
-
-#         TMP_DIR.mkdir(parents=True, exist_ok=True)
-#         out_path = TMP_DIR / f"{nid}.png"
-#         _generate_single_image_file(desc, out_path)
-
-#         img_b64 = _file_to_b64(out_path)
-
-#         if not keep_tmp_files:
-#             try:
-#                 out_path.unlink()
-#                 print(f"[image-gen] Deleted {out_path} after encoding (tmp=false)")
-#             except Exception as e:
-#                 print(f"[image-gen] WARN could not delete {out_path}: {e}")
-
-#         results.append({
-#             "id": nid,
-#             "data_description": desc,
-#             "image_b64": img_b64
-#         })
-
-#     return jsonify({"images": results})
 
 @app.delete("/tmp")
 def clear_tmp():

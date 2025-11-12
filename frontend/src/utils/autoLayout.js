@@ -1,6 +1,6 @@
 import dagre from "dagre";
 
-const nodeWidth = 240;
+const nodeWidth = 300;
 const nodeHeight = 160;
 
 const dagreGraph = new dagre.graphlib.Graph();
@@ -13,7 +13,7 @@ export function getLayoutedNodes(nodes, edges) {
     nodesep: 600, // horizontal gap between columns
     ranker: "tight-tree", // 👈 preserves column-per-branch
     marginx: 60,
-    marginy: 40,
+    marginy: 70,
   });
 
   // build dagre graph
@@ -32,7 +32,7 @@ export function getLayoutedNodes(nodes, edges) {
       ...n,
       position: {
         x: pos.x - nodeWidth / 2,
-        y: pos.y - nodeHeight / 2,
+        y: pos.y - nodeHeight / 3,
       },
     };
   });
@@ -69,7 +69,7 @@ function applyChildGrouping(nodes, edges) {
       .filter(Boolean);
     if (!parent || children.length < 2) return;
 
-    const spacing = 260;
+    const spacing = 300;
     const centerX = parent.position.x;
     const totalWidth = (children.length - 1) * spacing;
     const startX = centerX - totalWidth / 2;
