@@ -21,6 +21,8 @@ import StudentSettings from "./pages/StudentSetting.jsx";
 import { Navigate } from "react-router-dom";
 import SimulationInterface from "./pages/SimulationInterface";
 
+
+
 // --- Data ---
 // Renamed 'sampleNodes' to 'nodes' for clarity and to match your data file
 import { sampleNodes as sampleNodes } from './data/sampleAiFlow';
@@ -194,64 +196,64 @@ function App() {
     });
   };
   
-  if (localStorage.getItem('userRole') !== null) {
-    if (localStorage.getItem('userRole') === 'admin')
-    {
-      return (
-        <HashRouter>
-        {/* Draggable Nav Bar */}
-        <nav ref={navRef} className="test-nav-bar" onMouseDown={handleMouseDown} style={{ left: position.x, top: position.y }}>
-          <div className="nav-handle">Drag to move</div>
-          <ul>
-              {/* Your Links */}
-              <li><Link to="/admin">Admin Dashboard</Link></li>
-              <li><Link to="/editor">Editor</Link></li>
-              <li><Link to="/scenario">Scenario</Link></li>
-              <li><Link to="/scene-editor">SceneEditor</Link></li>
-              {/* <li><Link to="/scenarioInterface">Scenario Interface</Link></li> */}
-              <li><Link to="/simulation">Simulation</Link></li>
-          </ul>
-        </nav>
+  // if (localStorage.getItem('userRole') !== null) {
+  //   if (localStorage.getItem('userRole') === 'admin')
+  //   {
+  //     return (
+  //       <HashRouter>
+  //       {/* Draggable Nav Bar */}
+  //       <nav ref={navRef} className="test-nav-bar" onMouseDown={handleMouseDown} style={{ left: position.x, top: position.y }}>
+  //         <div className="nav-handle">Drag to move</div>
+  //         <ul>
+  //             {/* Your Links */}
+  //             <li><Link to="/admin">Admin Dashboard</Link></li>
+  //             <li><Link to="/editor">Editor</Link></li>
+  //             <li><Link to="/scenario">Scenario</Link></li>
+  //             <li><Link to="/scene-editor">SceneEditor</Link></li>
+  //             {/* <li><Link to="/scenarioInterface">Scenario Interface</Link></li> */}
+  //             <li><Link to="/simulation">Simulation</Link></li>
+  //         </ul>
+  //       </nav>
 
-        {/* Main content */}
-        <div className="main-content-wrapper">
+  //       {/* Main content */}
+  //       <div className="main-content-wrapper">
 
-          <AppContent />
-        </div>
-      </HashRouter>
-      );
-    }
+  //         <AppContent />
+  //       </div>
+  //     </HashRouter>
+  //     );
+  //   }
 
-    else {
-      return (
-        <HashRouter>
+  //   // else {
+  //     return (
+  //       <HashRouter>
           
 
-          {/* Main content */}
-          <div className="main-content-wrapper">
+  //         {/* Main content */}
+  //         <div className="main-content-wrapper">
 
-            <AppContent />
-          </div>
-        </HashRouter>
+  //           <AppContent />
+  //         </div>
+  //       </HashRouter>
       
-      );
-    }
+  //     );
+  //   }
     
-  }
+  // }
+ //Draggable Nav Bar
+  //    <nav ref={navRef} className="test-nav-bar" onMouseDown={handleMouseDown} style={{ left: position.x, top: position.y }}>
+    //    <div className="nav-handle">Drag to move</div>
+    //    <ul>
+     //       {/* Your Links */}
+     //       <li><Link to="/">Login</Link></li>
+      //      <li><Link to="/signup">Signup</Link></li>
+     //   </ul>
+     // </nav>
 
-  else {
+  // else {
     return (
     <HashRouter>
-      {/* Draggable Nav Bar */}
-      <nav ref={navRef} className="test-nav-bar" onMouseDown={handleMouseDown} style={{ left: position.x, top: position.y }}>
-        <div className="nav-handle">Drag to move</div>
-        <ul>
-            {/* Your Links */}
-            <li><Link to="/">Login</Link></li>
-            <li><Link to="/signup">Signup</Link></li>
-        </ul>
-      </nav>
-
+     
       {/* Main content */}
       <div className="main-content-wrapper">
 
@@ -261,6 +263,6 @@ function App() {
     
     );
   }
-}
+// }
 
 export default App;

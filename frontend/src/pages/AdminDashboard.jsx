@@ -13,14 +13,13 @@ import axios from 'axios';
 const profileImage = 'https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg';
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('All');
-  const [statsTab, setStatsTab] = useState('Projects');
-  const [timeRange, setTimeRange] = useState('This year');
+  // const [activeTab, setActiveTab] = useState('All');
+  // const [statsTab, setStatsTab] = useState('Projects');
+  // const [timeRange, setTimeRange] = useState('This year');
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [caseStudies, setCaseStudies] = useState([]);
   const navigate = useNavigate();
-
   const [loadingCaseStudies, setLoadingCaseStudies] = useState(true);
   const [caseStudiesError, setCaseStudiesError] = useState(null);
 

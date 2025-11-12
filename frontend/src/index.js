@@ -3,6 +3,15 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+// ✅ Add this before rendering
+const resizeObserverErr = /ResizeObserver loop completed/;
+const resizeObserverLimit = /ResizeObserver loop limit exceeded/;
+
+window.addEventListener("error", (e) => {
+  if (resizeObserverErr.test(e.message) || resizeObserverLimit.test(e.message)) {
+    e.stopImmediatePropagation();
+  }
+});
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
