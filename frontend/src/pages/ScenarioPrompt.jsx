@@ -107,11 +107,17 @@ const [tierLevel, setTierLevel] = useState(2);
       // Auto-generate title if blank
       const finalTitle = title.trim() ? title : generateSmartTitle(description);
 
-      // Reuse existing empty draft if it exists
-      let existingDraft = JSON.parse(localStorage.getItem("latestDraft") || "null");
-      let scenarioId = existingDraft?._id;
+    // Reuse existing empty draft if it exists — but only if it has a title
+let existingDraft = JSON.parse(localStorage.getItem("latestDraft") || "null");
+if (!existingDraft || !existingDraft.title) {
+  existingDraft = null; // force proper creation if title missing
+}
+let scenarioId = existingDraft?._id;
+
 
       if (!existingDraft || existingDraft.title !== finalTitle) {
+          localStorage.setItem("latestDraft", JSON.stringify(existingDraft));
+
         const createRes = await fetch("http://127.0.0.1:5000/scenarios/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
