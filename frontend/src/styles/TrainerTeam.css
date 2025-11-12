@@ -13,11 +13,6 @@
   flex-direction: column;
   width: calc(100% - 12rem); /* leave space for sidebar */
 }
-.header {
-  /* Assuming your SharedHeader has its own styling */
-  /* If you need specific padding/margin around the header, add it here */
-  margin-bottom: 20px; /* Space between header and page content */
-}
 
 .main-content-body {
   flex-grow: 1; /* Allows the body to take available space */

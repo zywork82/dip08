@@ -287,7 +287,9 @@ html, body {
   background-color: var(--secondary-bg);
   border-radius: 12px;
   box-shadow: var(--shadow);
+  scrollbar-shadow-color: #314494;
   overflow: hidden;
+  height: 370px;
 }
 
 .case-study-card img {
@@ -350,8 +352,8 @@ html, body {
 
 .activity-container {
   display: flex;
-  align-items: flex-start;
-  gap: 24px;
+  align-items: space-between;
+  gap: 30px;
 }
 
 .scenario-scroll-wrapper {
@@ -389,7 +391,7 @@ html, body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 0px; 
+  gap: 40px; 
 }
 
 .activity-button {
