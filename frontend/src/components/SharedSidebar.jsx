@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 const SharedSidebar = () => {
   const location = useLocation();
    const navigate = useNavigate(); 
+   const user = JSON.parse(localStorage.getItem("user"));
 
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: <FaHome /> },
@@ -39,10 +40,12 @@ const SharedSidebar = () => {
         ))}
        </nav>
       <div className="profile-section">
-        <div className="profile-info">
-          <span className="profile-name">Andy</span>
-          <span className="profile-role">Administrator</span>
-        </div>
+      <div className="profile-info">
+        <span className="profile-name">{user?.username || "User"}</span>
+        <span className="profile-role">{user?.role || "Role"}</span>
+      </div>
+    </div>
+
         <button
           className="logout-button"
           onClick={() => {
@@ -55,7 +58,6 @@ const SharedSidebar = () => {
           <FaSignOutAlt />
         </button>
       </div>
-      </div> 
     </aside>
   );
 };

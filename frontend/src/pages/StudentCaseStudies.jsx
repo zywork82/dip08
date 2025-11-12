@@ -59,7 +59,7 @@ useEffect(() => {
 
   const filteredCaseStudies = caseStudiesData.filter((cs) => {
     if (activeTab === 'All') return true;
-    if (activeTab === 'Published') return cs.status === 'Published';
+    if (activeTab === '[published') return cs.status === 'published';
     if (activeTab === 'In-Progress') return cs.status === 'In-Progress' || cs.status === 'Edit';
     return false;
   });
@@ -68,13 +68,13 @@ useEffect(() => {
   // Step 1: filter based on tab
   const filteredCaseStudies = caseStudiesData.filter((cs) => {
     if (activeTab === 'All') {
-      return cs.status === 'Published' || cs.status === 'Completed';
+      return cs.status === 'published' || cs.status === 'Completed';
     }
-    if (activeTab === 'Completed') {
+    if (activeTab === 'completed') {
       return cs.status === 'Completed';
     }
     if (activeTab === 'To Complete') {
-      return cs.status === 'Published'; // show published but not yet completed
+      return cs.status === 'published'; // show published but not yet completed
     }
     return false;
   });

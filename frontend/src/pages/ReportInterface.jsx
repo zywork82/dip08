@@ -360,7 +360,7 @@ const ReportInterface = () => {
     const totalScore = radarScores.reduce((a, b) => a + b, 0) / radarScores.length;
 
     await saveReportToDB({
-      user_id: "test_user", // 🔁 replace with real user ID if you have login/auth
+      user_id: "Helen Wong", // 🔁 replace with real user ID if you have login/auth
       scenario_id: scenarioId || "unknown_scenario",
       score: totalScore.toFixed(2),
       choices: data.map((entry) => ({
