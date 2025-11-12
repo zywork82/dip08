@@ -63,6 +63,20 @@ def get_user_analytics(user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@analytics_bp.route("/api/analytics", methods=["GET"])
+def get_all_analytics():
+    try:
+        records = list(db.analytics.find({}))
+        for r in records:
+            r["_id"] = str(r["_id"])
+            if isinstance(r.get("scenario_id"), ObjectId):
+                r["scenario_id"] = str(r["scenario_id"])
+            if isinstance(r.get("user_id"), ObjectId):
+                r["user_id"] = str(r["user_id"])
+        return jsonify(records), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # -----------------------------
 # Optional: Delete a user's analytics (for cleanup/testing)
