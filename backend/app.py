@@ -566,12 +566,36 @@ def apply_content(model, content_map):
 def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
     """
     Flattens hierarchical AI skeleton into a clean branching structure:
-    SCENARIO (101) -> OPTION (101A/B/C) -> SCENARIO (201/202/203) -> ...
+      SCENARIO (101) -> OPTION (101A/B/C) -> SCENARIO (201/202/203) -> ... -> ENDING (E1/E2/E3)
+
+    Behavior:
+      - Root scenario (101): shows a clean intro paragraph (no question).
+      - Other scenarios: show a short description derived from the *previous option*,
+        then a reflective question on the next line.
+      - Options: action-only text.
+      - Endings: use story-specific overrides if provided, else defaults.
     """
     nodes = model["nodes"]
     edges = model["edges"]
+
+    # --- Graph maps ---
+    def _build_maps(nodes, edges):
+        by_id = {n["id"]: n for n in nodes}
+        children: Dict[str, List[str]] = {}
+        parents: Dict[str, List[str]] = {}
+        for e in edges:
+            a, b = e.get("from"), e.get("to")
+            if not a or not b:
+                continue
+            children.setdefault(a, []).append(b)
+            parents.setdefault(b, []).append(a)
+        for k in children:
+            children[k] = sorted(children[k])
+        return by_id, children, parents
+
     by_id, children, parents = _build_maps(nodes, edges)
 
+    # --- Helpers ---
     letters = ["A", "B", "C"]
     ENDING_IDS = ["E1", "E2", "E3"]
     ending_cycle_index = 0
@@ -592,58 +616,46 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
     def next_hub_id(hub_id: str, idx: int) -> str:
         return f"{hub_bucket(hub_id)+1}0{idx+1}"
 
-    def get_text(n):
-        return _as_str(n.get("text", "")).strip()
+    def _s(x): return _as_str(x).strip()
 
-    def get_narr(n):
-        return _as_str(n.get("narrative", "")).strip()
+    def get_text(n): return _s((n or {}).get("text", ""))
+    def get_narr(n): return _s((n or {}).get("narrative", ""))
 
     def make_question(base_text: str) -> str:
-        """
-        Convert a narrative sentence into a reflective question for scenario nodes.
-        """
+        """Turn a sentence into a short reflective question."""
         if not base_text:
             return "What will you do next?"
-        base_text = base_text.strip().rstrip(".!?")
-
-        # Simple heuristics
-        lower = base_text.lower()
+        base = base_text.strip().rstrip(".!?")
+        lower = base.lower()
         if lower.startswith(("you ", "the team", "leadership", "staff")):
-            return f"How will you respond now that {base_text[0].lower() + base_text[1:]}?"
-        elif "situation" in lower:
-            return f"What should be your next move, given that {base_text}?"
-        elif len(base_text.split()) < 6:
-            return f"What happens next regarding {base_text.lower()}?"
-        else:
-            return f"How should you handle the fact that {base_text.lower()}?"
+            return f"How will you respond now that {base[0].lower() + base[1:]}?"
+        if "situation" in lower:
+            return f"What should be your next move, given that {base}?"
+        if len(base.split()) < 6:
+            return f"What happens next regarding {base.lower()}?"
+        return f"How should you handle the fact that {base.lower()}?"
 
     def root_intro_from_node(n):
-        """
-        For the very first node (101), show a clean introduction, not a question.
-        Strips 'Introduction:' and the first line label.
-        """
+        """For 101: show only a clean intro (no question)."""
         raw = get_text(n) or get_narr(n)
         if not raw:
             return "You are about to enter a scenario."
-
-        # Remove leading 'Introduction:' if present
         tmp = raw.lstrip()
-        lower = tmp.lower()
-        if lower.startswith("introduction:"):
+        if tmp.lower().startswith("introduction:"):
             tmp = tmp[len("Introduction:"):].lstrip()
-
-        # If there is a newline, drop the first line (label) and keep the body
         if "\n" in tmp:
             _, rest = tmp.split("\n", 1)
             tmp = rest.strip() or tmp.strip()
-
         return tmp or raw
 
-    def merged_desc(n, node_type: str, is_root: bool = False):
+    def clean_psych(val):
+        return _s(val).strip("[]\"' ")
+
+    def merged_desc(n, node_type: str, is_root: bool = False, prev_opt: Optional[Dict[str, Any]] = None):
         """
-        - Root scenario: plain intro paragraph.
-        - Other scenarios: reflective question.
-        - Options: action text only.
+        - Root scenario: intro paragraph.
+        - Other scenarios: description from previous *option* + reflective question.
+        - Options: action-only text.
         """
         t = get_text(n)
         r = get_narr(n)
@@ -651,42 +663,58 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
         if node_type == "scenario":
             if is_root:
                 return root_intro_from_node(n)
-            question = make_question(r or t)
-            return question
+
+            # Prefer description from the *previous option* that led here
+            prev_t = get_text(prev_opt)
+            prev_r = get_narr(prev_opt)
+            description = (prev_r or prev_t or r or t or "The situation evolves further.").strip()
+
+            # Seed the question from current scenario; if missing, fall back to previous option phrasing
+            question_seed = (r or t or prev_r or prev_t)
+            question = make_question(question_seed)
+
+            return f"{description}\n\n{question}"
 
         if node_type == "option":
             return t or "Choose an action."
 
+        # endings, fallback
         return r or t or "Outcome."
-
-    def clean_psych(val):
-        v = _as_str(val).strip().strip("[]\"' ")
-        return v
 
     result: Dict[str, Any] = {}
 
     ROOT_ORIG = "scenario" if "scenario" in by_id else nodes[0]["id"]
     ROOT_HUB_ID = "101"
 
+    # --- Recursive builder ---
     def build(hub_id: str, hub_origin_id: str):
         origin_node = by_id.get(hub_origin_id, {})
         child_ids = children.get(hub_origin_id, [])[:3]
         if not child_ids:
+            # safety: synthesize 3 children if none (keeps shape stable)
             child_ids = [f"{hub_origin_id}_child_{i}" for i in range(3)]
         option_ids = [fmt_opt_id(hub_id, letters[i]) for i in range(len(child_ids))]
 
-        # --- SCENARIO node ---
+        # Identify the *option* that led to this scenario (if any)
+        prev_opt_node = None
+        if hub_origin_id != "scenario":
+            for pid in parents.get(hub_origin_id, []):
+                if by_id.get(pid, {}).get("type") == "option":
+                    prev_opt_node = by_id.get(pid)
+                    break
+
+        # --- SCENARIO hub node ---
         is_root = (hub_id == ROOT_HUB_ID and hub_origin_id == "scenario")
         result[hub_id] = {
             "id": hub_id,
             "type": "scenario",
             "position": "",
-            "data_description": merged_desc(origin_node, "scenario", is_root=is_root),
+            "data_description": merged_desc(origin_node, "scenario", is_root=is_root, prev_opt=prev_opt_node),
             "options": option_ids,
             "psych_dimensions": clean_psych(aspect_map.get(hub_origin_id, "")),
         }
 
-        # --- OPTION nodes ---
+        # --- OPTION nodes under this hub ---
         for i, child_orig_id in enumerate(child_ids):
             opt_id = fmt_opt_id(hub_id, letters[i])
             child_node = by_id.get(child_orig_id, {})
@@ -713,45 +741,34 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
                 "psych_dimensions": clean_psych(aspect_map.get(child_orig_id, "")),
             }
 
-    # --- Build from root ---
+    # Build from root
     build(ROOT_HUB_ID, ROOT_ORIG)
 
-    # --- Default endings (generic) ---
+    # --- Endings (defaults + optional overrides) ---
     default_ending_map = {
-        "E1": (
-            "✅ Successful Resolution",
-            "The crisis is fully resolved, and relationships or goals are restored."
-        ),
-        "E2": (
-            "⚖️ Partial Recovery",
-            "Some improvement achieved, but challenges or reputational impacts remain."
-        ),
-        "E3": (
-            "⚠️ Escalation",
-            "The situation worsens and requires further intervention or external involvement."
-        ),
+        "E1": ("✅ Successful Resolution", "The crisis is fully resolved, and relationships or goals are restored."),
+        "E2": ("⚖️ Partial Recovery",     "Some improvement achieved, but challenges or reputational impacts remain."),
+        "E3": ("⚠️ Escalation",           "The situation worsens and requires further intervention or external involvement."),
     }
 
-    # Merge story-specific overrides with defaults
     merged_ending_map: Dict[str, Dict[str, str]] = {}
     for eid, (fallback_title, fallback_desc) in default_ending_map.items():
         if ending_overrides and eid in ending_overrides:
             custom = ending_overrides[eid] or {}
-            title = _as_str(custom.get("title", fallback_title)).strip() or fallback_title
-            desc = _as_str(custom.get("description", fallback_desc)).strip() or fallback_desc
+            title = _s(custom.get("title", fallback_title)) or fallback_title
+            desc  = _s(custom.get("description", fallback_desc)) or fallback_desc
         else:
             title, desc = fallback_title, fallback_desc
         merged_ending_map[eid] = {"title": title, "description": desc}
 
-    # Create ending nodes
     for e in ENDING_IDS:
         em = merged_ending_map[e]
         result[e] = {
             "id": e,
             "type": "ending",
             "position": "",
-            "data_description": em["description"],   # full outcome sentence
-            "data_explanation": em["title"],         # short label
+            "data_description": em["description"],  # full outcome sentence
+            "data_explanation": em["title"],        # short label
             "options": [],
             "psych_dimensions": clean_psych(aspect_map.get(e, "")),
         }
@@ -761,8 +778,9 @@ def build_flat_with_hubs(model, aspect_map, ending_overrides=None):
         if node["type"] == "option" and not node.get("next"):
             node["next"] = pick_ending_id()
 
+    # Starting node for the frontend
+    result["startNodeId"] = "101"
     return result
-
 
 # =========================
 # IMAGE GENERATION CORE
