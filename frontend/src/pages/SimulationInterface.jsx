@@ -515,21 +515,41 @@ const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
     if (!scenarioId) return alert("⚠️ No scenario ID found.");
     const confirmed = window.confirm("Are you sure you want to publish this scenario?");
     if (!confirmed) return;
-    
-    await fetch("http://127.0.0.1:5000/scenarios/saveFlow", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(flowData),
-});
-await updateScenarioStatus(scenarioId, "published");
+
+    // ✅ Build a complete save payload
+    const savePayload = {
+      scenario_id: scenarioId,
+      title: flowData?.title || localStorage.getItem("lastScenarioTitle") || "Untitled Scenario",
+      nodes: flowData?.nodes || [],
+      edges: flowData?.edges || [],
+      lastEdited: new Date().toISOString(),
+    };
+
+    try {
+      // ✅ Save the latest flow first
+      const res = await fetch("http://127.0.0.1:5000/scenarios/saveFlow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(savePayload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Save failed before publish.");
+
+      // ✅ Then update status to published
+      await updateScenarioStatus(scenarioId, "published");
 
       alert("✅ Scenario published successfully!");
-      navigate("/admin"); // or wherever your admin home is
-    
+      navigate("/admin");
+    } catch (err) {
+      console.error("❌ Publish failed:", err);
+      alert("⚠️ Failed to publish scenario. See console for details.");
+    }
   }}
 >
   🚀 Publish Scenario
 </button>
+
 
         </div>
 
