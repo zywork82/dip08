@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw
 
 
 scenarios_bp = Blueprint("scenarios", __name__, url_prefix="/scenarios")
-TMP_DIR = Path("scenarios/temp_images")
+TMP_DIR = Path("scenarios/temp")
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 
 # def _file_to_b64(path):
@@ -131,13 +131,26 @@ def save_flow():
         else:
             computed_status = "draft"
 
+        # ✅ Try to auto-select a representative image (node "101" or first scenario node)
+        nodes = flow.get("nodes", [])
+        first_image = None
+        for n in nodes:
+            node_id = str(n.get("id"))
+            if node_id == "101" or n.get("type") == "scenario":
+                data = n.get("data", {})
+                img = data.get("imageUrl") or data.get("b64image")
+                if img:
+                    first_image = img
+                    break
+
         scenario_doc = {
             "title": flow.get("title", "Untitled Scenario").strip(),
             "status": computed_status,
-            "image": flow.get("image"),
+            "image": first_image or flow.get("image") or "",  # ✅ sets the cover image
             "lastEdited": now.isoformat(),
             "startNodeId": flow.get("startNodeId"),
         }
+
 
         print(f"🧩 Auto-detected status for '{scenario_doc['title']}': {computed_status}")
 
@@ -257,13 +270,25 @@ def generate_images():
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
-
-# =========================================================
-# ✅ Update a Single Node Image (Generate 3 Variations)
-# =========================================================
 @scenarios_bp.route("/updateImage", methods=["POST"])
 def update_image():
-    from app import _generate_single_image_file, _file_to_b64
+    try:
+        from app import _generate_single_image_file, _file_to_b64
+    except ImportError:
+        print("⚠️ _generate_single_image_file not found — using placeholder mode.")
+        def _generate_single_image_file(prompt, file_path):
+            # fallback placeholder if generator not available
+            from PIL import Image, ImageDraw
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            img = Image.new("RGB", (512, 512), (245, 245, 245))
+            draw = ImageDraw.Draw(img)
+            draw.text((10, 10), prompt[:40], fill=(0, 0, 0))
+            img.save(file_path)
+            return str(file_path)
+        def _file_to_b64(path):
+            with open(path, "rb") as f:
+                return base64.b64encode(f.read()).decode("utf-8")
+
     try:
         data = request.get_json(silent=True) or {}
         print("📩 Incoming updateImage payload:", data)
@@ -280,17 +305,21 @@ def update_image():
 
         generated_images = []
         for i in range(3):
-            # ✅ Use the utils function (auto saves in /temp_images/<scenario_id>)
-            url = _generate_single_image_file(description, scenario_id, f"{node_id}_regen_{i}")
+            file_path = TMP_DIR / scenario_id / f"{node_id}_regen_{i}.png"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            _generate_single_image_file(description, file_path)
+            if file_path.exists():
+                web_path = f"/scenarios/temp/{scenario_id}/{file_path.name}"
+                generated_images.append(web_path)
 
-            # ✅ Build absolute path so we can b64 it for frontend
-            local_path = TMP_DIR / scenario_id / f"{node_id}_regen_{i}.png"
-            img_b64 = _file_to_b64(local_path)
-            generated_images.append(f"data:image/png;base64,{img_b64}")
+        if not generated_images:
+            print(f"⚠️ No images generated for node {node_id}")
+            return jsonify({
+                "success": False,
+                "error": "Backend error during image regeneration: no images generated"
+            }), 500
 
-        print(f"📤 Sending images back to frontend: {len(generated_images)}")
-
-        # ✅ Update database
+        # ✅ Update DB safely
         node_doc = db.scenarioNodes.find_one({"id": node_id})
         if not node_doc:
             return jsonify({"success": False, "error": f"Node {node_id} not found"}), 404
@@ -299,9 +328,9 @@ def update_image():
             node_doc["data"] = {"data_description": node_doc["data"]}
 
         node_doc["data"].update({
-            "b64image": generated_images[0].split(",")[1],
+            "b64image": "",  # optional: no heavy data in DB
             "imageUrl": generated_images[0],
-            "generatedImages": generated_images[-5:],  # keep only last 5
+            "generatedImages": generated_images[-5:],
         })
 
         db.scenarioNodes.update_one(
@@ -326,6 +355,87 @@ def update_image():
             "success": False,
             "error": f"Backend error during image regeneration: {str(e)}"
         }), 500
+
+# # =========================================================
+# # ✅ Update a Single Node Image (Generate 3 Variations)
+# # =========================================================
+# @scenarios_bp.route("/updateImage", methods=["POST"])
+# def update_image():
+   
+#     try: 
+#         from app import _generate_single_image_file
+#         data = request.get_json(silent=True) or {}
+#         print("📩 Incoming updateImage payload:", data)
+
+#         node_id = data.get("nodeId") or data.get("id")
+#         description = data.get("description") or data.get("data_description")
+#         scenario_id = str(data.get("scenario_id") or "global")
+
+#         if not node_id or not description:
+#             return jsonify({
+#                 "success": False,
+#                 "error": "Missing nodeId/id or description/data_description"
+#             }), 400
+
+#         generated_images = []
+#         for i in range(3):
+#             # ✅ Use the utils function (auto saves in /temp_images/<scenario_id>)
+#             # url = _generate_single_image_file(description, scenario_id, f"{node_id}_regen_{i}")
+
+#             # Build a proper Path to the image file
+#             file_path = TMP_DIR / scenario_id / f"{node_id}_regen_{i}.png"
+
+#             # Ensure the scenario temp folder exists
+#             file_path.parent.mkdir(parents=True, exist_ok=True)
+
+#             # Call the image generator with correct argument types
+#             _generate_single_image_file(description, file_path)
+#              # ✅ Return relative web-accessible path
+#             web_path = f"/scenarios/temp/{scenario_id}/{node_id}_regen_{i}.png"
+#             generated_images.append(web_path)
+#             # ✅ Build absolute path so we can b64 it for frontend
+#             #local_path = TMP_DIR / scenario_id / f"{node_id}_regen_{i}.png"
+#             # img_b64 = _file_to_b64(file_path)
+#             # generated_images.append(f"data:image/png;base64,{img_b64}")
+
+#         print(f"📤 Sending images back to frontend: {len(generated_images)}")
+
+#         # ✅ Update database
+#         node_doc = db.scenarioNodes.find_one({"id": node_id})
+#         if not node_doc:
+#             return jsonify({"success": False, "error": f"Node {node_id} not found"}), 404
+
+#         if isinstance(node_doc.get("data"), str):
+#             node_doc["data"] = {"data_description": node_doc["data"]}
+
+#         node_doc["data"].update({
+#             "b64image": generated_images[0].split(",")[1],
+#             "imageUrl": generated_images[0],
+#             "generatedImages": generated_images[-5:],  # keep only last 5
+#         })
+
+#         db.scenarioNodes.update_one(
+#             {"id": node_id},
+#             {"$set": {"data": node_doc["data"]}}
+#         )
+
+#         print(f"✅ Regenerated and updated {len(generated_images)} images for node {node_id}")
+
+#         return jsonify({
+#             "success": True,
+#             "id": node_id,
+#             "images": generated_images,
+#             "message": f"Generated {len(generated_images)} variations"
+#         }), 200
+
+#     except Exception as e:
+#         import traceback
+#         traceback.print_exc()
+#         print("❌ Error updating image:", e)
+#         return jsonify({
+#             "success": False,
+#             "error": f"Backend error during image regeneration: {str(e)}"
+#         }), 500
 
 # =========================================================
 # 🖼 Upload temp image (base64 → file → URL) [Per Scenario]
@@ -465,14 +575,17 @@ def get_flow(scenario_id):
 
         flow_data = {
             "id": str(scenario["_id"]),
-            "title": scenario.get("title"),
-            "description": scenario.get("description"),
-            "status": (scenario.get("status") or "draft").lower(),
-            "image": scenario.get("image"),
-            "startNodeId": scenario.get("startNodeId"),
+            "title": scenario.get("title", "Untitled Scenario"),     # ✅ ensure fallback
+            "description": scenario.get("description", ""),          # ✅ safe default
+            "status": (scenario.get("status") or "draft").lower(),   # ✅ normalized
+            "image": scenario.get("image", ""),                      # ✅ safe default
+            "startNodeId": scenario.get("startNodeId", ""),          # ✅ safe default
+            "lastEdited": scenario.get("lastEdited", ""),            # ✅ include for UI
+            "user_id": scenario.get("user_id", ""),                  # ✅ include if needed
             "nodes": nodes,
             "edges": edges,
         }
+
 
         print(f"✅ Returning flow data for '{flow_data['title']}' ({len(nodes)} nodes)")
         return jsonify(flow_data), 200

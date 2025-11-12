@@ -1,43 +1,55 @@
+
 /**
  * Converts backend flow format → frontend ReactFlow format
  * for SceneEditor & ScenarioInterface.
  */
 export function convertBackendToFrontend(backendFlow) {
+  // Normalize the incoming data
   const nodesArray = Array.isArray(backendFlow)
     ? backendFlow
-    : Object.values(backendFlow);
+    : backendFlow?.nodes
+    ? backendFlow.nodes
+    : Object.values(backendFlow || {});
 
-  return nodesArray.map((node) => {
-    const b64image = node.data?.b64image || node["b64 image"] || "";
-   const imageUrl =
-  node.data?.imageUrl?.startsWith("http")
-    ? node.data.imageUrl
-    : b64image
-    ? `data:image/png;base64,${b64image}`
-    : node.data?.imageUrl || "";
+  if (!Array.isArray(nodesArray)) {
+    console.warn("⚠️ Invalid backendFlow format:", backendFlow);
+    return [];
+  }
 
+  return nodesArray
+    .filter((node) => node && typeof node === "object") // ✅ skip nulls
+    .map((node, i) => {
+      const safeData = node.data || {}; // ✅ fallback to empty object
 
+      const b64image = safeData.b64image || node["b64 image"] || "";
+      const imageUrl =
+        safeData.imageUrl?.startsWith("http")
+          ? safeData.imageUrl
+          : b64image
+          ? `data:image/png;base64,${b64image}`
+          : safeData.imageUrl || "";
 
-    return {
-      id: node.id,
-      type: node.type || "scenario",
-      position: node.position || { x: 0, y: 0 },
-      data: {
-        data_description:
-          typeof node.data?.data_description === "string"
-            ? node.data.data_description
-            : "",
-        options: node.data?.options || node.options || [],
-        next: node.data?.next || node.next || null,
-        scene: node.data?.scene || node.scene || "",
-        b64image,
-        imageUrl,
-        generatedImages: node.data?.generatedImages || [],
-        loadingImages: false,
-      },
-    };
-  });
+      return {
+        id: node.id || `unknown-${i}`,
+        type: node.type || "scenario",
+        position: node.position || { x: 0, y: 0 },
+        data: {
+          data_description:
+            typeof safeData.data_description === "string"
+              ? safeData.data_description
+              : "",
+          options: safeData.options || node.options || [],
+          next: safeData.next || node.next || null,
+          scene: safeData.scene || node.scene || "",
+          b64image,
+          imageUrl,
+          generatedImages: safeData.generatedImages || [],
+          loadingImages: false,
+        },
+      };
+    });
 }
+
 
 /**
  * Converts frontend ReactFlow nodes → backend format
