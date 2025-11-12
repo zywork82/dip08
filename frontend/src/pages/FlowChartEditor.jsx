@@ -1067,7 +1067,7 @@ const newNodes = await Promise.all(
               </ReactFlow>
 
               {/* 🧭 Floating Toolbar */}
-              <div
+              {/* <div
                 style={{
                   position: "fixed",
                   bottom: "30px",
@@ -1108,7 +1108,7 @@ const newNodes = await Promise.all(
                 >
                   🔁 Redo
                 </button>
-              </div>
+              </div> */}
 
              <div className="button-container">
   <button className="action-buttons" onClick={autoLayout}>

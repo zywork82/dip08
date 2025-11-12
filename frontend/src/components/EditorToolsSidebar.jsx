@@ -1,3 +1,4 @@
+// src/components/EditorToolsSidebar.jsx
 import React, { useState } from "react";
 import "../styles/EditorToolsSidebar.css";
 
@@ -11,48 +12,61 @@ const EditorToolsSidebar = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleDragStart = (event, nodeType, label) => {
-    event.dataTransfer.setData(
-      "application/reactflow",
-      JSON.stringify({ nodeType, label })
-    );
+  // === Handle node drag (manual node or AI suggestion) ===
+  const handleDragStart = (event, nodeType, data_description) => {
+    const payload = {
+      nodeType,
+      data: {
+        data_description: data_description || `New ${nodeType}`,
+        scene: "",
+        options: [],
+        next: null,
+      },
+    };
+    event.dataTransfer.setData("application/reactflow", JSON.stringify(payload));
     event.dataTransfer.effectAllowed = "move";
   };
 
-  // --- Generate AI Suggestions ---
-  const handleGenerateClick = async () => {
-    if (!scenarioTitle.trim()) {
-      alert("Please enter a scenario title or description first.");
-      return;
-    }
+  // === Generate AI Suggestions ===
+ const handleGenerateClick = async () => {
+  if (!scenarioTitle.trim()) {
+    alert("Please enter a scenario title or description first.");
+    return;
+  }
 
-    setLoading(true);
-    setError("");
+  setLoading(true);
+  setError("");
 
-    try {
-      const res = await fetch("http://127.0.0.1:5000/suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ context: scenarioTitle }),
-      });
+  try {
+    const res = await fetch("http://127.0.0.1:5000/suggestions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context: scenarioTitle }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || "AI generation failed.");
 
-      if (!res.ok || data.error) throw new Error(data.error || "AI generation failed.");
+    // ✅ Normalize shape here
+    setSuggestions(
+      (data.suggestions || []).map((s) => ({
+        nodeType: s.nodeType || "option",
+        data_description: s.label || s.data_description || s.text || "New Option",
+      }))
+    );
 
-      setSuggestions(data.suggestions || []);
-      console.log("✅ AI suggestions:", data.suggestions);
-    } catch (err) {
-      console.error("Error generating suggestions:", err);
-      setError(err.message || "Something went wrong.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    console.log("✅ AI suggestions:", data.suggestions);
+  } catch (err) {
+    console.error("Error generating suggestions:", err);
+    setError(err.message || "Something went wrong.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <aside className="editor-sidebar">
-      {/* --- Scenario Title --- */}
+      {/* === Scenario Title === */}
       <div className="scenario-title">
         <span className="scenario-title-heading">Scenario Title</span>
         <input
@@ -64,7 +78,7 @@ const EditorToolsSidebar = ({
         />
       </div>
 
-      {/* --- Node Toolbox --- */}
+      {/* === Node Toolbox === */}
       <div className="node-toolbox-container">
         <span className="scenario-title-heading">Node Toolbox</span>
         {nodeTypes.map((type) => (
@@ -82,7 +96,7 @@ const EditorToolsSidebar = ({
         ))}
       </div>
 
-      {/* --- AI Suggestions Section --- */}
+      {/* === AI Suggestions Section === */}
       <div className="ai-suggestion-section">
         <div className="suggestion-header">
           <span className="scenario-title-heading">AI Suggestions</span>
@@ -102,11 +116,18 @@ const EditorToolsSidebar = ({
             key={`sugg-${idx}`}
             className="sidebar-node sidebar-node-suggestion"
             draggable
-            onDragStart={(e) =>
-              handleDragStart(e, sugg.nodeType || "option", sugg.label || "New Option")
-            }
-          >
-            {sugg.label}
+            title={sugg.data_description || sugg.label}
+onDragStart={(e) =>
+  handleDragStart(
+    e,
+    sugg.nodeType || "option",
+    sugg.data_description || sugg.label || sugg.text || "New Option"
+  )
+}
+>
+  {sugg.data_description || sugg.label || sugg.text || "Untitled"}
+
+
           </div>
         ))}
       </div>
