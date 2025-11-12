@@ -205,7 +205,7 @@ useEffect(() => {
       <SharedSidebar />
       <div style={mainContentStyle}>
         <SharedHeader
-          profileImage={`https://placehold.co/100x100/E6E6FA/3f51b5?text=PA`}
+          profileImage={`https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg`}
         />
 
         <div style={bodyStyle}>

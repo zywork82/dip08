@@ -33,7 +33,7 @@ const TrainerTeam = () => {
   const userName = storedUser?.username || 'User';
   const userEmail = storedUser?.email || 'user@example.com';
   const profileImage = storedUser?.imageUrl 
-  || `https://placehold.co/100x100/E6E6FA/3f51b5?text=${getInitials(userName)}`;
+  || `https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg`;
 
 
   useEffect(() => {

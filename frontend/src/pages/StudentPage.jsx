@@ -106,8 +106,8 @@ const StudentPage = () => {
 
     // Filter based on tab
   const filteredScenarios = caseStudies.filter(cs => {
-    if (activeTab === 'All') return cs.status === 'Published' || cs.status === 'Completed';
-    if (activeTab === 'Published') return cs.status === 'Published';
+    if (activeTab === 'All') return cs.status === 'published' || cs.status === 'Completed';
+    if (activeTab === 'published') return cs.status === 'published';
     if (activeTab === 'In-Progress') return cs.status === 'In-Progress' || cs.status === 'Edit';
     return false;
   });
