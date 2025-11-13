@@ -7,7 +7,8 @@ import SharedHeader from "../components/SharedHeader";
 import ScenarioHistory from "../components/ScenarioHistory";
 import localforage from "localforage";
 
-const profileImage = "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
+const profileImage =
+  "https://i.pinimg.com/1200x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg";
 
 const ScenarioPrompt = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const ScenarioPrompt = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
-const [tierLevel, setTierLevel] = useState(2);
+  const [tierLevel, setTierLevel] = useState(2);
 
   // === Fake progress animation ===
   useEffect(() => {
@@ -35,61 +36,70 @@ const [tierLevel, setTierLevel] = useState(2);
 
   // === Transform backend JSON to frontend flow ===
   const transformFlowData = (data) => {
-  const rawNodes = Array.isArray(data) ? data : Object.values(data);
+    // Backend returns an object with node IDs as keys + metadata like "startNodeId"
+    const raw = Array.isArray(data) ? data : Object.values(data || {});
 
-  const nodes = rawNodes.map((n, idx) => ({
-    id: String(n.id),
-    type: n.type || "scenario",
-    position: { x: (idx % 4) * 250, y: Math.floor(idx / 4) * 200 },
-    data: {
-      data_description: n.data_description || "",
-      options: n.options || [],
-      next: n.next || null,
-      psych_dimensions: n.psych_dimensions || "",
-      scene: n.scene || "",
-      b64image: n.b64image || "",
-    },
-  }));
+    // Only keep valid node objects that have an `id` field
+    const rawNodes = raw.filter(
+      (n) => n && typeof n === "object" && typeof n.id !== "undefined"
+    );
 
-  // Build all possible edges
-  const edges = [];
-  nodes.forEach((node) => {
-    if (Array.isArray(node.data.options)) {
-      node.data.options.forEach((targetId) => {
-        if (nodes.find((x) => x.id === targetId)) {
-          edges.push({
-            id: `e-${node.id}-${targetId}`,
-            source: node.id,
-            target: targetId,
-            type: "smoothstep",
-            animated: true,
-          });
-        }
-      });
-    }
+    const nodes = rawNodes.map((n, idx) => ({
+      id: String(n.id),
+      type: n.type || "scenario",
+      position: { x: (idx % 4) * 250, y: Math.floor(idx / 4) * 200 },
+      data: {
+        data_description: n.data_description || "",
+        options: n.options || [],
+        next: n.next || null,
+        psych_dimensions: n.psych_dimensions || "",
+        scene: n.scene || "",
+        b64image: n.b64image || "",
+      },
+    }));
 
-    // fallback direct next pointer
-    if (node.data.next && nodes.find((x) => x.id === node.data.next)) {
-      edges.push({
-        id: `e-${node.id}-${node.data.next}`,
-        source: node.id,
-        target: node.data.next,
-        type: "smoothstep",
-        animated: true,
-      });
-    }
-  });
+    // Build all possible edges
+    const edges = [];
+    nodes.forEach((node) => {
+      if (Array.isArray(node.data.options)) {
+        node.data.options.forEach((targetId) => {
+          if (nodes.find((x) => x.id === targetId)) {
+            edges.push({
+              id: `e-${node.id}-${targetId}`,
+              source: node.id,
+              target: targetId,
+              type: "smoothstep",
+              animated: true,
+            });
+          }
+        });
+      }
 
-  // Remove duplicates
-  const uniqueEdges = Array.from(new Map(edges.map((e) => [e.id, e])).values());
-  return { nodes, edges: uniqueEdges };
-};
+      // fallback direct next pointer
+      if (node.data.next && nodes.find((x) => x.id === node.data.next)) {
+        edges.push({
+          id: `e-${node.id}-${node.data.next}`,
+          source: node.id,
+          target: node.data.next,
+          type: "smoothstep",
+          animated: true,
+        });
+      }
+    });
+
+    // Remove duplicates
+    const uniqueEdges = Array.from(
+      new Map(edges.map((e) => [e.id, e])).values()
+    );
+    return { nodes, edges: uniqueEdges };
+  };
 
   // === Smart title generator ===
   const generateSmartTitle = (text) => {
     if (!text.trim()) return "Untitled Scenario";
     const firstWords = text.split(" ").slice(0, 5).join(" ");
-    const formatted = firstWords.charAt(0).toUpperCase() + firstWords.slice(1);
+    const formatted =
+      firstWords.charAt(0).toUpperCase() + firstWords.slice(1);
     return formatted.replace(/[^\w\s]/gi, "");
   };
 
@@ -107,17 +117,24 @@ const [tierLevel, setTierLevel] = useState(2);
       // Auto-generate title if blank
       const finalTitle = title.trim() ? title : generateSmartTitle(description);
 
-    // Reuse existing empty draft if it exists — but only if it has a title
-let existingDraft = JSON.parse(localStorage.getItem("latestDraft") || "null");
-if (!existingDraft || !existingDraft.title) {
-  existingDraft = null; // force proper creation if title missing
-}
-let scenarioId = existingDraft?._id;
+      // Try to reuse an existing draft scenario if it looks valid
+      let existingDraft = null;
+      try {
+        const stored = localStorage.getItem("latestDraft");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === "object" && parsed._id) {
+            existingDraft = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to parse latestDraft:", e);
+      }
 
+      let scenarioId = existingDraft?._id;
 
-      if (!existingDraft || existingDraft.title !== finalTitle) {
-          localStorage.setItem("latestDraft", JSON.stringify(existingDraft));
-
+      // If no valid draft, create a new scenario in backend
+      if (!existingDraft) {
         const createRes = await fetch("http://127.0.0.1:5000/scenarios/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -129,32 +146,44 @@ let scenarioId = existingDraft?._id;
         });
 
         const createData = await createRes.json();
-        if (!createData.success) throw new Error(createData.error || "Failed to create scenario");
+        if (!createRes.ok || !createData.success) {
+          throw new Error(createData.error || "Failed to create scenario");
+        }
+
         existingDraft = createData.scenario;
         scenarioId = existingDraft._id;
-        localStorage.setItem("latestDraft", JSON.stringify(existingDraft));
       }
 
-      // === Generate Flow from AI ===
-// === Generate Flow from AI ===
-const genRes = await fetch("http://127.0.0.1:5000/generate", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ story: description, psych_seed: 42, tier_level: tierLevel }),
-});
+      // Keep latestDraft updated with current title/description
+      const updatedDraft = {
+        _id: scenarioId,
+        title: finalTitle,
+        description,
+        status: existingDraft.status || "Draft",
+      };
+      localStorage.setItem("latestDraft", JSON.stringify(updatedDraft));
 
-const genData = await genRes.json();
-console.log("🧪 Raw backend response:", genData);
+      // generate flow from AI
+      const genRes = await fetch("http://127.0.0.1:5000/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          story: description,
+          psych_seed: 42,
+          tier_level: tierLevel,
+        }),
+      });
 
-if (!genRes.ok) throw new Error(genData.error || "AI generation failed");
+      const genData = await genRes.json();
+      console.log("🧪 Raw backend response:", genData);
 
-// ✅ Declare flowData before using it
-const flowData = transformFlowData(genData);
-console.log("🧪 Transformed flowData:", flowData);
+      if (!genRes.ok) throw new Error(genData.error || "AI generation failed");
 
+      const flowData = transformFlowData(genData);
+      console.log("Transformed flowData:", flowData);
 
       const newScenario = {
-        id: scenarioId,
+        _id: scenarioId,
         title: finalTitle,
         description,
         flowData,
@@ -164,25 +193,28 @@ console.log("🧪 Transformed flowData:", flowData);
         image: null,
       };
 
-      // Save to localStorage for ScenarioHistory
-     // Save small metadata in localStorage (lightweight)
-const existing = JSON.parse(localStorage.getItem("scenarios") || "[]");
-const existingIndex = existing.findIndex((s) => s.id === scenarioId);
-if (existingIndex >= 0) existing[existingIndex] = newScenario;
-else existing.push(newScenario);
-localStorage.setItem("scenarios", JSON.stringify(existing));
-localStorage.setItem("lastScenarioTitle", finalTitle);
-localStorage.setItem("lastScenarioId", scenarioId);
+      // Save small metadata in localStorage for ScenarioHistory
+      const existing = JSON.parse(localStorage.getItem("scenarios") || "[]");
+      const existingIndex = existing.findIndex((s) => s._id === scenarioId);
+      if (existingIndex >= 0) existing[existingIndex] = newScenario;
+      else existing.push(newScenario);
 
-// 🧠 Save large flow data safely in IndexedDB
-await localforage.setItem("latestFlow", flowData);
-console.log("✅ Flow data cached in IndexedDB");
+      localStorage.setItem("scenarios", JSON.stringify(existing));
+      localStorage.setItem("lastScenarioTitle", finalTitle);
+      localStorage.setItem("lastScenarioId", scenarioId);
 
-// Navigate to editor
-navigate("/editor", {
-  state: { flowData, scenarioTitle: newScenario.title, scenarioId },
-});
+      // Save large flow data safely in IndexedDB
+      await localforage.setItem("latestFlow", flowData);
+      console.log("✅ Flow data cached in IndexedDB");
 
+      // Navigate to flowchart editor
+      navigate("/editor", {
+        state: {
+          flowData,
+          scenarioTitle: newScenario.title,
+          scenarioId: newScenario._id,
+        },
+      });
     } catch (err) {
       console.error("Error generating scenario:", err);
       setError("Error: " + err.message);
@@ -195,8 +227,7 @@ navigate("/editor", {
     <div className="scenario-prompt-page">
       <NavigationBar />
       <div className="scenario-prompt-container">
-        <div className="header">
-        </div>
+        <div className="header"></div>
 
         <div className="scenario-prompt-content">
           <div className="scenerio-history-container">
@@ -213,27 +244,29 @@ navigate("/editor", {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Name the scenario..."
               />
-              <div className="form-group">
-  <label htmlFor="tier-level">Scenario Depth (Tier Level):</label>
-  <select
-    id="tier-level"
-    value={tierLevel}
-    onChange={(e) => setTierLevel(Number(e.target.value))}
-    className="tier-level-dropdown"
-  >
-    <option value={2}>Level 2 — Simple (Short Scenario)</option>
-    <option value={3}>Level 3 — Moderate</option>
-    <option value={4}>Level 4 — Full Depth</option>
-  </select>
-  <small className="tier-hint">
-    Higher levels create deeper branching trees with more nodes.
-  </small>
-</div>
 
+              <div className="form-group">
+                <label htmlFor="tier-level">Scenario Depth (Tier Level):</label>
+                <select
+                  id="tier-level"
+                  value={tierLevel}
+                  onChange={(e) => setTierLevel(Number(e.target.value))}
+                  className="tier-level-dropdown"
+                >
+                  <option value={2}>Level 2 — Simple (Short Scenario)</option>
+                  <option value={3}>Level 3 — Moderate</option>
+                  <option value={4}>Level 4 — Full Depth</option>
+                </select>
+                <small className="tier-hint">
+                  Higher levels create deeper branching trees with more nodes.
+                </small>
+              </div>
             </div>
 
             <div className="form-group">
-              <label htmlFor="case-study-description">What's your scenario about?</label>
+              <label htmlFor="case-study-description">
+                What's your scenario about?
+              </label>
               <div className="description-input-container">
                 <textarea
                   id="case-study-description"
@@ -248,7 +281,9 @@ navigate("/editor", {
             {error && <div className="error-msg">{error}</div>}
 
             <button
-              className={`create-scenario-button ${loading ? "loading" : ""}`}
+              className={`create-scenario-button ${
+                loading ? "loading" : ""
+              }`}
               onClick={handleCreateAndSave}
               disabled={loading}
             >
@@ -265,7 +300,10 @@ navigate("/editor", {
             <div className="spinner"></div>
             <p className="loading-text">AI is generating your flowchart...</p>
             <div className="progress-bar">
-              <div className="progress" style={{ width: `${progress}%` }}></div>
+              <div
+                className="progress"
+                style={{ width: `${progress}%` }}
+              ></div>
             </div>
             <small>Estimated time: about 1–2 minutes</small>
           </div>
