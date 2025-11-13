@@ -33,8 +33,10 @@ const CaseStudyCard = ({ title, lastEdited, status, image, onGoClick, scenarioId
     const currentStatus = (flowData.status || "").toLowerCase();
     console.log("🧭 Scenario status:", currentStatus);
 
-    if (["draft", "flowchart"].includes(currentStatus)) {
-      navigate("/editor", { state: { flowData, scenarioId, scenarioTitle: title } });
+    if (currentStatus === "draft") {
+      navigate("/scenario", { state: { flowData, scenarioId, scenarioTitle: title } });
+    } else if (currentStatus === "flowchart") {
+      navigate("/scene-editor", { state: { flowData, scenarioId, scenarioTitle: title } });
     } else if (currentStatus === "images") {
       navigate("/scene-editor", { state: { flowData, scenarioId, scenarioTitle: title } });
     } else if (currentStatus === "published") {

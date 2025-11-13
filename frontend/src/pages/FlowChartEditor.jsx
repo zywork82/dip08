@@ -1051,9 +1051,9 @@ const newNodes = await Promise.all(
                 onEdgeClick={onEdgeClick}
                 onNodeClick={onNodeClick}
                 onInit={setReactFlowInstance}
-                fitView
                 onDrop={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
+                onDragOver={(e) => e.preventDefault()}  
+                fitView
                 defaultEdgeOptions={{
                   animated: true,
                   type: "smoothstep",
