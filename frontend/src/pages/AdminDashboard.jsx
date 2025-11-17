@@ -22,6 +22,15 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [loadingCaseStudies, setLoadingCaseStudies] = useState(true);
   const [caseStudiesError, setCaseStudiesError] = useState(null);
+// Remove deleted scenario from UI
+const handleScenarioDeleted = (deletedId) => {
+  setCaseStudies((prev) => prev.filter((s) => s._id !== deletedId));
+};
+const handleScenarioRenamed = (id, newTitle) => {
+  setCaseStudies(prev =>
+    prev.map(s => s._id === id ? { ...s, title: newTitle } : s)
+  );
+};
 
   const getInitials = (name) => {
     if (!name) return "NA";
@@ -191,6 +200,8 @@ setCaseStudies(sortedScenarios);
                         image={scenario.image || `https://placehold.co/600x400/3f51b5/FFFFFF?text=${encodeURIComponent(scenario.title || "Case Study")}`}
 
                         scenarioId={scenario._id} // ✅ pass the full object here
+                         onRenameSuccess={handleScenarioRenamed}
+                         onDeleteSuccess={handleScenarioDeleted}
                       />
                     </div>
                   ))}
