@@ -33,6 +33,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 # --- Gemini (for image generation) ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image-preview")
+GENERATION_RETRIES = {}
 
 print("[env] OPENAI_API_KEY set:", bool(OPENAI_API_KEY))
 print("[env] GEMINI_API_KEY set:", bool(GEMINI_API_KEY))
@@ -843,12 +844,17 @@ def _generate_single_image_file(prompt: str, file_path: Path, max_retries: int =
     # 🔑 Force a consistent, non-animated style for ALL nodes
     style_prefix = (
         "Cinematic, photorealistic photo, realistic lighting, high detail, "
-        "professional corporate / hospital environment, no text, not illustration, "
+        "Match the environment to the scenario context. No text, not illustration,"
+        # "professional corporate / hospital environment, no text, not illustration, "
         "not cartoon, not flat art. Scene description: "
     )
     styled_prompt = style_prefix + prompt
 
     for attempt in range(1, max_retries + 1):
+        # Track failures globally per file (helps frontend avoid infinite loops)
+        GENERATION_RETRIES.setdefault(file_path.name, 0)
+        GENERATION_RETRIES[file_path.name] += 1
+
         try:
             print(f"[image-gen] 🔁 Attempt {attempt}/{max_retries} for {file_path.name}")
 
@@ -877,7 +883,7 @@ def _generate_single_image_file(prompt: str, file_path: Path, max_retries: int =
             print(f"[image-gen] ⚠️ Attempt {attempt} failed for {file_path.name}: {e}")
             if attempt < max_retries:
                 time.sleep(delay)
-
+    
     # All retries failed → fallback
     print(f"[image-gen] ❌ All {max_retries} attempts failed for {file_path.name}. Using fallback.")
     png_bytes = _fallback_png_real_bytes()
@@ -1077,8 +1083,10 @@ def generate_images_route():
             _generate_single_image_file(desc, out_path)
             img_b64 = _file_to_b64(out_path)
 
-            if not keep_tmp_files:
-                out_path.unlink(missing_ok=True)
+            # if not keep_tmp_files:
+            #     out_path.unlink(missing_ok=True)
+            # Do NOT delete the file – allow frontend to reuse cached PNGs
+            pass
 
             print(f"[image-gen] ✅ Generated image for {nid} ({node_type})")
             return {
