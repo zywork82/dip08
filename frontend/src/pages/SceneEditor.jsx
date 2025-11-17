@@ -33,7 +33,7 @@ let AUTO_GEN_RUNNING = false;
 // Cache (lightweight)
 // ===============================
 const CACHE_KEY = "sceneEditorCache_v1";
-
+const imageRetryCount = {}; 
 // ✅ Save lightweight node info (URL + small metadata)
 const saveNodesToCache = async (nodes) => {
   try {
@@ -220,8 +220,20 @@ const SceneEditor = () => {
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [promptText, setPromptText] = useState("");
-  const [scenarioId, setScenarioId] = useState(passedScenarioId || null);
-  const [scenarioTitle, setScenarioTitle] = useState("Untitled Scenario");
+ const [scenarioId, setScenarioId] = useState(
+  passedScenarioId ||
+  location.state?.scenarioId ||
+  localStorage.getItem("lastScenarioId") ||
+  null
+);
+
+const passedTitle = location.state?.scenarioTitle;
+const [scenarioTitle, setScenarioTitle] = useState(
+  passedTitle ||
+  localStorage.getItem("lastScenarioTitle") ||
+  "Untitled Scenario"
+);
+
   const [loadingOverlay, setLoadingOverlay] = useState(false);
 
   // persist scenarioId
@@ -264,6 +276,10 @@ useEffect(() => {
   // Fetch full scenario from backend (authoritative)
   useEffect(() => {
     const fetchScenarioFromBackend = async () => {
+       if (passedFlow) {
+    console.log("⏸️ Skipping backend fetch — using passedFlow");
+    return;
+  }
       try {
         const idToLoad =
           location.state?.scenarioId ||
@@ -293,11 +309,11 @@ useEffect(() => {
 
         setNodes(layoutedNodes);
         setEdges(data.edges || generateEdgesFromNodes(layoutedNodes));
-        setScenarioTitle(data.title || "Untitled Scenario");
-        await localforage.setItem(
-  "lastScenarioTitle",
-  data.title || "Untitled Scenario"
-);
+        if (data.title && data.title.trim().length > 0) {
+  setScenarioTitle(data.title);
+  await localforage.setItem("lastScenarioTitle", data.title);
+}
+
 
         console.log("✅ Loaded scenario with images from backend");
       } catch (err) {
@@ -346,7 +362,12 @@ useEffect(() => {
               const res = await fetch("http://127.0.0.1:5000/scenarios/uploadTempImage", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ node_id: node.id, b64image: imgUrl }),
+                body: JSON.stringify({
+  node_id: node.id,
+  scenario_id: scenarioId,  // <-- REQUIRED
+  b64image: imgUrl,
+}),
+
               });
               const data = await res.json();
               if (data.success && data.url) {
@@ -405,44 +426,51 @@ useEffect(() => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passedFlow]);
+// Periodic retry (single interval; always sees latest nodes)
+useEffect(() => {
+  if (!nodes.length) return;
 
-  // Periodic retry (single interval, guarded)
-  const hasStartedAutoCheck = useRef(false);
-  useEffect(() => {
-    if (hasStartedAutoCheck.current || !nodes.length) return;
-    hasStartedAutoCheck.current = true;
+  let interval;
 
-    const checkAndGenerate = async () => {
-      const missing = nodes.filter(
-        (n) =>
-          ["scenario", "ending"].includes(n.type) &&
-          (!n.data?.imageUrl || n.data.imageUrl.length < 200) &&
-          !n.data.loadingImages &&
-          !n.data.failedImage
-      );
+  const checkAndGenerate = async () => {
+    const missing = nodes.filter((n) => {
+      const isScenarioType = ["scenario", "ending"].includes(n.type);
+      const url = n.data?.imageUrl || "";
 
-      if (missing.length > 0 && !AUTO_GEN_RUNNING) {
-        console.log(
-          `🔁 Auto Image Check → retrying ${missing.length} node(s):`,
-          missing.map((m) => m.id)
-        );
-        await autoGenerateImagesForAll(missing);
-      } else if (missing.length === 0) {
-        console.log(`✅ Auto Image Check → all nodes valid. Clearing interval.`);
-        clearInterval(interval);
-      }
-    };
+      // If URL is missing or suspiciously short, treat as missing
+      const tooShort = url && url.length < 15;
 
-    // run once on start + every 30s until complete
-    checkAndGenerate();
-    const interval = setInterval(checkAndGenerate, 30000);
-    console.log("🧠 Auto image regeneration interval started.");
+      if (n.data?.failedImage) return false;   // permanently failed → skip
+      if (n.data?.loadingImages) return false; // currently generating → skip
 
-    return () => {
+      return isScenarioType && (!url || tooShort);
+    });
+
+    if (missing.length === 0) {
+      console.log(`✅ Auto Image Check → all nodes valid. Clearing interval.`);
       clearInterval(interval);
-      console.log("🧹 Auto image regeneration interval cleared.");
-    };
-  }, [nodes]);
+      return;
+    }
+
+    if (!AUTO_GEN_RUNNING) {
+      console.log(
+        `🔁 Auto Image Check → retrying ${missing.length} node(s):`,
+        missing.map((m) => m.id)
+      );
+      await autoGenerateImagesForAll(missing);
+    }
+  };
+
+  // run once now + every 30s
+  checkAndGenerate();
+  interval = setInterval(checkAndGenerate, 30000);
+  console.log("🧠 Auto image regeneration interval started.");
+
+  return () => {
+    clearInterval(interval);
+    console.log("🧹 Auto image regeneration interval cleared.");
+  };
+}, [nodes]);
 
   // Selection / editing
   const onNodeClick = (_, node) => {
@@ -567,12 +595,12 @@ useEffect(() => {
 //   };
 const handleReprompt = async (nodeId, prompt) => {
   if (stopGeneration) return;
-
+if (!imageRetryCount[nodeId]) imageRetryCount[nodeId] = 0;
   // show "Generating..." state
   setNodes((nds) =>
     nds.map((n) =>
-      n.id === nodeId
-        ? { ...n, data: { ...n.data, loadingImages: true, failedImage: false } }
+     n.id === nodeId
+  ? { ...n, data: { ...n.data, loadingImages: true, failedImage: false } }
         : n
     )
   );
@@ -596,6 +624,9 @@ const handleReprompt = async (nodeId, prompt) => {
     );
 
     const primary = updatedImages[0];
+    // reset retry count on success
+imageRetryCount[nodeId] = 0;
+
 
     // ✅ update node list so ReactFlow + sidebar refresh immediately
     setNodes((nds) =>
@@ -631,15 +662,34 @@ const handleReprompt = async (nodeId, prompt) => {
 
     console.log(`🖼️ Updated node ${nodeId} with ${updatedImages.length} new images`);
   } catch (err) {
-    console.error("❌ handleReprompt error:", err);
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.id === nodeId
-          ? { ...n, data: { ...n.data, loadingImages: false } }
-          : n
-      )
-    );
+  console.error("❌ handleReprompt error:", err);
+
+  // increase retry count
+  imageRetryCount[nodeId]++;
+
+  // if failed 3 times → stop retrying this node
+  const hardFail = imageRetryCount[nodeId] >= 3;
+
+  setNodes((nds) =>
+    nds.map((n) =>
+      n.id === nodeId
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              loadingImages: false,
+              failedImage: hardFail,
+            },
+          }
+        : n
+    )
+  );
+
+  if (hardFail) {
+    console.warn(`🚫 Node ${nodeId} reached 3 retries → stopping further attempts.`);
   }
+}
+
 };
 
   const selectImageForNode = (nodeId, imgUrl) =>
@@ -663,9 +713,13 @@ const handleReprompt = async (nodeId, prompt) => {
       const BATCH_SIZE = 3;
       for (let i = 0; i < nodesList.length; i += BATCH_SIZE) {
         if (stopGeneration) break;
+        // const batch = nodesList
+        //   .slice(i, i + BATCH_SIZE)
+        //   .filter((n) => ["scenario", "ending"].includes(n.type));
         const batch = nodesList
-          .slice(i, i + BATCH_SIZE)
-          .filter((n) => ["scenario", "ending"].includes(n.type));
+  .slice(i, i + BATCH_SIZE)
+  .filter((n) => ["scenario", "ending"].includes(n.type) && !n.data.failedImage);
+
         await Promise.all(batch.map((n) => handleReprompt(n.id, n.data.data_description)));
       }
     } finally {
@@ -756,7 +810,7 @@ const handleReprompt = async (nodeId, prompt) => {
         state: {
           scenarioId: finalScenarioId,
           flowData: {
-              scenarioTitle,
+            scenarioTitle,
             startNodeId: cleanNodes[0].id,
             nodes: cleanNodes,
             edges: updatedEdges,
