@@ -9,11 +9,11 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 export function getLayoutedNodes(nodes, edges) {
   dagreGraph.setGraph({
     rankdir: "TB", // Top → Bottom
-    ranksep: 200, // vertical gap between levels
+    ranksep: 100, // vertical gap between levels
     nodesep: 600, // horizontal gap between columns
     ranker: "tight-tree", // 👈 preserves column-per-branch
     marginx: 60,
-    marginy: 70,
+    marginy: 60,
   });
 
   // build dagre graph
@@ -39,8 +39,10 @@ export function getLayoutedNodes(nodes, edges) {
 
   // refine spacing for siblings under each parent
   layouted = applyChildGrouping(layouted, edges);
-  layouted = alignEndingsByBranch(layouted, edges);
+  // layouted = alignEndingsByBranch(layouted, edges);
   layouted = centerGraphOnRoot(layouted);
+  layouted = alignLastRowEvenly(layouted, edges);
+
 
   return layouted;
 }
@@ -73,7 +75,7 @@ function applyChildGrouping(nodes, edges) {
     const centerX = parent.position.x;
     const totalWidth = (children.length - 1) * spacing;
     const startX = centerX - totalWidth / 2;
-    const targetY = parent.position.y + 240; // fixed vertical offset below parent
+    const targetY = parent.position.y + 400; // fixed vertical offset below parent
 
     children.forEach((c, i) => {
       c.position.x = startX + i * spacing;
@@ -99,7 +101,7 @@ function alignEndingsByBranch(nodes, edges) {
     if (!parent) return;
 
     end.position.x = parent.position.x;
-    end.position.y = parent.position.y + 220; // just below parent
+    end.position.y = parent.position.y + 300; // just below parent
   });
 
   return nodes;
@@ -124,4 +126,33 @@ function centerGraphOnRoot(nodes) {
     ...n,
     position: { ...n.position, x: n.position.x + deltaX },
   }));
+}
+function getLeafNodes(nodes, edges) {
+  const sources = new Set(edges.map((e) => e.source));
+  return nodes.filter(n => !sources.has(n.id));  // no outgoing edges
+}
+function alignLastRowEvenly(nodes, edges) {
+  const leaves = getLeafNodes(nodes, edges);
+  if (leaves.length <= 1) return nodes;
+
+  // compute global horizontal center
+  const minX = Math.min(...nodes.map((n) => n.position.x));
+  const maxX = Math.max(...nodes.map((n) => n.position.x));
+  const centerX = (minX + maxX) / 2;
+
+  // spacing between last-row nodes
+  const spacing = 350;
+  const totalWidth = spacing * (leaves.length - 1);
+  const startX = centerX - totalWidth / 2;
+
+  // find the vertical Y to place last row
+  const maxY = Math.max(...nodes.map((n) => n.position.y));
+  const targetY = maxY + 350;
+
+  leaves.forEach((leaf, i) => {
+    leaf.position.x = startX + i * spacing;
+    leaf.position.y = targetY;
+  });
+
+  return nodes;
 }

@@ -10,12 +10,9 @@ import ReactFlow, {
   Controls,
   Background,
 } from "reactflow";
-import dagre from "dagre";
 import EditorToolsSidebar from "../components/EditorToolsSidebar";
 import NodeWrapper from "../components/NodeWrapper";
 import "reactflow/dist/style.css";
-
-
 import localforage from "localforage";
 import { getLayoutedNodes, centerSiblings } from "../utils/autoLayout";
 // import { saveActiveFlow } from "../utils/sharedCache";
@@ -237,8 +234,11 @@ const FlowChartEditor = () => {
   const [scenarioId, setScenarioId] = useState(initialScenarioId);
   // ✅ Extract from navigation state FIRST
 const passedFlow = location.state?.flowData || null;
-const passedScenarioId = location.state?.scenarioId || null;
-const passedScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario";
+// const passedScenarioId = location.state?.scenarioId || null;
+const passedScenarioTitle =
+  location.state?.scenarioTitle ||
+  localStorage.getItem("lastScenarioTitle") ||
+  "Untitled Scenario";
 
   const [traceMode] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
@@ -253,7 +253,7 @@ const passedScenarioTitle = location.state?.scenarioTitle || "Untitled Scenario"
 
   // ✅ Then safely initialize your state using those
   const [scenarioTitle, setScenarioTitle] = useState(passedScenarioTitle);
-  const [scenarioIdState, setScenarioIdState] = useState(passedScenarioId);
+  // const [scenarioIdState, setScenarioIdState] = useState(passedScenarioId);
 useEffect(() => {
   if (passedScenarioTitle && passedScenarioTitle !== scenarioTitle) {
     setScenarioTitle(passedScenarioTitle);
@@ -592,6 +592,11 @@ console.log(JSON.stringify(payload, null, 2));
 
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     if (data.scenarioId) setScenarioId(data.scenarioId);
+    // Save new title returned from backend (truth source)
+    if (data.title) {
+      setScenarioTitle(data.title);
+      localStorage.setItem("lastScenarioTitle", data.title);
+    }
 
     localStorage.setItem("latestFlow", JSON.stringify(payload));
     console.log("✅ Flow saved successfully!");
@@ -637,6 +642,16 @@ if (passedFlow) {
         const res = await fetch(`http://127.0.0.1:5000/scenarios/getFlow/${scenarioId}`);
         if (!res.ok) throw new Error(`Backend fetch failed: ${res.status}`);
         const data = await res.json();
+        
+        // setScenarioTitle(data.title || "Untitled Scenario");
+        // localStorage.setItem("lastScenarioTitle", data.title || "Untitled Scenario");
+        if (data.title && data.title.trim().length > 0) {
+          if (data.title !== scenarioTitle) {
+            setScenarioTitle(data.title);
+            localStorage.setItem("lastScenarioTitle", data.title);
+          }
+        }
+
 
         const flow = normalizeFlow(data, {
           defaultType: "scenario",
@@ -940,8 +955,12 @@ const newNodes = await Promise.all(
     // Slight delay so user sees 100% before navigation
     setTimeout(() => {
       navigate("/scene-editor", {
-        state: { flowData: { ...savedFlow, nodes: sanitizedNodes } },
-      });
+  state: { 
+    flowData: { ...savedFlow, nodes: sanitizedNodes },
+    scenarioTitle 
+  },
+});
+
     }, 800);
   } catch (err) {
     clearInterval(fakeInterval);
