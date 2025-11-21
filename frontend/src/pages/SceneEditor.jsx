@@ -128,19 +128,33 @@ const hasValidImage = (node) => {
   const url = node.data?.imageUrl || "";
   const b64 = node.data?.b64image || "";
 
+  // No image at all
   if (!url && !b64) return false;
-  if (
+
+  // Accept all images that point to temp_images folder
+  if (url.includes("/temp_images/")) return true;
+
+  // Reject only obvious placeholders
+  if (  
     url.includes("placehold") ||
     url.includes("placeholder") ||
-    url.includes("dummyimage") ||
-    url.startsWith("blob:") ||
-    (url.startsWith("data:image") && url.length < 300) ||
-    (b64 && b64.length < 300)
+    url.includes("dummyimage")
   ) {
     return false;
   }
+
+  // Reject suspicious inline-base64
+  if (b64 && b64.length < 300) return false;
+
+  // Accept http and full URLs
+  if (url.startsWith("http")) return true;
+
+  // Accept png/jpg at least 10 chars (your filenames)
+  if (url.endsWith(".png") || url.endsWith(".jpg")) return true;
+
   return true;
 };
+
 
 const getLightweightFlow = (nodes, edges) => {
   const lightNodes = nodes.map((n) => ({
